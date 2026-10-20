@@ -1,0 +1,527 @@
+import type {
+  StatCard,
+  Activity,
+  ResumeAnalysis,
+  Job,
+  KanbanCard,
+  InterviewQuestion,
+  InterviewSession,
+  ReadinessMilestone,
+  ReadinessDomain,
+} from "@/types";
+
+// ─── Dashboard Stats ─────────────────────────────────────────────────────────
+
+export const STATS: StatCard[] = [
+  {
+    label: "Applications Sent",
+    value: 24,
+    delta: "+3 this week",
+    deltaPositive: true,
+    icon: "Send",
+    color: "indigo",
+  },
+  {
+    label: "Interviews Scheduled",
+    value: 5,
+    delta: "+2 this week",
+    deltaPositive: true,
+    icon: "CalendarCheck",
+    color: "emerald",
+  },
+  {
+    label: "Resume Match Score",
+    value: "82%",
+    delta: "+6% vs last",
+    deltaPositive: true,
+    icon: "FileText",
+    color: "violet",
+  },
+  {
+    label: "Readiness Score",
+    value: "74%",
+    delta: "+4% this month",
+    deltaPositive: true,
+    icon: "TrendingUp",
+    color: "amber",
+  },
+];
+
+// ─── Recent Activity ─────────────────────────────────────────────────────────
+
+export const ACTIVITIES: Activity[] = [
+  {
+    id: "a1",
+    type: "application",
+    message: "Applied to Software Engineer II at Stripe",
+    timestamp: "2 hours ago",
+  },
+  {
+    id: "a2",
+    type: "interview",
+    message: "Mock interview scored 88/100 — Behavioral round",
+    timestamp: "5 hours ago",
+  },
+  {
+    id: "a3",
+    type: "resume",
+    message: "Resume tailored for Google SWE role — 91% match",
+    timestamp: "Yesterday",
+  },
+  {
+    id: "a4",
+    type: "job",
+    message: "3 new roles matched your profile — Product Engineer",
+    timestamp: "Yesterday",
+  },
+  {
+    id: "a5",
+    type: "readiness",
+    message: 'Completed milestone: "Add 2 project case studies"',
+    timestamp: "2 days ago",
+  },
+  {
+    id: "a6",
+    type: "application",
+    message: "Phone screen scheduled with Notion — Oct 25",
+    timestamp: "2 days ago",
+  },
+];
+
+// ─── Resume Analysis ─────────────────────────────────────────────────────────
+
+export const RESUME_ANALYSIS: ResumeAnalysis = {
+  matchScore: 82,
+  atsScore: 78,
+  jobTitle: "Software Engineer II",
+  company: "Stripe",
+  strengths: [
+    "Strong TypeScript & React experience aligns with JD",
+    "Led 2 major product features — quantified with metrics",
+    "Open source contributions signal technical initiative",
+  ],
+  gaps: [
+    "No mention of payment systems or financial tech",
+    "Missing keywords: GraphQL, distributed systems, microservices",
+    "Summary is too generic — lacks Stripe-specific framing",
+  ],
+  suggestions: [
+    {
+      id: "s1",
+      section: "summary",
+      original:
+        "Full-stack developer with 3 years of experience building web applications.",
+      suggested:
+        "Full-stack engineer with 3+ years building high-scale consumer products, specialising in TypeScript, React, and API-driven architectures — eager to contribute to Stripe's payments infrastructure.",
+      impact: "high",
+    },
+    {
+      id: "s2",
+      section: "skills",
+      original: "Node.js, React, PostgreSQL, Docker",
+      suggested:
+        "Node.js, React, TypeScript, PostgreSQL, Redis, Docker, GraphQL, REST APIs",
+      impact: "high",
+    },
+    {
+      id: "s3",
+      section: "experience",
+      original: "Built internal dashboard reducing manual reporting time.",
+      suggested:
+        "Engineered an internal analytics dashboard that reduced manual reporting time by 40%, serving 200+ daily active users across 3 business units.",
+      impact: "medium",
+    },
+  ],
+  keywords: [
+    { word: "TypeScript", present: true },
+    { word: "React", present: true },
+    { word: "GraphQL", present: false },
+    { word: "Microservices", present: false },
+    { word: "Node.js", present: true },
+    { word: "PostgreSQL", present: true },
+    { word: "REST APIs", present: true },
+    { word: "Distributed Systems", present: false },
+    { word: "Docker", present: true },
+    { word: "CI/CD", present: false },
+    { word: "Redis", present: false },
+    { word: "System Design", present: false },
+  ],
+};
+
+// ─── Job Listings ────────────────────────────────────────────────────────────
+
+export const JOBS: Job[] = [
+  {
+    id: "j1",
+    title: "Software Engineer II",
+    company: "Stripe",
+    location: "San Francisco, CA (Hybrid)",
+    type: "Full-time",
+    salary: "$160k – $200k",
+    matchScore: 91,
+    posted: "2 days ago",
+    tags: ["TypeScript", "React", "Payments", "APIs"],
+    logo: "S",
+    saved: true,
+    applied: false,
+    description:
+      "Join Stripe's core product team building the next generation of payments infrastructure used by millions of businesses worldwide.",
+  },
+  {
+    id: "j2",
+    title: "Frontend Engineer",
+    company: "Notion",
+    location: "Remote",
+    type: "Full-time",
+    salary: "$140k – $175k",
+    matchScore: 87,
+    posted: "3 days ago",
+    tags: ["React", "TypeScript", "Collaborative Tools"],
+    logo: "N",
+    saved: false,
+    applied: true,
+    description:
+      "Help build Notion's web editor and collaboration features. You'll work on complex state management and real-time sync.",
+  },
+  {
+    id: "j3",
+    title: "Full Stack Engineer",
+    company: "Linear",
+    location: "Remote",
+    type: "Full-time",
+    salary: "$130k – $170k",
+    matchScore: 84,
+    posted: "4 days ago",
+    tags: ["React", "GraphQL", "Node.js", "Postgres"],
+    logo: "L",
+    saved: false,
+    applied: false,
+    description:
+      "Work on Linear's issue tracking and project management product. Focus on performance, design quality and developer experience.",
+  },
+  {
+    id: "j4",
+    title: "Product Engineer",
+    company: "Vercel",
+    location: "Remote",
+    type: "Full-time",
+    salary: "$150k – $190k",
+    matchScore: 79,
+    posted: "1 week ago",
+    tags: ["Next.js", "Edge", "TypeScript", "DX"],
+    logo: "V",
+    saved: true,
+    applied: false,
+    description:
+      "Own end-to-end product features at Vercel — from design to deployment. Build the platform that powers the modern web.",
+  },
+  {
+    id: "j5",
+    title: "Software Engineering Intern",
+    company: "Figma",
+    location: "New York, NY (Onsite)",
+    type: "Internship",
+    salary: "$8k/month",
+    matchScore: 76,
+    posted: "1 week ago",
+    tags: ["C++", "WebGL", "Design Tools"],
+    logo: "F",
+    saved: false,
+    applied: false,
+    description:
+      "Summer internship on Figma's rendering engine team. Work on graphics, performance, and cross-platform tooling.",
+  },
+  {
+    id: "j6",
+    title: "Backend Engineer",
+    company: "PlanetScale",
+    location: "Remote",
+    type: "Full-time",
+    salary: "$140k – $180k",
+    matchScore: 72,
+    posted: "2 weeks ago",
+    tags: ["Go", "MySQL", "Distributed Systems", "Kubernetes"],
+    logo: "P",
+    saved: false,
+    applied: false,
+    description:
+      "Scale the database platform that powers thousands of applications. Work on vitess, connection pooling, and branching workflows.",
+  },
+];
+
+// ─── Kanban Cards ────────────────────────────────────────────────────────────
+
+export const KANBAN_CARDS: KanbanCard[] = [
+  {
+    id: "k1",
+    title: "Software Engineer II",
+    company: "Stripe",
+    logo: "S",
+    status: "Interview",
+    appliedDate: "Oct 10, 2026",
+    nextStep: "Technical Interview",
+    nextStepDate: "Oct 22, 2026",
+    matchScore: 91,
+    priority: "high",
+    notes: "Prep system design + payments domain",
+  },
+  {
+    id: "k2",
+    title: "Frontend Engineer",
+    company: "Notion",
+    logo: "N",
+    status: "Phone Screen",
+    appliedDate: "Oct 12, 2026",
+    nextStep: "HR Call",
+    nextStepDate: "Oct 21, 2026",
+    matchScore: 87,
+    priority: "high",
+  },
+  {
+    id: "k3",
+    title: "Full Stack Engineer",
+    company: "Linear",
+    logo: "L",
+    status: "Applied",
+    appliedDate: "Oct 14, 2026",
+    matchScore: 84,
+    priority: "medium",
+  },
+  {
+    id: "k4",
+    title: "Product Engineer",
+    company: "Vercel",
+    logo: "V",
+    status: "Wishlist",
+    matchScore: 79,
+    priority: "medium",
+  },
+  {
+    id: "k5",
+    title: "SWE Intern",
+    company: "Figma",
+    logo: "F",
+    status: "Applied",
+    appliedDate: "Oct 8, 2026",
+    matchScore: 76,
+    priority: "low",
+  },
+  {
+    id: "k6",
+    title: "Backend Engineer",
+    company: "PlanetScale",
+    logo: "P",
+    status: "Wishlist",
+    matchScore: 72,
+    priority: "low",
+  },
+  {
+    id: "k7",
+    title: "Software Engineer",
+    company: "Shopify",
+    logo: "Sh",
+    status: "Offer",
+    appliedDate: "Sep 28, 2026",
+    nextStep: "Deadline to Accept",
+    nextStepDate: "Oct 28, 2026",
+    matchScore: 88,
+    priority: "high",
+    notes: "Offer: $155k base + equity. Deadline Oct 28.",
+  },
+  {
+    id: "k8",
+    title: "Platform Engineer",
+    company: "Cloudflare",
+    logo: "Cf",
+    status: "Rejected",
+    appliedDate: "Sep 20, 2026",
+    matchScore: 68,
+    priority: "low",
+    notes: "Rejected after 2nd round. Strengthen systems knowledge.",
+  },
+];
+
+// ─── Interview Questions ──────────────────────────────────────────────────────
+
+export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
+  {
+    id: "iq1",
+    category: "behavioral",
+    difficulty: "medium",
+    question: "Tell me about a time you had a conflict with a teammate. How did you resolve it?",
+    hint: "Use the STAR method: Situation, Task, Action, Result.",
+    sampleAnswer:
+      "In my previous role, a fellow engineer and I disagreed on the architecture for a new microservice. I requested a 30-minute sync, listened to their concerns fully, then proposed a hybrid approach that incorporated their scalability concerns with my simplicity preference. We prototyped both, ran load tests, and chose the hybrid approach — which ended up handling 3× the expected traffic at launch.",
+    followUps: [
+      "What would you do differently?",
+      "How do you prevent conflicts in the future?",
+    ],
+  },
+  {
+    id: "iq2",
+    category: "technical",
+    difficulty: "hard",
+    question: "Explain the differences between SQL and NoSQL databases and when you'd choose each.",
+    hint: "Think about schema flexibility, scalability, and consistency trade-offs.",
+    sampleAnswer:
+      "SQL databases use structured schemas with ACID transactions — ideal for relational data with complex joins (e.g., financial records). NoSQL sacrifices some consistency for horizontal scalability and schema flexibility, making them great for high-write-throughput use cases like event streams or user-generated content. I'd choose SQL when data integrity is paramount and NoSQL when I need to scale writes horizontally or handle semi-structured data.",
+    followUps: [
+      "Have you worked with both in production?",
+      "How do you handle migrations in NoSQL?",
+    ],
+  },
+  {
+    id: "iq3",
+    category: "situational",
+    difficulty: "medium",
+    question: "A critical bug hits production 30 minutes before a major product launch. What do you do?",
+    hint: "Focus on communication, decision-making under pressure, and rollback strategies.",
+    sampleAnswer:
+      "First I'd assess severity — is it data-corrupting or UI-only? I'd immediately notify the team lead and propose either a rollback or a hotfix, depending on complexity. I'd prioritise shipping a fix only if it's < 15 minutes of clear work, otherwise rollback to the stable release. After the launch, I'd do a post-mortem to improve our staging process.",
+    followUps: [
+      "How would you communicate this to non-technical stakeholders?",
+      "How do you handle the post-mortem?",
+    ],
+  },
+  {
+    id: "iq4",
+    category: "culture",
+    difficulty: "easy",
+    question: "Why do you want to work at this company specifically?",
+    hint: "Research the company's mission, recent product launches, and engineering culture.",
+    sampleAnswer:
+      "I've been using the product daily for 2 years and I'm impressed by how the engineering blog reflects the team's attention to performance and developer experience. Specifically, the recent post on their edge rendering approach shows a team that thinks deeply about trade-offs — which is exactly the kind of culture where I do my best work.",
+    followUps: [
+      "What would you build or improve if you joined?",
+      "How do you stay current with what we're doing?",
+    ],
+  },
+  {
+    id: "iq5",
+    category: "technical",
+    difficulty: "hard",
+    question: "Walk me through how you'd design a URL shortener like bit.ly.",
+    hint: "Cover: API design, hash generation, DB schema, caching, and scale considerations.",
+    sampleAnswer:
+      "I'd start with a simple POST /shorten endpoint that takes a long URL and returns a short code. I'd generate a base-62 encoded hash of the URL (or an auto-incremented ID) and store the mapping in PostgreSQL with an index on the short code. For reads (GET /:code → redirect), I'd put Redis in front to cache hot links. At scale, I'd shard by short code prefix and use a CDN to offload redirects globally.",
+    followUps: [
+      "How do you handle collisions?",
+      "How would you add analytics (click tracking)?",
+    ],
+  },
+];
+
+export const INTERVIEW_SESSIONS: InterviewSession[] = [
+  {
+    id: "is1",
+    date: "Oct 18, 2026",
+    role: "Software Engineer II – Behavioral",
+    score: 88,
+    questionsAnswered: 4,
+    duration: "22 min",
+    feedback: "Strong STAR structure. Work on conciseness in follow-up answers.",
+  },
+  {
+    id: "is2",
+    date: "Oct 15, 2026",
+    role: "Full Stack – System Design",
+    score: 74,
+    questionsAnswered: 3,
+    duration: "35 min",
+    feedback: "Good high-level thinking. Strengthen database sharding knowledge.",
+  },
+  {
+    id: "is3",
+    date: "Oct 12, 2026",
+    role: "Frontend Engineer – Technical",
+    score: 82,
+    questionsAnswered: 5,
+    duration: "28 min",
+    feedback: "Excellent React knowledge. Add more context on performance trade-offs.",
+  },
+];
+
+// ─── Readiness ───────────────────────────────────────────────────────────────
+
+export const READINESS_MILESTONES: ReadinessMilestone[] = [
+  {
+    id: "rm1",
+    category: "resume",
+    title: "Tailor resume for 3 target roles",
+    description: "Use the Resume Screener to achieve 85%+ match on 3 target JDs.",
+    completed: true,
+    dueDate: "Oct 15, 2026",
+    priority: "high",
+  },
+  {
+    id: "rm2",
+    category: "resume",
+    title: "Add quantified impact to all experience bullets",
+    description: "Every bullet should have a metric (%, $, ×, users, etc.).",
+    completed: true,
+    dueDate: "Oct 10, 2026",
+    priority: "high",
+  },
+  {
+    id: "rm3",
+    category: "skills",
+    title: "Complete 10 LeetCode mediums (Arrays/Strings)",
+    description: "Focus on sliding window, two pointers, and hash maps.",
+    completed: false,
+    dueDate: "Oct 28, 2026",
+    priority: "high",
+  },
+  {
+    id: "rm4",
+    category: "interview",
+    title: "Complete 5 mock behavioural interviews",
+    description: "Score ≥ 80 on at least 3 of them.",
+    completed: false,
+    dueDate: "Oct 25, 2026",
+    priority: "high",
+  },
+  {
+    id: "rm5",
+    category: "network",
+    title: "Reach out to 5 employees at target companies",
+    description: "Send a personalised LinkedIn note or cold email.",
+    completed: false,
+    dueDate: "Oct 22, 2026",
+    priority: "medium",
+  },
+  {
+    id: "rm6",
+    category: "applications",
+    title: "Apply to 30 roles in 4 weeks",
+    description: "Prioritise roles with 80%+ match score.",
+    completed: false,
+    dueDate: "Nov 1, 2026",
+    priority: "high",
+  },
+  {
+    id: "rm7",
+    category: "skills",
+    title: "Complete System Design primer",
+    description: "Cover: load balancing, caching, DB sharding, CAP theorem.",
+    completed: true,
+    dueDate: "Oct 12, 2026",
+    priority: "medium",
+  },
+  {
+    id: "rm8",
+    category: "network",
+    title: "Attend 1 tech meetup or career fair",
+    description: "Collect at least 3 business cards or LinkedIn connections.",
+    completed: true,
+    dueDate: "Oct 18, 2026",
+    priority: "low",
+  },
+];
+
+export const READINESS_DOMAINS: ReadinessDomain[] = [
+  { label: "Resume", score: 90, color: "#6366F1", icon: "FileText" },
+  { label: "Skills", score: 62, color: "#10B981", icon: "Code2" },
+  { label: "Networking", score: 55, color: "#F59E0B", icon: "Users" },
+  { label: "Interviews", score: 78, color: "#8B5CF6", icon: "MessageSquare" },
+  { label: "Applications", score: 80, color: "#EC4899", icon: "Send" },
+];
