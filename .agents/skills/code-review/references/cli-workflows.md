@@ -13,7 +13,7 @@ Check the installed command's `--help` before using newer features. Public refer
 
 - `coderabbit auth status --agent` reports structured authentication status for that execution context. A status error is unknown, not authenticated. Do not infer host logout from an isolated sandbox result.
 - `coderabbit auth login --agent` supports browser OAuth through a local callback. It cannot combine with `--api-key` or `--self-hosted`; never ask for pasted OAuth tokens.
-- `coderabbit auth login --region eu` selects EU SaaS login. Saved region is reused for reviews. Review-level `--region us|eu` requires inline `--api-key <key>`; it is not how to select an existing EU browser login. Keep secrets out of transcripts and shell history.
+- `coderabbit auth login` supports browser-based login and saves authentication securely in the credential store without passing secrets via command arguments. Saved authentication is reused for reviews. Keep secrets out of transcripts, command arguments, and shell history.
 - `coderabbit auth org` switches organizations for an existing browser login. `auth org --agent` lists organizations for agent consumption; it does not select one. API-key and self-hosted modes do not support this organization switch.
 - `coderabbit doctor`, `coderabbit stats` (optionally `--rebuild`), and `coderabbit update` are human-oriented diagnostic, statistics, and update commands. `coderabbit skills` is an interactive install/update flow, not an unattended `skills add` command. Do not invent a `feedback` command.
 

@@ -5,6 +5,7 @@ type ProgressBarProps = {
   color?: "indigo" | "emerald" | "amber" | "rose" | "violet";
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
+  label?: string;
   animated?: boolean;
   className?: string;
 };
@@ -28,6 +29,7 @@ export default function ProgressBar({
   color = "indigo",
   size = "md",
   showLabel = false,
+  label,
   animated = false,
   className,
 }: ProgressBarProps) {
@@ -37,11 +39,18 @@ export default function ProgressBar({
     <div className={clsx("w-full", className)}>
       {showLabel && (
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-slate-400">Progress</span>
+          <span className="text-xs text-slate-400">{label ?? "Progress"}</span>
           <span className="text-xs font-semibold text-slate-300">{clamped}%</span>
         </div>
       )}
-      <div className={clsx("w-full rounded-full bg-white/8", sizeMap[size])}>
+      <div
+        role="progressbar"
+        aria-valuenow={clamped}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label ?? "Progress"}
+        className={clsx("w-full rounded-full bg-white/8", sizeMap[size])}
+      >
         <div
           className={clsx(
             "rounded-full transition-all duration-700 ease-out",

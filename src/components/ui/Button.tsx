@@ -31,6 +31,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 export default function Button({
+  type = "button",
   variant = "primary",
   size = "md",
   children,
@@ -42,6 +43,7 @@ export default function Button({
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={clsx(
         "inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none",
         variantMap[variant],

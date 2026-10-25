@@ -15,7 +15,8 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getUserProfile, type UserProfile } from "@/lib/services/auth.service";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -29,6 +30,29 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const p = await getUserProfile();
+        setProfile(p);
+      } catch {
+        // Fallback
+      }
+    }
+    load();
+  }, [pathname]);
+
+  const initials = profile?.fullName
+    ? profile.fullName
+        .split(" ")
+        .filter((part) => part.trim().length > 0)
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "ST";
 
   return (
     <aside
@@ -63,6 +87,8 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
+              title={collapsed ? item.label : undefined}
               className={clsx(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group",
                 active
@@ -91,12 +117,16 @@ export default function Sidebar() {
       <div className={clsx("px-3 py-4 border-t border-white/5", collapsed && "px-2")}>
         <div className={clsx("flex items-center gap-3", collapsed && "justify-center")}>
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-white">AK</span>
+            <span className="text-xs font-bold text-white">{initials}</span>
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">Arjun Kumar</p>
-              <p className="text-xs text-slate-500 truncate">CS @ NIT Trichy</p>
+              <p className="text-sm font-medium text-white truncate">{profile?.fullName || "Student Account"}</p>
+              <p className="text-xs text-slate-500 truncate">
+                {profile?.branch && profile?.college
+                  ? `${profile.branch.split(" ")[0]} @ ${profile.college}`
+                  : profile?.email || "Placement Candidate"}
+              </p>
             </div>
           )}
         </div>

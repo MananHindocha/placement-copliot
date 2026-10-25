@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { INTERVIEW_QUESTIONS, INTERVIEW_SESSIONS } from "@/lib/mock-data";
-import type { InterviewQuestion } from "@/types";
+import ErrorBanner from "@/components/ui/ErrorBanner";
+import {
+  getInterviewQuestions,
+  getPastInterviewSessions,
+} from "@/lib/services/interview.service";
+import type { InterviewQuestion, InterviewSession } from "@/types";
 import {
   MessageSquare,
   ChevronRight,
@@ -15,12 +19,11 @@ import {
   EyeOff,
   Mic,
   MicOff,
-  RotateCcw,
   Star,
   Clock,
   TrendingUp,
-  Play,
   Brain,
+  Loader2,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -46,6 +49,11 @@ const SCORE_COLOR = (score: number) =>
 type FilterCategory = "all" | InterviewQuestion["category"];
 
 export default function InterviewPage() {
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [activeSection, setActiveSection] = useState<"practice" | "history">("practice");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showHint, setShowHint] = useState(false);
@@ -53,271 +61,379 @@ export default function InterviewPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [filterCategory, setFilterCategory] = useState<FilterCategory>("all");
   const [response, setResponse] = useState("");
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const evalTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const loadData = () => {
+    setLoading(true);
+    setError(null);
+    Promise.all([getInterviewQuestions(), getPastInterviewSessions()])
+      .then(([qs, past]) => {
+        setQuestions(qs);
+        setSessions(past);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load interview coaching data.");
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([getInterviewQuestions(), getPastInterviewSessions()])
+      .then(([qs, past]) => {
+        if (!isMounted) return;
+        setQuestions(qs);
+        setSessions(past);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : "Failed to load interview coaching data.");
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filtered =
     filterCategory === "all"
-      ? INTERVIEW_QUESTIONS
-      : INTERVIEW_QUESTIONS.filter((q) => q.category === filterCategory);
+      ? questions
+      : questions.filter((q) => q.category === filterCategory);
 
   const question = filtered[currentIdx] ?? filtered[0];
-  const catConfig = CATEGORY_CONFIG[question?.category] ?? CATEGORY_CONFIG.behavioral;
+  const catConfig = question ? (CATEGORY_CONFIG[question.category] ?? CATEGORY_CONFIG.behavioral) : CATEGORY_CONFIG.behavioral;
 
-  const prev = () => setCurrentIdx((i) => Math.max(0, i - 1));
+  const clearEvaluation = () => {
+    if (evalTimerRef.current) {
+      clearTimeout(evalTimerRef.current);
+      evalTimerRef.current = null;
+    }
+    setIsEvaluating(false);
+    setFeedback(null);
+  };
+
+  const prev = () => {
+    clearEvaluation();
+    setCurrentIdx((i) => Math.max(0, i - 1));
+    setShowHint(false);
+    setShowAnswer(false);
+    setResponse("");
+  };
+
   const next = () => {
+    clearEvaluation();
     setCurrentIdx((i) => Math.min(filtered.length - 1, i + 1));
     setShowHint(false);
     setShowAnswer(false);
     setResponse("");
   };
 
+  const handleGetFeedback = () => {
+    const trimmed = response.trim();
+    if (!trimmed || !question) return;
+    clearEvaluation();
+    setIsEvaluating(true);
+
+    evalTimerRef.current = setTimeout(() => {
+      setIsEvaluating(false);
+      evalTimerRef.current = null;
+      const wordCount = trimmed.split(/\s+/).length;
+      const isBrief = wordCount < 30;
+      setFeedback(
+        isBrief
+          ? `[Demo Prototype · Simulated Feedback] Your response is brief (${wordCount} words). For ${question.category} interview prompts, aim for 80-150 words using the STAR method: articulate the Situation, the exact Task, the Actions you personally led, and the measurable Results achieved.`
+          : `[Demo Prototype · Simulated Feedback] Solid response depth (${wordCount} words) tailored to this ${question.difficulty}-level ${question.category} prompt. Key recommendation: Strengthen your narrative by quantifying results with business metrics (e.g., latency reduction, revenue lift, or team adoption).`
+      );
+    }, 700);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (evalTimerRef.current) {
+        clearTimeout(evalTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
-      {/* Tab bar */}
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Error state */}
+      {error && (
+        <ErrorBanner
+          title="Interview Service Sync Error"
+          message={error}
+          onRetry={loadData}
+        />
+      )}
+
+      {/* Mode navigation */}
       <div className="flex items-center gap-1 p-1 bg-[#111827] border border-white/6 rounded-xl w-fit">
-        {(["practice", "history"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveSection(tab)}
-            className={clsx(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-all",
-              activeSection === tab
-                ? "bg-indigo-500 text-white shadow"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            {tab === "practice" ? "🎤 Practice" : "📊 Session History"}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => setActiveSection("practice")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-lg transition-all",
+            activeSection === "practice"
+              ? "bg-indigo-500 text-white shadow"
+              : "text-slate-400 hover:text-white"
+          )}
+        >
+          🎙️ Practice Mode
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSection("history")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-lg transition-all",
+            activeSection === "history"
+              ? "bg-indigo-500 text-white shadow"
+              : "text-slate-400 hover:text-white"
+          )}
+        >
+          📜 Past Sessions ({sessions.length})
+        </button>
       </div>
 
-      {activeSection === "practice" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Question list sidebar */}
-          <div className="space-y-3">
-            <Card padding="sm">
-              {/* Category filter */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {(["all", "behavioral", "technical", "situational", "culture"] as const).map(
-                  (cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        setFilterCategory(cat);
-                        setCurrentIdx(0);
-                        setShowHint(false);
-                        setShowAnswer(false);
-                      }}
-                      className={clsx(
-                        "px-2.5 py-1 text-xs font-medium rounded-lg transition-all capitalize",
-                        filterCategory === cat
-                          ? "bg-indigo-500 text-white"
-                          : "bg-white/5 text-slate-400 hover:text-white"
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  )
-                )}
-              </div>
-
-              <p className="text-xs text-slate-500 mb-2">
-                {filtered.length} questions
-              </p>
-
-              <div className="space-y-1.5">
-                {filtered.map((q, i) => {
-                  const cc = CATEGORY_CONFIG[q.category];
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => {
-                        setCurrentIdx(i);
-                        setShowHint(false);
-                        setShowAnswer(false);
-                        setResponse("");
-                      }}
-                      className={clsx(
-                        "w-full text-left p-3 rounded-xl border transition-all",
-                        i === currentIdx
-                          ? "bg-indigo-500/10 border-indigo-500/30"
-                          : "border-white/4 hover:bg-white/3"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant={cc.variant} size="sm">{cc.label}</Badge>
-                        <span className={clsx("text-xs font-medium capitalize", DIFFICULTY_COLOR[q.difficulty])}>
-                          {q.difficulty}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-300 leading-snug line-clamp-2">{q.question}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
+      {loading && questions.length === 0 ? (
+        <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+          <span className="text-sm">Loading interview coach...</span>
+        </div>
+      ) : activeSection === "practice" ? (
+        <div className="space-y-4">
+          {/* Category filter pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(["all", "behavioral", "technical", "situational", "culture"] as const).map(
+              (cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    clearEvaluation();
+                    setFilterCategory(cat);
+                    setCurrentIdx(0);
+                    setShowHint(false);
+                    setShowAnswer(false);
+                    setResponse("");
+                  }}
+                  className={clsx(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all",
+                    filterCategory === cat
+                      ? "bg-indigo-500 text-white"
+                      : "bg-white/5 text-slate-400 hover:text-white border border-white/8"
+                  )}
+                >
+                  {cat}
+                </button>
+              )
+            )}
           </div>
 
-          {/* Practice area */}
-          <div className="lg:col-span-2 space-y-4">
-            {question && (
-              <>
-                {/* Question card */}
+          {question ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Question column */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* Main question card */}
                 <Card>
-                  <div className="flex items-center gap-3 mb-4">
-                    <Badge variant={catConfig.variant} size="md">{catConfig.label}</Badge>
-                    <span className={clsx("text-xs font-semibold capitalize", DIFFICULTY_COLOR[question.difficulty])}>
+                <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={catConfig.variant} size="sm">
+                      {catConfig.label}
+                    </Badge>
+                    <span
+                      className={clsx(
+                        "text-xs font-semibold capitalize",
+                        DIFFICULTY_COLOR[question.difficulty]
+                      )}
+                    >
                       {question.difficulty}
                     </span>
-                    <span className="ml-auto text-xs text-slate-500">
-                      {currentIdx + 1} / {filtered.length}
-                    </span>
                   </div>
+                  <span className="text-xs text-slate-500">
+                    Question {currentIdx + 1} of {filtered.length}
+                  </span>
+                </div>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <Brain className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <h3 className="text-sm font-medium text-white leading-relaxed">
-                      {question.question}
-                    </h3>
-                  </div>
+                <h2 className="text-lg font-bold text-white mb-6 leading-snug">
+                  {question.question}
+                </h2>
 
-                  {/* Hint */}
-                  <button
-                    onClick={() => setShowHint(!showHint)}
-                    className="flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 transition-colors mb-2"
-                  >
-                    <Lightbulb className="w-3.5 h-3.5" />
-                    {showHint ? "Hide hint" : "Show hint"}
-                  </button>
-                  {showHint && (
-                    <div className="p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-xs text-amber-200 mb-4">
-                      💡 {question.hint}
-                    </div>
-                  )}
-
-                  {/* Follow-ups */}
-                  <div className="mb-4">
-                    <p className="text-xs text-slate-500 mb-2">Likely follow-ups:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {question.followUps.map((fu, i) => (
-                        <span
-                          key={i}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/8 text-xs text-slate-400"
-                        >
-                          {fu}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<ChevronLeft className="w-4 h-4" />}
-                      onClick={prev}
-                      disabled={currentIdx === 0}
-                    >
-                      Prev
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<RotateCcw className="w-3.5 h-3.5" />}
-                      onClick={() => { setShowHint(false); setShowAnswer(false); setResponse(""); }}
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<ChevronRight className="w-4 h-4" />}
-                      onClick={next}
-                      disabled={currentIdx === filtered.length - 1}
-                      className="ml-auto"
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </Card>
-
-                {/* Response area */}
-                <Card>
-                  <div className="flex items-center gap-2 mb-3">
-                    <MessageSquare className="w-4 h-4 text-indigo-400" />
-                    <h3 className="text-sm font-semibold text-white">Your Response</h3>
+                {/* Answer area */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                      Your Response
+                    </label>
                     <button
+                      type="button"
                       onClick={() => setIsRecording(!isRecording)}
                       className={clsx(
-                        "ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border transition-all",
                         isRecording
-                          ? "bg-rose-500/15 text-rose-300 border border-rose-500/20"
-                          : "bg-white/5 text-slate-400 hover:text-white border border-white/8"
+                          ? "bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse"
+                          : "bg-white/5 text-slate-400 border-white/8 hover:text-white"
                       )}
                     >
                       {isRecording ? (
                         <>
-                          <MicOff className="w-3.5 h-3.5" />
-                          Stop Recording
+                          <MicOff className="w-3.5 h-3.5" /> Recording...
                         </>
                       ) : (
                         <>
-                          <Mic className="w-3.5 h-3.5" />
-                          Record Answer
+                          <Mic className="w-3.5 h-3.5" /> Voice Input (Demo)
                         </>
                       )}
                     </button>
                   </div>
                   <textarea
+                    rows={5}
                     value={response}
                     onChange={(e) => setResponse(e.target.value)}
-                    placeholder="Type your answer here using the STAR method (Situation, Task, Action, Result)..."
-                    className="w-full h-32 px-3 py-2.5 bg-white/4 border border-white/8 rounded-xl text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none transition-all"
+                    placeholder="Type your answer here, or click 'Voice Input' to simulate speech-to-text..."
+                    className="w-full p-3.5 text-sm bg-white/3 border border-white/8 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none transition-all leading-relaxed"
                   />
-                  <div className="flex items-center justify-between mt-3">
-                    <span className="text-xs text-slate-500">
-                      {response.split(/\s+/).filter(Boolean).length} words
-                    </span>
+                </div>
+
+                {/* Question actions */}
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Lightbulb className="w-3.5 h-3.5 text-amber-400" />}
+                      onClick={() => setShowHint(!showHint)}
+                    >
+                      {showHint ? "Hide Hint" : "Hint"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={
+                        showAnswer ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                        )
+                      }
+                      onClick={() => setShowAnswer(!showAnswer)}
+                    >
+                      {showAnswer ? "Hide Sample" : "Sample Answer"}
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="primary"
                       size="sm"
-                      icon={<Play className="w-3.5 h-3.5" />}
+                      onClick={handleGetFeedback}
+                      disabled={!response.trim() || isEvaluating}
                     >
-                      Get AI Feedback
+                      {isEvaluating ? "Analyzing..." : "Get AI Feedback"}
                     </Button>
+                    <button
+                      type="button"
+                      aria-label="Previous question"
+                      onClick={prev}
+                      disabled={currentIdx === 0}
+                      className="p-2 rounded-xl bg-white/5 border border-white/8 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Next question"
+                      onClick={next}
+                      disabled={currentIdx === filtered.length - 1}
+                      className="p-2 rounded-xl bg-white/5 border border-white/8 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
-                </Card>
+                </div>
 
-                {/* Sample Answer */}
-                <Card>
-                  <button
-                    onClick={() => setShowAnswer(!showAnswer)}
-                    className="flex items-center justify-between w-full"
-                  >
-                    <div className="flex items-center gap-2">
-                      {showAnswer ? (
-                        <EyeOff className="w-4 h-4 text-violet-400" />
-                      ) : (
-                        <Eye className="w-4 h-4 text-violet-400" />
-                      )}
-                      <span className="text-sm font-semibold text-white">
-                        {showAnswer ? "Hide" : "View"} Sample Answer
-                      </span>
+                {/* Hint collapsible */}
+                {showHint && (
+                  <div className="mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
+                    💡 <span className="font-semibold">Coach Hint:</span> {question.hint}
+                  </div>
+                )}
+
+                {/* Sample answer collapsible */}
+                {showAnswer && (
+                  <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200 leading-relaxed space-y-1">
+                    <p className="font-semibold text-emerald-400 uppercase tracking-wide text-[10px]">
+                      Sample Answer (STAR Approach)
+                    </p>
+                    <p>{question.sampleAnswer}</p>
+                  </div>
+                )}
+
+                {/* Feedback block */}
+                {feedback && (
+                  <div className="mt-4 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/25 space-y-2">
+                    <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-xs">
+                      <Brain className="w-4 h-4" />
+                      AI Coach Feedback
                     </div>
-                    <ChevronRight
-                      className={clsx("w-4 h-4 text-slate-500 transition-transform", showAnswer && "rotate-90")}
-                    />
-                  </button>
-                  {showAnswer && (
-                    <div className="mt-4 pt-4 border-t border-white/5">
-                      <p className="text-sm text-slate-300 leading-relaxed">
-                        {question.sampleAnswer}
-                      </p>
-                    </div>
-                  )}
-                </Card>
-              </>
-            )}
+                    <p className="text-xs text-indigo-200 leading-relaxed">{feedback}</p>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Sidebar info */}
+            <div className="space-y-4">
+              {/* Follow-up questions */}
+              <Card>
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="w-4 h-4 text-indigo-400" />
+                  <h3 className="text-sm font-semibold text-white">Expected Follow-ups</h3>
+                </div>
+                <ul className="space-y-2.5">
+                  {question.followUps.map((fu, i) => (
+                    <li
+                      key={i}
+                      className="text-xs text-slate-300 p-2.5 rounded-lg bg-white/2 border border-white/5 leading-relaxed"
+                    >
+                      ❓ {fu}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+
+              {/* STAR method tip */}
+              <Card>
+                <h3 className="text-sm font-semibold text-white mb-2">⭐ The STAR Method</h3>
+                <div className="space-y-2 text-xs text-slate-400">
+                  <p>
+                    <strong className="text-white">Situation:</strong> Set context in 1-2
+                    sentences.
+                  </p>
+                  <p>
+                    <strong className="text-white">Task:</strong> Your specific responsibility.
+                  </p>
+                  <p>
+                    <strong className="text-white">Action:</strong> What you personally built or
+                    did.
+                  </p>
+                  <p>
+                    <strong className="text-white">Result:</strong> Measurable outcomes and
+                    learnings.
+                  </p>
+                </div>
+              </Card>
+            </div>
           </div>
+          ) : (
+            <div className="p-8 text-center text-slate-400 border border-dashed border-white/10 rounded-2xl">
+              No questions found in this category. Select another category above to continue practice.
+            </div>
+          )}
         </div>
       ) : (
         /* History */
@@ -325,16 +441,18 @@ export default function InterviewPage() {
           {/* Aggregate stats */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "Sessions", value: INTERVIEW_SESSIONS.length, icon: MessageSquare, color: "text-indigo-400" },
+              { label: "Sessions", value: sessions.length, icon: MessageSquare, color: "text-indigo-400" },
               {
                 label: "Avg Score",
-                value: `${Math.round(INTERVIEW_SESSIONS.reduce((s, i) => s + i.score, 0) / INTERVIEW_SESSIONS.length)}%`,
+                value: sessions.length
+                  ? `${Math.round(sessions.reduce((s, i) => s + i.score, 0) / sessions.length)}%`
+                  : "N/A",
                 icon: Star,
                 color: "text-amber-400",
               },
               {
                 label: "Questions",
-                value: INTERVIEW_SESSIONS.reduce((s, i) => s + i.questionsAnswered, 0),
+                value: sessions.reduce((s, i) => s + i.questionsAnswered, 0),
                 icon: Brain,
                 color: "text-violet-400",
               },
@@ -352,7 +470,7 @@ export default function InterviewPage() {
 
           {/* Session list */}
           <div className="space-y-3">
-            {INTERVIEW_SESSIONS.map((session) => (
+            {sessions.map((session) => (
               <Card key={session.id} hover>
                 <div className="flex items-start gap-4">
                   {/* Score ring */}
@@ -398,6 +516,11 @@ export default function InterviewPage() {
                 </div>
               </Card>
             ))}
+            {sessions.length === 0 && (
+              <div className="p-8 text-center text-slate-400 border border-dashed border-white/10 rounded-2xl">
+                No past interview sessions recorded. Start practice mode above to complete your first session.
+              </div>
+            )}
           </div>
         </div>
       )}
