@@ -2,15 +2,16 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #060d1a;
-  --bg-secondary: #0b1120;
-  --bg-card: #111827;
-  --bg-card-hover: #1a2234;
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.1);
+  --bg-primary: #050811;
+  --bg-secondary: #0B1120;
+  --bg-card: #0F172A;
+  --bg-card-hover: #131C33;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-hover: rgba(99, 102, 241, 0.4);
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-muted: #64748b;
   --indigo: #6366f1;
   --indigo-light: #818cf8;
 }
@@ -61,7 +62,7 @@ body {
 
 /* Selection */
 ::selection {
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.35);
   color: white;
 }
 
@@ -73,9 +74,13 @@ body {
   background-clip: text;
 }
 
-/* Glow effect */
+/* Glow effects */
 .glow-indigo {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.18);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.18);
 }
 
 /* Smooth page transitions */
@@ -94,7 +99,34 @@ main {
   }
 }
 
-/* Kanban drag placeholder */
-.kanban-col {
-  min-height: 200px;
+/* Shimmer Skeleton Loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite ease-in-out;
+  border-radius: 0.75rem;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Clean border highlights */
+.border-glass {
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-secondary);
+}
+
+.border-glass:hover {
+  border-color: var(--border-hover);
 }

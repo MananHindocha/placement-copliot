@@ -3,6 +3,7 @@ import { getEffectiveDataMode } from "@/lib/supabase/config";
 import { JOBS, EXTENDED_JOBS, DEMO_USER_SKILLS } from "@/lib/mock-data";
 import type { Job } from "@/types";
 import type { JobListingRow } from "./types";
+import type { EnrichedMatchResult } from "@/app/api/jobs/match/route";
 
 let demoJobs: Job[] = [...JOBS, ...EXTENDED_JOBS];
 
@@ -21,18 +22,26 @@ export interface JobFilters {
   postedWithin: string;
 }
 
-export interface MatchResult {
-  jobId: string;
-  matchScore: number;
-  matchedSkills: string[];
-  missingSkills: string[];
-  matchReason: string;
-  fitLabel: "Strong Fit" | "Good Fit" | "Partial Fit" | "Low Fit";
-}
+/**
+ * Re-export the enriched match result from the API route so consumers
+ * across the UI can import from one place.
+ */
+export type { EnrichedMatchResult as MatchResult } from "@/app/api/jobs/match/route";
 
 export interface JobSearchResponse {
   jobs: Job[];
   source: "adzuna" | "remotive" | "demo" | "supabase";
+}
+
+/**
+ * Optional student preferences used to personalise match scoring.
+ * When omitted, the matching engine uses neutral defaults.
+ */
+export interface MatchPreferences {
+  /** e.g. "Bangalore", "Remote", "Mumbai" */
+  preferredLocation?: string;
+  /** e.g. ["Full-time", "Internship"] */
+  preferredTypes?: string[];
 }
 
 export const DEFAULT_FILTERS: JobFilters = {
@@ -48,7 +57,7 @@ export const DEFAULT_FILTERS: JobFilters = {
   postedWithin: "any",
 };
 
-// ─── Job fetching (existing behavior preserved) ─────────────────────────────
+// ─── Job fetching ─────────────────────────────────────────────────────────────
 
 export async function getJobs(): Promise<Job[]> {
   const mode = getEffectiveDataMode();
@@ -85,7 +94,7 @@ export async function getJobs(): Promise<Job[]> {
   }));
 }
 
-// ─── Live search via API route ───────────────────────────────────────────────
+// ─── Live search via API route ────────────────────────────────────────────────
 
 export async function searchJobs(
   query: string,
@@ -108,7 +117,6 @@ export async function searchJobs(
       source: data.source || "demo",
     };
   } catch {
-    // Fallback to local mock if API route itself fails
     return {
       jobs: [...demoJobs],
       source: "demo",
@@ -116,25 +124,39 @@ export async function searchJobs(
   }
 }
 
-// ─── AI match scoring ────────────────────────────────────────────────────────
+// ─── AI match scoring ─────────────────────────────────────────────────────────
 
+/**
+ * Scores jobs against the student's profile using the /api/jobs/match endpoint.
+ * The endpoint uses Gemini 2.0 Flash when available, falling back to a
+ * deterministic heuristic engine.
+ *
+ * @param jobs          – list of jobs to score
+ * @param userSkills    – demonstrated skills (defaults to DEMO_USER_SKILLS)
+ * @param userTargetRole – the student's stated target role
+ * @param preferences   – optional location and job-type preferences for personalisation
+ */
 export async function scoreJobMatches(
   jobs: Job[],
   userSkills?: string[],
   userTargetRole?: string,
-): Promise<Map<string, MatchResult>> {
-  const resultMap = new Map<string, MatchResult>();
+  preferences?: MatchPreferences,
+): Promise<Map<string, EnrichedMatchResult>> {
+  const resultMap = new Map<string, EnrichedMatchResult>();
 
   try {
     const payload = {
       jobs: jobs.map((j) => ({
-        jobId: j.id,
-        jobTitle: j.title,
+        jobId:          j.id,
+        jobTitle:       j.title,
         jobDescription: j.description.slice(0, 800),
-        jobTags: j.tags,
+        jobTags:        j.tags,
+        jobType:        j.type,
       })),
-      userSkills: userSkills || DEMO_USER_SKILLS,
-      userTargetRole: userTargetRole || "Frontend Developer",
+      userSkills:        userSkills || DEMO_USER_SKILLS,
+      userTargetRole:    userTargetRole || "Frontend Developer",
+      preferredLocation: preferences?.preferredLocation ?? "",
+      preferredTypes:    preferences?.preferredTypes ?? [],
     };
 
     const res = await fetch("/api/jobs/match", {
@@ -147,16 +169,16 @@ export async function scoreJobMatches(
 
     const data = await res.json();
     for (const result of data.results || []) {
-      resultMap.set(result.jobId, result);
+      resultMap.set(result.jobId, result as EnrichedMatchResult);
     }
   } catch {
-    // Silently fail — jobs will keep their existing matchScore
+    // Silently fail — jobs will keep their existing matchScore from the catalog
   }
 
   return resultMap;
 }
 
-// ─── Client-side filter logic ────────────────────────────────────────────────
+// ─── Client-side filter logic ─────────────────────────────────────────────────
 
 function parseSalaryLPA(salary: string): { min: number; max: number; disclosed: boolean } {
   if (!salary || salary === "Not disclosed" || salary === "Competitive") {
@@ -223,7 +245,7 @@ export function applyFilters(jobs: Job[], filters: JobFilters): Job[] {
       if (!filters.jobTypes.includes(job.type)) return false;
     }
 
-    // Match score threshold
+    // Match score threshold — uses the job's current matchScore (updated after scoring)
     if (job.matchScore < filters.minMatchScore) return false;
 
     // Salary range
@@ -248,10 +270,10 @@ export function applyFilters(jobs: Job[], filters: JobFilters): Job[] {
     if (filters.postedWithin !== "any") {
       const days = postedWithinDays(job.posted);
       const maxDays =
-        filters.postedWithin === "today" ? 0 :
-        filters.postedWithin === "3days" ? 3 :
-        filters.postedWithin === "week" ? 7 :
-        filters.postedWithin === "month" ? 30 : 9999;
+        filters.postedWithin === "today"  ? 0  :
+        filters.postedWithin === "3days"  ? 3  :
+        filters.postedWithin === "week"   ? 7  :
+        filters.postedWithin === "month"  ? 30 : 9999;
       if (days > maxDays) return false;
     }
 
@@ -259,13 +281,40 @@ export function applyFilters(jobs: Job[], filters: JobFilters): Job[] {
   });
 }
 
-// ─── Get user skills (for filter auto-population) ────────────────────────────
+let activeUserSkills: string[] = [...DEMO_USER_SKILLS];
 
 export function getUserSkills(): string[] {
-  return DEMO_USER_SKILLS;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("placement_user_skills");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          activeUserSkills = parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }
+  return [...activeUserSkills];
 }
 
-// ─── Toggle save (existing) ──────────────────────────────────────────────────
+export function setUserSkills(skills: string[]): void {
+  if (skills && skills.length > 0) {
+    activeUserSkills = Array.from(new Set(skills));
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("placement_user_skills", JSON.stringify(activeUserSkills));
+        window.dispatchEvent(new CustomEvent("placement_skills_updated", { detail: activeUserSkills }));
+      } catch {
+        // Fallback
+      }
+    }
+  }
+}
+
+// ─── Toggle save ──────────────────────────────────────────────────────────────
 
 export async function toggleSaveJob(id: string, saved: boolean): Promise<void> {
   const mode = getEffectiveDataMode();
@@ -275,6 +324,5 @@ export async function toggleSaveJob(id: string, saved: boolean): Promise<void> {
     return;
   }
 
-  // In live mode without a dedicated user bookmarks table, fail explicitly rather than silently dropping state
   throw new Error("Job bookmark persistence in live mode will be available in Phase 3.");
 }

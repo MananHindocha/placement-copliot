@@ -159,3 +159,41 @@ export async function deleteApplication(id: string): Promise<void> {
     throw new Error(`Failed to delete application: ${error.message}`);
   }
 }
+
+export async function updateApplication(
+  id: string,
+  updates: Partial<KanbanCard>
+): Promise<void> {
+  const mode = getEffectiveDataMode();
+
+  if (mode === "demo") {
+    demoCards = demoCards.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    return;
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Authentication required: please sign in to update application.");
+  }
+
+  const dbUpdates: Record<string, unknown> = {};
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+  if (updates.nextStep !== undefined) dbUpdates.next_step = updates.nextStep;
+  if (updates.nextStepDate !== undefined) dbUpdates.next_step_date = updates.nextStepDate;
+  if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.company !== undefined) dbUpdates.company = updates.company;
+
+  const { error } = await supabase
+    .from("applications")
+    .update(dbUpdates)
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(`Failed to update application: ${error.message}`);
+  }
+}

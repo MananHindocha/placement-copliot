@@ -409,6 +409,32 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
       "How would you add analytics (click tracking)?",
     ],
   },
+  {
+    id: "iq-grill-1",
+    category: "resume-grill",
+    difficulty: "hard",
+    question: "Walk me through the hardest concurrency, cache invalidation, or latency bottleneck you solved in your top project and how you measured the fix.",
+    hint: "Specify the initial p99 latency or bottleneck, the architectural trade-offs evaluated, and the quantified outcome after refactoring.",
+    sampleAnswer:
+      "In my full-stack application, our p99 query latency spiked to 850ms under concurrent traffic due to unindexed foreign key lookups and N+1 query patterns. I profiled the database slow-query logs, added composite indexes on user_id and created_at, and introduced an in-memory Redis cache with TTL-based invalidation for hot session data. This reduced p99 response times down to 48ms — a 94% improvement.",
+    followUps: [
+      "How did you prevent cache stampede during cold cache restarts?",
+      "What trade-offs did you accept by introducing Redis in addition to your relational DB?",
+    ],
+  },
+  {
+    id: "iq-grill-2",
+    category: "resume-grill",
+    difficulty: "hard",
+    question: "If 10,000 concurrent users hit your backend services simultaneously, where would your infrastructure fail first, and how would you redesign it?",
+    hint: "Break down the request journey: load balancer, connection pooling, memory limits, rate limiting, and database write lock contention.",
+    sampleAnswer:
+      "The first failure point would be database connection pool exhaustion. Without connection pooling, Postgres would reject incoming connections after reaching the max_connections limit. To handle this scale, I would place PgBouncer in transaction-pooling mode in front of the database, introduce token-bucket rate limiting at the reverse proxy layer, and push asynchronous tasks to a message queue like RabbitMQ or Kafka.",
+    followUps: [
+      "How would you test this scenario before deploying to production?",
+      "What metrics would you alert your on-call engineering team on?",
+    ],
+  },
 ];
 
 export const INTERVIEW_SESSIONS: InterviewSession[] = [

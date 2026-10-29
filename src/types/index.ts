@@ -28,6 +28,54 @@ export type Activity = {
 
 // ─── Resume ──────────────────────────────────────────────────────────────────
 
+export type SectionScores = {
+  impact: number;
+  brevity: number;
+  style: number;
+  skills: number;
+};
+
+export type TailorSuggestion = {
+  id: string;
+  section: "summary" | "experience" | "skills" | "education" | "projects";
+  original: string;
+  suggested: string;
+  impact: "high" | "medium" | "low";
+  reason?: string;
+  impactLevel?: "high" | "medium" | "low";
+};
+
+export interface ParsedResumeDocument {
+  fileName: string;
+  candidateName: string;
+  email: string;
+  phone: string;
+  location: string;
+  links: string[];
+  summary: string;
+  skills: string[];
+  experience: Array<{
+    id: string;
+    role: string;
+    company: string;
+    duration: string;
+    bullets: string[];
+  }>;
+  projects: Array<{
+    id: string;
+    title: string;
+    techStack: string;
+    bullets: string[];
+  }>;
+  education: Array<{
+    institution: string;
+    degree: string;
+    year: string;
+    score?: string;
+  }>;
+  rawText: string;
+}
+
 export type ResumeAnalysis = {
   matchScore: number;
   atsScore: number;
@@ -36,15 +84,23 @@ export type ResumeAnalysis = {
   strengths: string[];
   gaps: string[];
   suggestions: TailorSuggestion[];
-  keywords: { word: string; present: boolean }[];
-};
-
-export type TailorSuggestion = {
-  id: string;
-  section: "summary" | "experience" | "skills" | "education";
-  original: string;
-  suggested: string;
-  impact: "high" | "medium" | "low";
+  keywords: { word: string; present: boolean; importance?: "high" | "medium" }[];
+  sectionScores?: SectionScores;
+  extractedSkills?: string[];
+  meta?: {
+    pageCount?: number;
+    wordCount?: number;
+    bulletCount?: number;
+    hasQuantifiedMetrics?: boolean;
+    fileName?: string;
+    contact?: {
+      email?: string | null;
+      phone?: string | null;
+      links?: string[];
+    };
+  };
+  rawText?: string;
+  parsedResume?: ParsedResumeDocument;
 };
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────
@@ -87,19 +143,107 @@ export type KanbanCard = {
   matchScore: number;
   priority: "high" | "medium" | "low";
   notes?: string;
+  salary?: string;
+  url?: string;
+  location?: string;
 };
 
 // ─── Interview ───────────────────────────────────────────────────────────────
 
+export type InterviewCategory =
+  | "behavioral"
+  | "technical"
+  | "situational"
+  | "culture"
+  | "resume-grill";
+
 export type InterviewQuestion = {
   id: string;
-  category: "behavioral" | "technical" | "situational" | "culture";
+  category: InterviewCategory;
   difficulty: "easy" | "medium" | "hard";
   question: string;
   hint: string;
   sampleAnswer: string;
   followUps: string[];
 };
+
+export interface StarComponent {
+  score: number;
+  feedback: string;
+  present: boolean;
+}
+
+export interface StarBreakdown {
+  situation: StarComponent;
+  task: StarComponent;
+  action: StarComponent;
+  result: StarComponent;
+}
+
+export interface DeliveryCritique {
+  pacingVerdict: "Too Slow (<100 WPM)" | "Optimal (115-155 WPM)" | "Rushed (>160 WPM)";
+  pacingAdvice: string;
+  fillerAdvice: string;
+  bodyLanguageAdvice: string;
+}
+
+export interface InterviewEvaluationResponse {
+  overallScore: number;
+  contentScore: number;
+  deliveryScore: number;
+  starBreakdown: StarBreakdown;
+  deliveryCritique: DeliveryCritique;
+  strengths: string[];
+  improvements: string[];
+  rewrittenIdealAnswer: string;
+  followUpQuestion: {
+    prompt: string;
+    intent: string;
+  };
+  evaluationSource: "ai" | "heuristic";
+}
+
+export interface InterviewTelemetry {
+  avgWpm: number;
+  wpmTimeSeries: number[];
+  fillerWords: Record<string, number>;
+  totalFillerCount: number;
+  hesitationGapsCount: number;
+  eyeContactPct: number;
+  postureStabilityPct: number;
+}
+
+export interface InterviewEvaluationRequest {
+  questionId: string;
+  questionText: string;
+  category: InterviewCategory;
+  role: string;
+  userTranscript: string;
+  durationSeconds: number;
+  telemetry: InterviewTelemetry;
+  resumeContext?: string;
+}
+
+export interface InterviewTurn {
+  id?: string;
+  sessionId?: string;
+  questionId?: string;
+  questionText: string;
+  category?: string;
+  userAnswer?: string;
+  aiFeedback?: string;
+  score?: number;
+  contentScore?: number;
+  deliveryScore?: number;
+  avgWpm?: number;
+  fillerWordCount?: number;
+  eyeContactScore?: number;
+  starBreakdown?: StarBreakdown;
+  rewrittenAnswer?: string;
+  followUpQuestion?: string;
+  turnOrder: number;
+  createdAt?: string;
+}
 
 export type InterviewSession = {
   id: string;
@@ -109,6 +253,15 @@ export type InterviewSession = {
   questionsAnswered: number;
   duration: string;
   feedback: string;
+  avgWpm?: number;
+  fillerWordCount?: number;
+  eyeContactScore?: number;
+  deliveryScore?: number;
+  contentScore?: number;
+  starBreakdown?: StarBreakdown;
+  rewrittenAnswer?: string;
+  followUpQuestion?: string;
+  turns?: InterviewTurn[];
 };
 
 // ─── Readiness ───────────────────────────────────────────────────────────────

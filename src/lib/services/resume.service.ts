@@ -3,7 +3,26 @@ import { getEffectiveDataMode } from "@/lib/supabase/config";
 import { RESUME_ANALYSIS } from "@/lib/mock-data";
 import type { ResumeAnalysis } from "@/types";
 
-let demoAnalysis: ResumeAnalysis = { ...RESUME_ANALYSIS };
+let demoAnalysis: ResumeAnalysis = {
+  ...RESUME_ANALYSIS,
+  sectionScores: {
+    impact: 84,
+    brevity: 92,
+    style: 78,
+    skills: 88,
+  },
+  extractedSkills: [
+    "TypeScript", "React", "Node.js", "PostgreSQL",
+    "Docker", "REST APIs", "GraphQL", "Tailwind CSS",
+  ],
+};
+
+export interface AnalyzeResumeResponse {
+  analysis: ResumeAnalysis;
+  source: "gemini" | "groq" | "heuristic";
+  pythonParserActive: boolean;
+  diagnosticTip?: string;
+}
 
 export async function getResumeAnalysis(): Promise<ResumeAnalysis> {
   const mode = getEffectiveDataMode();
@@ -54,9 +73,71 @@ export async function getResumeAnalysis(): Promise<ResumeAnalysis> {
     company: data.target_company || "",
     strengths: data.strengths || [],
     gaps: data.gaps || [],
-    suggestions: data.suggestions || [],
-    keywords: data.keywords || [],
+    suggestions: (data.suggestions as ResumeAnalysis["suggestions"]) || [],
+    keywords: (data.keywords as ResumeAnalysis["keywords"]) || [],
+    sectionScores: {
+      impact: 80,
+      brevity: 85,
+      style: 80,
+      skills: 85,
+    },
   };
+}
+
+export async function analyzeResumeFile(
+  file: File,
+  targetRole?: string,
+  jobDescription?: string
+): Promise<AnalyzeResumeResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (targetRole) formData.append("targetRole", targetRole);
+  if (jobDescription) formData.append("jobDescription", jobDescription);
+
+  const res = await fetch("/api/resume/analyze", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || "Failed to analyze resume.");
+  }
+
+  const result: AnalyzeResumeResponse = await res.json();
+  demoAnalysis = result.analysis;
+  return result;
+}
+
+export async function reEvaluateResumeText(
+  rawText: string,
+  fileName: string,
+  targetRole?: string,
+  jobDescription?: string
+): Promise<AnalyzeResumeResponse> {
+  const formData = new FormData();
+  formData.append("rawText", rawText);
+  formData.append("fileName", fileName);
+  if (targetRole) formData.append("targetRole", targetRole);
+  if (jobDescription) formData.append("jobDescription", jobDescription);
+
+  const res = await fetch("/api/resume/analyze", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || "Failed to re-evaluate resume.");
+  }
+
+  const result: AnalyzeResumeResponse = await res.json();
+  demoAnalysis = result.analysis;
+  return result;
+}
+
+export function setDemoAnalysis(analysis: ResumeAnalysis): void {
+  demoAnalysis = { ...analysis };
 }
 
 export async function updateTailorSuggestion(

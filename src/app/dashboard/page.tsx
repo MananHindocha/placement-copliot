@@ -6,7 +6,8 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import { getDashboardOverview, type DashboardOverview } from "@/lib/services/dashboard.service";
-import { getUserProfile, type UserProfile } from "@/lib/services/auth.service";
+import { STATS, ACTIVITIES, READINESS_DOMAINS } from "@/lib/mock-data";
+import { getUserProfile, DEMO_USER_PROFILE, type UserProfile } from "@/lib/services/auth.service";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
 import {
   ArrowRight,
@@ -42,28 +43,36 @@ const ACTIVITY_COLORS: Record<string, string> = {
 
 export default function DashboardPage() {
   const isDemo = getEffectiveDataMode() === "demo";
-  const [data, setData] = useState<DashboardOverview | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<DashboardOverview | null>(() => {
+    if (isDemo) {
+      return {
+        stats: [...STATS],
+        activities: [...ACTIVITIES],
+        readinessDomains: [...READINESS_DOMAINS],
+      };
+    }
+    return null;
+  });
+  const [profile, setProfile] = useState<UserProfile | null>(() => {
+    if (isDemo) {
+      return DEMO_USER_PROFILE;
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(!isDemo);
   const [error, setError] = useState<string | null>(null);
 
-  const [interviewDates, setInterviewDates] = useState({
+  const [interviewDates] = useState({
     date1: "Oct 26, 2026",
     date2: "Oct 28, 2026",
     date3: "Nov 02, 2026",
   });
 
   const loadData = () => {
-    setLoading(true);
+    if (!isDemo) setLoading(true);
     setError(null);
     Promise.all([getDashboardOverview(), getUserProfile()])
       .then(([overview, userProf]) => {
-        const now = Date.now();
-        setInterviewDates({
-          date1: new Date(now + 2 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          date2: new Date(now + 4 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          date3: new Date(now + 7 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        });
         setData(overview);
         setProfile(userProf);
         setLoading(false);
@@ -80,12 +89,6 @@ export default function DashboardPage() {
     Promise.all([getDashboardOverview(), getUserProfile()])
       .then(([overview, userProf]) => {
         if (!isMounted) return;
-        const now = Date.now();
-        setInterviewDates({
-          date1: new Date(now + 2 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          date2: new Date(now + 4 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          date3: new Date(now + 7 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        });
         setData(overview);
         setProfile(userProf);
         setLoading(false);
@@ -157,9 +160,46 @@ export default function DashboardPage() {
       </div>
 
       {loading && !data ? (
-        <div className="flex items-center justify-center py-20 text-slate-500 gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
-          <span className="text-sm">Loading dashboard metrics...</span>
+        <div className="space-y-6">
+          {/* Stats Skeletons */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="p-5 rounded-2xl bg-[#0B1120] border border-white/5 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="h-3 w-20 skeleton" />
+                  <div className="h-8 w-8 rounded-xl skeleton" />
+                </div>
+                <div className="h-7 w-28 skeleton" />
+                <div className="h-3 w-16 skeleton" />
+              </div>
+            ))}
+          </div>
+
+          {/* Main Grid Skeletons */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 p-5 rounded-2xl bg-[#0B1120] border border-white/5 space-y-4">
+              <div className="h-5 w-32 skeleton mb-2" />
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3 py-2">
+                  <div className="w-8 h-8 rounded-lg skeleton shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-3.5 w-3/4 skeleton" />
+                    <div className="h-2.5 w-1/3 skeleton" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-5 rounded-2xl bg-[#0B1120] border border-white/5 space-y-4">
+              <div className="h-5 w-28 skeleton" />
+              <div className="w-24 h-24 rounded-full skeleton mx-auto my-4" />
+              <div className="space-y-2">
+                <div className="h-3 w-full skeleton" />
+                <div className="h-3 w-5/6 skeleton" />
+                <div className="h-3 w-2/3 skeleton" />
+              </div>
+            </div>
+          </div>
         </div>
       ) : data ? (
         <>

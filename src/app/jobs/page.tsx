@@ -46,15 +46,19 @@ import {
   RotateCcw,
   Wifi,
   WifiOff,
+  AlertCircle,
+  HelpCircle,
+  ArrowRight,
+  Target,
 } from "lucide-react";
 import { clsx } from "clsx";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const TYPE_BADGE: Record<string, "indigo" | "emerald" | "amber" | "violet"> = {
   "Full-time": "indigo",
-  Internship: "emerald",
-  Contract: "amber",
+  Internship:  "emerald",
+  Contract:    "amber",
   "Part-time": "violet",
 };
 
@@ -72,28 +76,35 @@ const SCORE_BG = (score: number) =>
       : "bg-rose-500/10 border-rose-500/20";
 
 const FIT_BADGE: Record<string, "emerald" | "amber" | "rose" | "slate"> = {
-  "Strong Fit": "emerald",
-  "Good Fit": "amber",
+  "Strong Fit":  "emerald",
+  "Good Fit":    "amber",
   "Partial Fit": "slate",
-  "Low Fit": "rose",
+  "Low Fit":     "rose",
+};
+
+const DIMENSION_LABELS: Record<string, string> = {
+  skillAlignment: "Skills",
+  roleAlignment:  "Role Fit",
+  levelFit:       "Level Fit",
+  preferenceFit:  "Preferences",
 };
 
 const JOB_TYPES = ["Full-time", "Part-time", "Internship", "Contract", "Remote"];
 const EXPERIENCE_LEVELS = [
   { value: "fresher", label: "Fresher (0-1 yr)" },
-  { value: "junior", label: "Junior (1-3 yr)" },
-  { value: "mid", label: "Mid (3-5 yr)" },
-  { value: "senior", label: "Senior (5+ yr)" },
+  { value: "junior",  label: "Junior (1-3 yr)" },
+  { value: "mid",     label: "Mid (3-5 yr)" },
+  { value: "senior",  label: "Senior (5+ yr)" },
 ];
 const POSTED_OPTIONS = [
-  { value: "today", label: "Today" },
-  { value: "3days", label: "Last 3 days" },
-  { value: "week", label: "Last week" },
-  { value: "month", label: "Last month" },
-  { value: "any", label: "Any time" },
+  { value: "today",  label: "Today" },
+  { value: "3days",  label: "Last 3 days" },
+  { value: "week",   label: "Last week" },
+  { value: "month",  label: "Last month" },
+  { value: "any",    label: "Any time" },
 ];
 
-// ─── Collapsible Filter Section ──────────────────────────────────────────────
+// ─── Collapsible Filter Section ───────────────────────────────────────────────
 
 function FilterSection({
   title,
@@ -130,7 +141,210 @@ function FilterSection({
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ─── Score Dimension Row ──────────────────────────────────────────────────────
+
+function DimensionRow({ label, score }: { label: string; score: number }) {
+  const color = score >= 80 ? "emerald" : score >= 60 ? "amber" : "rose";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-slate-500 font-medium">{label}</span>
+        <span className={clsx("text-[10px] font-bold", SCORE_COLOR(score))}>{score}%</span>
+      </div>
+      <ProgressBar value={score} color={color} size="sm" label={label} />
+    </div>
+  );
+}
+
+// ─── Score Source Pill ────────────────────────────────────────────────────────
+
+function ScoreSourcePill({ source }: { source: "gemini" | "heuristic" }) {
+  if (source === "gemini") {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/10 text-violet-300 border border-violet-500/20">
+        <Sparkles className="w-2.5 h-2.5" />
+        AI Analysis
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
+      <Target className="w-2.5 h-2.5" />
+      Skill Analysis
+    </span>
+  );
+}
+
+// ─── Match Insight Panel (shown in detail pane) ───────────────────────────────
+
+function MatchInsightPanel({
+  match,
+  jobTitle,
+}: {
+  match: MatchResult;
+  jobTitle: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-xl bg-white/3 border border-white/5 overflow-hidden">
+      {/* Summary row — always visible */}
+      <div className="p-3 space-y-2">
+        {/* Fit label + source + reason */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={FIT_BADGE[match.fitLabel] ?? "slate"} size="sm">
+              <Zap className="w-3 h-3" />
+              {match.fitLabel}
+            </Badge>
+            <ScoreSourcePill source={match.scoreSource} />
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">{match.matchReason}</p>
+
+        {/* Score disclaimer */}
+        <p className="text-[10px] text-slate-600 italic">
+          Score reflects profile-to-job alignment, not a hiring probability.
+        </p>
+      </div>
+
+      {/* Quick skills row */}
+      <div className="px-3 pb-2 space-y-2">
+        {match.strengths.length > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">
+              Matching skills
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {match.strengths.map((s) => (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                >
+                  <CheckCircle className="w-2.5 h-2.5" />
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {match.missingSkills.length > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">
+              Skills to learn
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {match.missingSkills.map((s) => (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20"
+                >
+                  <XCircle className="w-2.5 h-2.5" />
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Expand / collapse toggle */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-center gap-1.5 py-2 border-t border-white/5 text-[10px] font-medium text-slate-500 hover:text-indigo-400 hover:bg-white/3 transition-colors"
+        aria-expanded={expanded}
+        aria-controls={`match-detail-${match.jobId}`}
+      >
+        {expanded ? (
+          <>
+            <ChevronUp className="w-3 h-3" />
+            Hide detailed breakdown
+          </>
+        ) : (
+          <>
+            <ChevronDown className="w-3 h-3" />
+            View full breakdown
+          </>
+        )}
+      </button>
+
+      {/* Expanded section — dimension scores + improvements + unknown reqs */}
+      {expanded && (
+        <div
+          id={`match-detail-${match.jobId}`}
+          className="border-t border-white/5 p-3 space-y-4"
+        >
+          {/* Dimension breakdown */}
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">
+              Score breakdown
+            </p>
+            <div className="space-y-2">
+              {Object.entries(match.dimensions).map(([key, value]) => (
+                <DimensionRow
+                  key={key}
+                  label={DIMENSION_LABELS[key] ?? key}
+                  score={value}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Improvement suggestions */}
+          {match.improvements.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">
+                How to strengthen your application
+              </p>
+              <ul className="space-y-2">
+                {match.improvements.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <ArrowRight className="w-3 h-3 text-indigo-400 mt-0.5 shrink-0" />
+                    <span className="text-xs text-slate-400 leading-relaxed">{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Unknown requirements */}
+          {match.unknownRequirements.length > 0 && (
+            <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/15">
+              <div className="flex items-start gap-2">
+                <HelpCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-semibold text-amber-300 mb-1">Cannot verify from profile</p>
+                  <ul className="space-y-0.5">
+                    {match.unknownRequirements.map((req, i) => (
+                      <li key={i} className="text-[10px] text-amber-400/70">{req}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Disclaimer */}
+          <div className="p-2 rounded-lg bg-slate-500/5 border border-slate-500/10">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                This analysis is based on available profile information and job description text.
+                It estimates profile-to-job alignment, not your probability of being selected.
+                Actual requirements may differ from what the description states.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function JobsPage() {
   // Core data
@@ -149,10 +363,10 @@ export default function JobsPage() {
   // Filters
   const [filters, setFilters] = useState<JobFilters>({ ...DEFAULT_FILTERS });
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
-  const userSkills = getUserSkills();
+  const [userSkills, setUserSkillsState] = useState<string[]>(() => getUserSkills());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── Active filter count ─────────────────────────────────────────────────
+  // ─── Active filter count ────────────────────────────────────────────────
 
   const activeFilterCount = (() => {
     let count = 0;
@@ -168,7 +382,7 @@ export default function JobsPage() {
     return count;
   })();
 
-  // ─── Load initial jobs ───────────────────────────────────────────────────
+  // ─── Load initial jobs ──────────────────────────────────────────────────
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -181,18 +395,43 @@ export default function JobsPage() {
         setSavedJobs(new Set(data.filter((j) => j.saved).map((j) => j.id)));
       }
       setDataSource("demo");
+
+      const skills = getUserSkills();
+      setUserSkillsState(skills);
+
+      // Score matches immediately on load using current filter.location as
+      // a preference signal — users often set location in filters
+      setScoring(true);
+      const scores = await scoreJobMatches(data, skills, "Frontend Developer", {
+        preferredLocation: "",
+        preferredTypes: [],
+      });
+      setMatchResults(scores);
+      setJobs((prev) =>
+        prev.map((j) => {
+          const match = scores.get(j.id);
+          return match ? { ...j, matchScore: match.matchScore } : j;
+        })
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load jobs.");
     } finally {
       setLoading(false);
+      setScoring(false);
     }
   }, []);
 
   useEffect(() => {
     loadJobs();
+
+    const handleSkillsUpdate = () => {
+      loadJobs();
+    };
+    window.addEventListener("placement_skills_updated", handleSkillsUpdate);
+    return () => window.removeEventListener("placement_skills_updated", handleSkillsUpdate);
   }, [loadJobs]);
 
-  // ─── Live search with debounce ───────────────────────────────────────────
+  // ─── Live search with debounce ──────────────────────────────────────────
 
   const handleLiveSearch = useCallback(
     (searchQuery: string, locationQuery: string) => {
@@ -209,12 +448,19 @@ export default function JobsPage() {
             setDataSource(result.source);
             setSelectedJob(result.jobs[0]);
 
-            // Score matches in background
+            // Re-score with location as a preference signal
+            const currentSkills = getUserSkills();
             setScoring(true);
-            const scores = await scoreJobMatches(result.jobs);
+            const scores = await scoreJobMatches(
+              result.jobs,
+              currentSkills,
+              "Frontend Developer",
+              {
+                preferredLocation: locationQuery,
+                preferredTypes:    filters.jobTypes,
+              }
+            );
             setMatchResults(scores);
-
-            // Apply scores to jobs
             setJobs((prev) =>
               prev.map((j) => {
                 const match = scores.get(j.id);
@@ -227,13 +473,14 @@ export default function JobsPage() {
           // Keep existing jobs on search failure
         } finally {
           setSearching(false);
+          setScoring(false);
         }
       }, 300);
     },
-    []
+    [filters.jobTypes]
   );
 
-  // ─── Update filter ───────────────────────────────────────────────────────
+  // ─── Update filter ──────────────────────────────────────────────────────
 
   const updateFilter = <K extends keyof JobFilters>(key: K, value: JobFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -269,7 +516,7 @@ export default function JobsPage() {
     });
   };
 
-  // ─── Toggle save ─────────────────────────────────────────────────────────
+  // ─── Toggle save ────────────────────────────────────────────────────────
 
   const toggleSave = async (id: string) => {
     const isCurrentlySaved = savedJobs.has(id);
@@ -304,18 +551,20 @@ export default function JobsPage() {
     }
   };
 
-  // ─── Apply all filters client-side ───────────────────────────────────────
+  // ─── Apply all filters client-side ─────────────────────────────────────
 
-  const filtered = applyFilters(jobs, filters);
+  // Sort by match score (descending) after filtering so best matches appear first
+  const filtered = applyFilters(jobs, filters).sort(
+    (a, b) => b.matchScore - a.matchScore
+  );
   const activeJob =
     selectedJob && filtered.some((j) => j.id === selectedJob.id)
       ? selectedJob
       : filtered[0] ?? null;
 
-  // Get match result for active job
   const activeMatchResult = activeJob ? matchResults.get(activeJob.id) : null;
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto">
@@ -393,16 +642,52 @@ export default function JobsPage() {
         </div>
       </div>
 
-      {/* Loading indicator */}
+      {/* Loading Skeleton */}
       {loading && jobs.length === 0 ? (
-        <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
-          <span className="text-sm">Loading job discovery catalog...</span>
+        <div className="flex gap-4">
+          <div className="w-[280px] shrink-0 p-4 rounded-2xl bg-[#0B1120] border border-white/5 space-y-4">
+            <div className="h-5 w-24 skeleton mb-2" />
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2 py-2">
+                <div className="h-3.5 w-20 skeleton" />
+                <div className="h-2.5 w-32 skeleton" />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex-1 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="p-4 rounded-2xl bg-[#0B1120] border border-white/5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl skeleton shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-4 w-48 skeleton" />
+                    <div className="h-3 w-28 skeleton" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-5 w-16 skeleton rounded-full" />
+                  <div className="h-5 w-20 skeleton rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="w-[420px] shrink-0 p-5 rounded-2xl bg-[#0B1120] border border-white/5 space-y-4 hidden xl:block">
+            <div className="h-6 w-48 skeleton" />
+            <div className="h-4 w-32 skeleton" />
+            <div className="h-24 w-full skeleton my-4" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-full skeleton" />
+              <div className="h-3.5 w-5/6 skeleton" />
+              <div className="h-3.5 w-4/6 skeleton" />
+            </div>
+          </div>
         </div>
       ) : (
         /* Main 3-column layout: Filter | List | Detail */
         <div className="flex gap-4">
-          {/* ─── LEFT: Filter Panel ─────────────────────────────────────── */}
+          {/* ─── LEFT: Filter Panel ──────────────────────────────────────── */}
           {filterPanelOpen && (
             <div className="w-[280px] shrink-0">
               <Card className="sticky top-0 max-h-[calc(100vh-160px)] overflow-y-auto scrollbar-thin">
@@ -620,14 +905,14 @@ export default function JobsPage() {
             </div>
           )}
 
-          {/* ─── CENTER: Job List ───────────────────────────────────────── */}
+          {/* ─── CENTER: Job List ─────────────────────────────────────────── */}
           <div className="flex-1 min-w-0 space-y-2">
             {/* AI Scoring indicator */}
             {scoring && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
                 <Zap className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
                 <span className="text-xs text-indigo-300">
-                  AI is analyzing match scores for your profile...
+                  Analysing profile-to-job alignment...
                 </span>
                 <Loader2 className="w-3 h-3 animate-spin text-indigo-400 ml-auto" />
               </div>
@@ -730,6 +1015,13 @@ export default function JobsPage() {
                           </Badge>
                         )}
 
+                        {/* Score source indicator (compact) */}
+                        {match?.scoreSource === "gemini" && (
+                          <span title="AI-scored">
+                            <Sparkles className="w-3 h-3 text-violet-400" />
+                          </span>
+                        )}
+
                         {/* Applied badge */}
                         {job.applied && (
                           <Badge variant="emerald" size="sm" dot>
@@ -738,7 +1030,7 @@ export default function JobsPage() {
                         )}
                       </div>
 
-                      {/* Skill tags (first 3) */}
+                      {/* Skill tags (first 4) — highlight if in filter selection */}
                       {job.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {job.tags.slice(0, 4).map((tag) => (
@@ -767,12 +1059,14 @@ export default function JobsPage() {
               );
             })}
 
-            {filtered.length === 0 && (
+            {filtered.length === 0 && !loading && (
               <div className="p-12 text-center bg-[#111827] border border-white/6 rounded-2xl">
                 <Globe className="w-10 h-10 text-slate-600 mx-auto mb-3" />
                 <p className="text-sm font-medium text-slate-400">No matching roles found</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Try broadening your search or clearing some filters.
+                  {jobs.length > 0
+                    ? "Your current filters removed all jobs. Try broadening your search."
+                    : "No jobs available. Check your connection or try a different search."}
                 </p>
                 {activeFilterCount > 0 && (
                   <button
@@ -788,7 +1082,7 @@ export default function JobsPage() {
             )}
           </div>
 
-          {/* ─── RIGHT: Job Detail Panel ────────────────────────────────── */}
+          {/* ─── RIGHT: Job Detail Panel ──────────────────────────────────── */}
           <div className="w-[420px] shrink-0 hidden lg:block">
             {activeJob ? (
               <Card className="sticky top-0 max-h-[calc(100vh-160px)] overflow-y-auto scrollbar-thin">
@@ -820,7 +1114,7 @@ export default function JobsPage() {
                 {/* Match score section */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-slate-400">Profile Match</span>
+                    <span className="text-xs font-medium text-slate-400">Profile Alignment</span>
                     <span className={clsx("text-sm font-bold", SCORE_COLOR(activeJob.matchScore))}>
                       {activeJob.matchScore}%
                     </span>
@@ -829,64 +1123,23 @@ export default function JobsPage() {
                     value={activeJob.matchScore}
                     color={SCORE_BAR(activeJob.matchScore)}
                     size="lg"
-                    label="Profile match score"
+                    label="Profile alignment score"
                   />
 
-                  {/* AI Match Insights */}
-                  {activeMatchResult && (
-                    <div className="mt-3 p-3 rounded-xl bg-white/3 border border-white/5 space-y-2.5">
-                      {/* Fit label + reason */}
-                      <div className="flex items-start gap-2">
-                        <Zap className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
-                        <div>
-                          <Badge variant={FIT_BADGE[activeMatchResult.fitLabel] ?? "slate"} size="sm">
-                            {activeMatchResult.fitLabel}
-                          </Badge>
-                          <p className="text-xs text-slate-400 mt-1">{activeMatchResult.matchReason}</p>
-                        </div>
-                      </div>
-
-                      {/* Matched skills */}
-                      {activeMatchResult.matchedSkills.length > 0 && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">
-                            Matched Skills
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {activeMatchResult.matchedSkills.map((s) => (
-                              <span
-                                key={s}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                              >
-                                <CheckCircle className="w-2.5 h-2.5" />
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Missing skills */}
-                      {activeMatchResult.missingSkills.length > 0 && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">
-                            Skills to Learn
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {activeMatchResult.missingSkills.map((s) => (
-                              <span
-                                key={s}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20"
-                              >
-                                <XCircle className="w-2.5 h-2.5" />
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                  {/* Enriched AI Match Insight panel */}
+                  {activeMatchResult ? (
+                    <div className="mt-3">
+                      <MatchInsightPanel
+                        match={activeMatchResult}
+                        jobTitle={activeJob.title}
+                      />
                     </div>
-                  )}
+                  ) : scoring ? (
+                    <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-white/3 border border-white/5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400 shrink-0" />
+                      <span className="text-xs text-slate-400">Analysing profile alignment...</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Tags */}

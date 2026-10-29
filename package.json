@@ -13,9 +13,11 @@
     "@supabase/supabase-js": "^2.118.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.60.0",
+    "mammoth": "^1.13.0",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "unpdf": "^2.0.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
