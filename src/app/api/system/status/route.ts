@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured, getEffectiveDataMode } from "@/lib/supabase/config";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET() {
   const isDbConfigured = isSupabaseConfigured();
   const dataMode = getEffectiveDataMode();
@@ -10,13 +13,14 @@ export async function GET() {
   const isGeminiConfigured = !!geminiKey && !geminiKey.includes("your_gemini");
   const isGroqConfigured = !!groqKey && !groqKey.includes("your_groq");
 
-  const adzunaId = process.env.ADZUNA_APP_ID;
-  const adzunaKey = process.env.ADZUNA_APP_KEY;
-  const isAdzunaConfigured =
-    !!adzunaId &&
-    !!adzunaKey &&
-    !adzunaId.includes("your_adzuna") &&
-    !adzunaKey.includes("your_adzuna");
+  const openwebninjaKey = process.env.OPENWEBNINJA_API_KEY;
+  const himalayasKey = process.env.HIMALAYAS_API_KEY;
+  const isOpenwebninjaConfigured =
+    !!openwebninjaKey &&
+    !openwebninjaKey.includes("your_openwebninja");
+  const isHimalayasConfigured =
+    !!himalayasKey &&
+    !himalayasKey.includes("your_himalayas");
 
   const pythonUrl = process.env.PYTHON_PARSER_URL || "http://127.0.0.1:8000";
   let isPythonParserOnline = false;
@@ -60,12 +64,16 @@ export async function GET() {
         : "Zero API Key Mode: Deterministic XYZ & keyword scoring active",
     },
     jobFeed: {
-      configured: isAdzunaConfigured,
-      adzunaActive: isAdzunaConfigured,
-      remotiveActive: true,
-      details: isAdzunaConfigured
-        ? "Live Adzuna Indian tech feed active"
-        : "Cascading Remotive global remote feed + local curated catalog",
+      configured: isOpenwebninjaConfigured || isHimalayasConfigured,
+      openwebninjaActive: isOpenwebninjaConfigured,
+      himalayasActive: isHimalayasConfigured,
+      details: isOpenwebninjaConfigured && isHimalayasConfigured
+        ? "OpenWeb Ninja (India/Global JSearch) + Himalayas Remote active"
+        : isOpenwebninjaConfigured
+        ? "OpenWeb Ninja (India/Global JSearch) active"
+        : isHimalayasConfigured
+        ? "Himalayas Remote Jobs API active"
+        : "Zero-Config Mode: Curated tech jobs catalog active",
     },
     pythonParser: {
       online: isPythonParserOnline,

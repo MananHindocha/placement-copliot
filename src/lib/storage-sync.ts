@@ -1,6 +1,6 @@
 "use client";
 
-import { KANBAN_CARDS, READINESS_MILESTONES, INTERVIEW_SESSIONS, ACTIVITIES, RESUME_ANALYSIS } from "@/lib/mock-data";
+import { KANBAN_CARDS, READINESS_MILESTONES, INTERVIEW_SESSIONS, ACTIVITIES } from "@/lib/mock-data";
 import type { KanbanCard, ReadinessMilestone, InterviewSession, Activity, ResumeAnalysis, ParsedResumeDocument } from "@/types";
 
 export const STORAGE_KEYS = {

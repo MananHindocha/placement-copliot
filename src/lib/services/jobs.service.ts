@@ -31,7 +31,11 @@ export interface JobSearchResponse {
   jobs: Job[];
   source: string;
   sources?: Record<string, { status: "ok" | "disabled" | "error"; message?: string; count: number }>;
-  pagination?: { jsearchNextCursor: string | null; himalayasNextPage: number | null };
+  pagination?: {
+    openwebninjaNextCursor?: string | null;
+    jsearchNextCursor?: string | null;
+    himalayasNextPage?: number | null;
+  };
 }
 
 export interface JobSearchOptions {
@@ -39,6 +43,7 @@ export interface JobSearchOptions {
   employment?: string;
   experience?: string;
   postedWithin?: string;
+  openwebninjaCursor?: string;
   jsearchCursor?: string;
   himalayasPage?: number;
 }
@@ -118,7 +123,9 @@ export async function searchJobs(
     if (options.employment) params.set("employment", options.employment);
     if (options.experience) params.set("experience", options.experience);
     if (options.postedWithin) params.set("postedWithin", options.postedWithin);
-    if (options.jsearchCursor) params.set("jsearchCursor", options.jsearchCursor);
+    if (options.openwebninjaCursor || options.jsearchCursor) {
+      params.set("openwebninjaCursor", options.openwebninjaCursor || options.jsearchCursor || "");
+    }
     if (options.himalayasPage) params.set("himalayasPage", String(options.himalayasPage));
     const res = await fetch(`/api/jobs/search?${params}`);
     if (!res.ok) throw new Error("Search API unavailable");

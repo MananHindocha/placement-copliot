@@ -39,6 +39,7 @@ import {
   type UserProfile,
 } from "@/lib/services/auth.service";
 import { clsx } from "clsx";
+import type { KanbanCard, ReadinessMilestone, ResumeAnalysis } from "@/types";
 
 const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
@@ -87,8 +88,8 @@ interface SystemStatusData {
   };
   jobFeed: {
     configured: boolean;
-    adzunaActive: boolean;
-    remotiveActive: boolean;
+    openwebninjaActive: boolean;
+    himalayasActive: boolean;
     details: string;
   };
   pythonParser: {
@@ -120,9 +121,9 @@ export default function Topbar() {
   const [unreadCount, setUnreadCount] = useState(2);
 
   // Cross-Module Data for Global Search & Alerts
-  const [apps, setApps] = useState<any[]>([]);
-  const [milestones, setMilestones] = useState<any[]>([]);
-  const [latestResume, setLatestResume] = useState<any | null>(null);
+  const [apps, setApps] = useState<KanbanCard[]>([]);
+  const [milestones, setMilestones] = useState<ReadinessMilestone[]>([]);
+  const [latestResume, setLatestResume] = useState<ResumeAnalysis | null>(null);
 
   const loadSearchAndAlertData = () => {
     try {
@@ -138,11 +139,14 @@ export default function Topbar() {
   };
 
   useEffect(() => {
-    loadSearchAndAlertData();
+    const timer = setTimeout(() => {
+      loadSearchAndAlertData();
+    }, 0);
     const handleUpdate = () => loadSearchAndAlertData();
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
@@ -539,31 +543,35 @@ export default function Topbar() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                     <Briefcase className="w-4 h-4 text-emerald-400" />
-                    Adzuna Jobs API
+                    OpenWeb Ninja + Himalayas APIs
                   </span>
-                  {statusData?.jobFeed.adzunaActive ? (
+                  {statusData?.jobFeed.openwebninjaActive && statusData?.jobFeed.himalayasActive ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                      <CheckCircle2 className="w-3 h-3" /> Connected
+                      <CheckCircle2 className="w-3 h-3" /> Both Active
+                    </span>
+                  ) : statusData?.jobFeed.openwebninjaActive ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                      <CheckCircle2 className="w-3 h-3" /> OpenWeb Ninja
+                    </span>
+                  ) : statusData?.jobFeed.himalayasActive ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                      <CheckCircle2 className="w-3 h-3" /> Himalayas
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                      ⚡ Remotive + Mock
+                      ⚡ Demo Catalog
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  {statusData?.jobFeed.adzunaActive
-                    ? "Live query support for Indian tech hubs (Bangalore, Hyderabad, etc.)."
-                    : "Free Remotive remote jobs + 20 curated Indian tech postings active."}
+                  {statusData?.jobFeed.details ||
+                    "OpenWeb Ninja (India/Global JSearch) + Himalayas Remote APIs active."}
                 </p>
-                <a
-                  href="https://developer.adzuna.com/signup"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
-                >
-                  Get free Adzuna developer account <ExternalLink className="w-2.5 h-2.5" />
-                </a>
+                <div className="flex items-center gap-4 text-[10px] text-indigo-400 font-semibold">
+                  <span>Primary: OpenWeb Ninja (JSearch)</span>
+                  <span>•</span>
+                  <span>Remote: Himalayas App</span>
+                </div>
               </div>
 
               {/* 4. Local Python Resume Parser */}

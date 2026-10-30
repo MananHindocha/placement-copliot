@@ -19,7 +19,6 @@ import {
   Sparkles,
   CalendarCheck,
   Clock,
-  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";

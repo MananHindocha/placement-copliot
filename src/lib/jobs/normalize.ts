@@ -10,9 +10,9 @@ import type {
 type JsonRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): JsonRecord =>
-  value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
-const asText = (value: unknown): string => typeof value === "string" ? value.trim() : "";
-const asArray = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
+  value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+const asText = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 export function cleanJobText(value: unknown): string {
   return asText(value)
@@ -56,8 +56,8 @@ function validDateOnly(value: unknown): string | null {
   return iso ? iso.slice(0, 10) : null;
 }
 
-function getArrangement(source: JobProviderSource, value: string): WorkArrangement {
-  if (source === "remotive") return "remote";
+function getArrangement(value: string, isRemote?: boolean): WorkArrangement {
+  if (isRemote === true) return "remote";
   const text = value.toLowerCase();
   if (/\b(remote|work from home|work-from-home|wfh|fully distributed)\b/.test(text)) return "remote";
   if (/\b(hybrid|flexible hybrid)\b/.test(text)) return "hybrid";
@@ -68,8 +68,13 @@ function getArrangement(source: JobProviderSource, value: string): WorkArrangeme
 function getExperience(title: string, text: string, employmentType: string | null): JobExperienceLevel {
   const value = `${title} ${employmentType || ""} ${text}`.toLowerCase();
   if (/\bintern(ship)?\b/.test(value)) return "internship";
-  if (/\b(fresher|new grad(?:uate)?|recent grad(?:uate)?|graduate engineer|graduate program(?:me)?)\b/.test(value) || /\bgraduate\b/.test(title.toLowerCase())) return "fresher";
-  if (/\b(entry[ -]?level|junior|early career|0\s*[-–]\s*1 years?|0\s*to\s*1 years?)\b/.test(value)) return "entry";
+  if (
+    /\b(fresher|new grad(?:uate)?|recent grad(?:uate)?|graduate engineer|graduate program(?:me)?)\b/.test(value) ||
+    /\bgraduate\b/.test(title.toLowerCase())
+  )
+    return "fresher";
+  if (/\b(entry[ -]?level|junior|early career|0\s*[-–]\s*1 years?|0\s*to\s*1 years?)\b/.test(value))
+    return "entry";
   if (/\b(senior|staff|principal|lead)\b/.test(title.toLowerCase())) return "senior";
   if (/\b(mid[ -]?level|3\s*[-–]\s*5 years?)\b/.test(value)) return "mid";
   return "unspecified";
@@ -96,31 +101,77 @@ function relativeDate(iso: string | null): string {
 
 function tagsFrom(record: JsonRecord, description: string, title: string): string[] {
   const supplied = asArray(record.tags ?? record.skills_required ?? record.skills)
-    .map((item) => typeof item === "string" ? item.trim() : asText(asRecord(item).name))
+    .map((item) => (typeof item === "string" ? item.trim() : asText(asRecord(item).name)))
     .filter(Boolean);
-  const extracted = ["JavaScript", "TypeScript", "React", "Node.js", "Python", "Java", "Go", "SQL", "PostgreSQL", "MongoDB", "AWS", "Docker", "Kubernetes", "REST APIs", "Machine Learning"]
-    .filter((skill) => `${title} ${description}`.toLowerCase().includes(skill.toLowerCase()));
+  const extracted = [
+    "JavaScript",
+    "TypeScript",
+    "React",
+    "Next.js",
+    "Node.js",
+    "Python",
+    "Java",
+    "Go",
+    "SQL",
+    "PostgreSQL",
+    "MongoDB",
+    "AWS",
+    "Docker",
+    "Kubernetes",
+    "REST APIs",
+    "GraphQL",
+    "Tailwind CSS",
+    "Machine Learning",
+  ].filter((skill) => `${title} ${description}`.toLowerCase().includes(skill.toLowerCase()));
   return Array.from(new Set([...supplied, ...extracted])).slice(0, 12);
 }
 
-function salaryRange(record: JsonRecord): { text: string | null; currency: string | null; minLpa: number | null; maxLpa: number | null } {
+function salaryRange(record: JsonRecord): {
+  text: string | null;
+  currency: string | null;
+  minLpa: number | null;
+  maxLpa: number | null;
+} {
   const salary = record.salary;
-  if (typeof salary === "string" && salary.trim()) return { text: salary.trim(), currency: null, minLpa: null, maxLpa: null };
+  if (typeof salary === "string" && salary.trim())
+    return { text: salary.trim(), currency: null, minLpa: null, maxLpa: null };
   const currency = asText(record.salary_currency ?? record.salaryCurrency) || null;
   const min = typeof record.salary_min === "number" ? record.salary_min : null;
   const max = typeof record.salary_max === "number" ? record.salary_max : null;
   if (min === null && max === null) return { text: null, currency, minLpa: null, maxLpa: null };
-  const amount = (n: number) => currency === "INR" ? `₹${n.toLocaleString("en-IN")}` : `${currency ? `${currency} ` : ""}${n.toLocaleString("en-US")}`;
-  const text = min !== null && max !== null ? `${amount(min)} – ${amount(max)}` : min !== null ? `${amount(min)}+` : `Up to ${amount(max!)}`;
+  const amount = (n: number) =>
+    currency === "INR" ? `₹${n.toLocaleString("en-IN")}` : `${currency ? `${currency} ` : ""}${n.toLocaleString("en-US")}`;
+  const text =
+    min !== null && max !== null
+      ? `${amount(min)} – ${amount(max)}`
+      : min !== null
+      ? `${amount(min)}+`
+      : `Up to ${amount(max!)}`;
   const period = asText(record.salary_period ?? record.salary_unit).toLowerCase();
   const annual = ["year", "yearly", "annual", "annually", "lpa"].some((unit) => period.includes(unit));
-  return { text, currency, minLpa: annual && currency === "INR" && min !== null ? min / 100_000 : null, maxLpa: annual && currency === "INR" && max !== null ? max / 100_000 : null };
+  return {
+    text,
+    currency,
+    minLpa: annual && currency === "INR" && min !== null ? min / 100_000 : null,
+    maxLpa: annual && currency === "INR" && max !== null ? max / 100_000 : null,
+  };
 }
 
 function makeListing(input: {
-  source: JobProviderSource; externalId: string; title: string; company: string; location: string;
-  description: unknown; employmentType?: unknown; postedAt?: unknown; url?: unknown; sourceUrl?: unknown;
-  logo?: unknown; tags?: unknown; record?: JsonRecord; attributionLabel: string;
+  source: JobProviderSource;
+  externalId: string;
+  title: string;
+  company: string;
+  location: string;
+  description: unknown;
+  employmentType?: unknown;
+  postedAt?: unknown;
+  url?: unknown;
+  sourceUrl?: unknown;
+  logo?: unknown;
+  tags?: unknown;
+  record?: JsonRecord;
+  attributionLabel: string;
 }): NormalizedJobListing {
   const record = input.record || {};
   const title = cleanJobText(input.title) || "Untitled role";
@@ -135,137 +186,285 @@ function makeListing(input: {
   const salary = salaryRange(record);
   const arrangementText = `${asText(record.work_model)} ${location} ${description}`;
   const externalId = input.externalId || title;
-  const id = input.source === "greenhouse"
-    ? `greenhouse:${asText(record.board_token) || "board"}:${externalId}`
-    : `${input.source}:${externalId}`;
+  const id = `${input.source}:${externalId}`;
   const applyUrl = normalizedUrl(record.apply_url ?? record.application_url ?? input.url);
   const sourceUrl = normalizedUrl(input.sourceUrl ?? input.url);
+
   return {
-    id, source: input.source, externalId, isDemo: input.source === "demo", title, company,
-    companyLogo: normalizedUrl(input.logo), location,
-    workArrangement: getArrangement(input.source, arrangementText),
-    employmentType, experienceLevel: getExperience(title, `${description} ${asText(record.experience_level)}`, employmentType),
-    skills, salaryRange: salary.text, salaryMinLpa: salary.minLpa, salaryMaxLpa: salary.maxLpa,
-    salaryCurrency: salary.currency, postedAt, postedDateLabel: relativeDate(postedAt),
-    closingDate, deadlineProvenance: closingDate ? "verified_source" as DeadlineProvenance : "unknown" as DeadlineProvenance,
-    applyUrl, sourceUrl, attributionLabel: input.attributionLabel, retrievedAt: new Date().toISOString(),
-    type: getLegacyType(employmentType), salary: salary.text || "Not disclosed", matchScore: 0,
-    posted: relativeDate(postedAt), tags: skills, logo: company.slice(0, 1).toUpperCase(),
-    saved: false, applied: false, description: description.slice(0, 20_000),
+    id,
+    source: input.source,
+    externalId,
+    isDemo: input.source === "demo",
+    title,
+    company,
+    companyLogo: normalizedUrl(input.logo),
+    location,
+    workArrangement: getArrangement(arrangementText, record.job_is_remote === true),
+    employmentType,
+    experienceLevel: getExperience(
+      title,
+      `${description} ${asText(record.experience_level)}`,
+      employmentType
+    ),
+    skills,
+    salaryRange: salary.text,
+    salaryMinLpa: salary.minLpa,
+    salaryMaxLpa: salary.maxLpa,
+    salaryCurrency: salary.currency,
+    postedAt,
+    postedDateLabel: relativeDate(postedAt),
+    closingDate,
+    deadlineProvenance: closingDate
+      ? ("verified_source" as DeadlineProvenance)
+      : ("unknown" as DeadlineProvenance),
+    applyUrl,
+    sourceUrl,
+    attributionLabel: input.attributionLabel,
+    retrievedAt: new Date().toISOString(),
+    type: getLegacyType(employmentType),
+    salary: salary.text || "Not disclosed",
+    matchScore: 0,
+    posted: relativeDate(postedAt),
+    tags: skills,
+    logo: company.slice(0, 1).toUpperCase(),
+    saved: false,
+    applied: false,
+    description: description.slice(0, 20_000),
   };
 }
 
-export function normalizeJobvetta(value: unknown): NormalizedJobListing | null {
+/**
+ * Normalizes an OpenWeb Ninja / JSearch job item.
+ */
+export function normalizeOpenWebNinja(value: unknown): NormalizedJobListing | null {
   const record = asRecord(value);
-  const title = asText(record.title);
-  const externalId = asText(record.job_id);
-  if (!title || !externalId) return null;
-  const company = asText(record.company) || "Unknown company";
-  return makeListing({ source: "jobvetta", externalId, title, company, location: asText(record.location),
-    description: record.description, employmentType: record.employment_type, postedAt: record.created_at,
-    url: record.apply_url, sourceUrl: record.url, logo: record.company_logo, record,
-    attributionLabel: "Jobvetta" });
-}
+  const title = asText(record.job_title || record.title) || "Software Engineer";
+  const externalId = String(record.job_id || record.id || "");
+  if (!externalId) return null;
 
-export function normalizeGreenhouse(value: unknown, boardToken: string): NormalizedJobListing | null {
-  const record = asRecord(value);
-  const title = asText(record.title);
-  const externalId = String(record.id ?? "");
-  if (!title || !externalId) return null;
-  const location = asText(asRecord(record.location).name) || asArray(record.offices).map((office) => asText(asRecord(office).location)).filter(Boolean).join("; ");
-  const company = asText(record.company_name) || cleanJobText(boardToken).replace(/[-_]/g, " ");
-  const content = record.content;
-  return makeListing({ source: "greenhouse", externalId, title, company, location, description: content,
-    employmentType: record.employment_type, postedAt: record.first_published ?? record.updated_at,
-    url: record.absolute_url, sourceUrl: record.absolute_url, tags: [], record: { ...record, board_token: boardToken },
-    attributionLabel: `Greenhouse Direct (${company})` });
-}
-
-export function normalizeRemotive(value: unknown): NormalizedJobListing | null {
-  const record = asRecord(value);
-  const title = asText(record.title);
-  const externalId = String(record.id ?? "");
-  if (!title || !externalId) return null;
-  return makeListing({ source: "remotive", externalId, title, company: asText(record.company_name),
-    location: asText(record.candidate_required_location) || "Remote", description: record.description,
-    employmentType: record.job_type, postedAt: record.publication_date, url: record.url, sourceUrl: record.url,
-    logo: record.company_logo_url ?? record.company_logo, tags: record.tags, record,
-    attributionLabel: "Remotive" });
-}
-
-export function normalizeJSearch(value: unknown): NormalizedJobListing | null {
-  const record = asRecord(value);
-  const title = asText(record.job_title);
-  const externalId = asText(record.job_id);
-  if (!title || !externalId) return null;
-  const company = asText(record.employer_name) || "Unknown company";
+  const company = asText(record.employer_name || record.company_name) || "Tech Employer";
   const locationParts = [record.job_city, record.job_state, record.job_country].map(asText).filter(Boolean);
-  const location = asText(record.job_location) || Array.from(new Set(locationParts)).join(", ");
-  const employmentType = asText(record.job_employment_type) || asText(asArray(record.job_employment_types)[0]) || null;
-  const description = [record.job_description, ...asArray(asRecord(record.job_highlights).Qualifications)]
-    .map(asText).filter(Boolean).join(" ");
-  const job = makeListing({ source: "jsearch", externalId, title, company, location, description,
-    employmentType, postedAt: record.job_posted_at_datetime_utc ?? record.job_posted_at_timestamp,
-    url: record.job_apply_link, sourceUrl: record.job_google_link || record.job_apply_link,
-    logo: record.employer_logo, tags: record.job_required_skills, record: {
+  const location = record.job_is_remote === true
+    ? "Remote"
+    : asText(record.job_location) || Array.from(new Set(locationParts)).join(", ") || "India";
+
+  const rawEmp =
+    asText(record.job_employment_type) ||
+    asText(asArray(record.job_employment_types)[0]) ||
+    asText(record.employment_type);
+  const empUpper = rawEmp.toUpperCase();
+  const employmentType =
+    empUpper === "INTERN" || empUpper === "INTERNSHIP"
+      ? "Internship"
+      : empUpper === "FULLTIME" || empUpper === "FULL_TIME"
+      ? "Full-time"
+      : empUpper === "PARTTIME" || empUpper === "PART_TIME"
+      ? "Part-time"
+      : empUpper === "CONTRACTOR" || empUpper === "CONTRACT"
+      ? "Contract"
+      : rawEmp || null;
+
+  const description = [
+    record.job_description || record.description,
+    ...asArray(asRecord(record.job_highlights).Qualifications),
+    ...asArray(asRecord(record.job_highlights).Responsibilities),
+  ]
+    .map(asText)
+    .filter(Boolean)
+    .join(" ");
+
+  const applyUrl =
+    normalizedUrl(record.job_apply_link) ||
+    normalizedUrl(asRecord(asArray(record.apply_options)[0]).apply_link);
+  const sourceUrl = normalizedUrl(record.job_google_link || record.job_apply_link);
+
+  const postedAt =
+    validIso(record.job_posted_at_datetime_utc) ||
+    (record.job_posted_at_timestamp
+      ? new Date(Number(record.job_posted_at_timestamp) * 1000).toISOString()
+      : null);
+
+  const rawClosing = record.job_offer_expiration_datetime_utc;
+  const rawClosingTs = record.job_offer_expiration_timestamp;
+  const closingDate =
+    validDateOnly(rawClosing) ||
+    (rawClosingTs ? new Date(Number(rawClosingTs) * 1000).toISOString().slice(0, 10) : null);
+
+  const job = makeListing({
+    source: "openwebninja",
+    externalId,
+    title,
+    company,
+    location,
+    description,
+    employmentType,
+    postedAt,
+    url: applyUrl,
+    sourceUrl,
+    logo: record.employer_logo || record.company_logo,
+    tags: record.job_required_skills,
+    record: {
       ...record,
       salary: record.job_salary_string,
       salary_min: record.job_min_salary,
       salary_max: record.job_max_salary,
       salary_currency: record.job_salary_currency ?? record.job_salary_currency_code,
       salary_period: record.job_salary_period,
-      application_deadline: record.job_offer_expiration_datetime_utc ?? record.job_offer_expiration_timestamp,
-    }, attributionLabel: `JSearch${record.job_publisher ? ` · ${asText(record.job_publisher)}` : ""}` });
-  if (record.job_is_remote === true) job.workArrangement = "remote";
+      application_deadline: closingDate,
+    },
+    attributionLabel: `OpenWeb Ninja (JSearch)${record.job_publisher ? ` · ${asText(record.job_publisher)}` : ""}`,
+  });
+
+  if (
+    record.job_is_remote === true ||
+    /\b(remote|work from home|wfh)\b/i.test(`${title} ${location}`)
+  ) {
+    job.workArrangement = "remote";
+  } else {
+    const descLower = `${title} ${description} ${location}`.toLowerCase();
+    if (/\bhybrid\b/i.test(descLower)) {
+      job.workArrangement = "hybrid";
+    } else if (/\b(on-site|onsite|in-office|work from office|wfo)\b/i.test(descLower)) {
+      job.workArrangement = "onsite";
+    } else {
+      job.workArrangement = "unspecified";
+    }
+  }
+
+  if (closingDate) {
+    job.closingDate = closingDate;
+    job.deadlineProvenance = "verified_source";
+  }
+
   return job;
 }
 
 const INDIA_NAMES = new Set(["in", "india", "ind"]);
+
+/**
+ * Normalizes a Himalayas Remote Jobs API item.
+ */
 export function normalizeHimalayas(value: unknown, country?: string): NormalizedJobListing | null {
   const record = asRecord(value);
   const title = asText(record.title);
-  const guid = asText(record.guid);
+  const guid = asText(record.guid || record.slug || record.id);
   if (!title || !guid) return null;
+
+  // Drop expired jobs where item.expiryDate && item.expiryDate * 1000 < Date.now()
   const expiry = typeof record.expiryDate === "number" ? record.expiryDate : Number(record.expiryDate);
   if (Number.isFinite(expiry) && expiry > 0 && expiry * 1000 < Date.now()) return null;
+
   const restrictions = asArray(record.locationRestrictions).map((item) => asText(item).toLowerCase());
   const zones = asArray(record.timezoneRestrictions).map((item) => asText(item).toLowerCase());
   const wantsIndia = country?.toLowerCase() === "in" || country?.toLowerCase() === "india";
-  if (wantsIndia && restrictions.length && !restrictions.some((item) => INDIA_NAMES.has(item) || item === "in")) return null;
-  if (wantsIndia && zones.length && !zones.some((zone) => zone.includes("+05:30") || zone === "5.5" || zone === "330")) return null;
+  if (wantsIndia && restrictions.length && !restrictions.some((item) => INDIA_NAMES.has(item) || item === "in"))
+    return null;
+  if (
+    wantsIndia &&
+    zones.length &&
+    !zones.some((zone) => zone.includes("+05:30") || zone === "5.5" || zone === "330")
+  )
+    return null;
+
   const company = asText(record.companyName) || "Unknown company";
-  const countryLabels = restrictions.map((item) => item === "in" ? "India" : item === "us" ? "United States" : item === "gb" ? "United Kingdom" : item.toUpperCase());
-  const location = restrictions.length
-    ? `Remote (${countryLabels.join(", ")})`
-    : zones.length ? "Remote (timezone restricted)" : "Remote (Worldwide)";
+  const countryLabels = restrictions.map((item) =>
+    item === "in" ? "India" : item === "us" ? "United States" : item === "gb" ? "United Kingdom" : item.toUpperCase()
+  );
+  const location =
+    Array.isArray(record.locationRestrictions) && record.locationRestrictions.length > 0
+      ? `Remote (${countryLabels.join(", ")})`
+      : zones.length
+      ? "Remote (timezone restricted)"
+      : "Remote (Worldwide)";
+
+  const cleanDesc = cleanJobText(record.description || record.excerpt || "");
   const min = typeof record.minSalary === "number" ? record.minSalary : null;
   const max = typeof record.maxSalary === "number" ? record.maxSalary : null;
   const currency = asText(record.currency) || null;
-  const salary = min === null && max === null ? null : `${currency ? `${currency} ` : ""}${min?.toLocaleString() ?? ""}${min !== null && max !== null ? " – " : ""}${max?.toLocaleString() ?? (min !== null ? "+" : "")}${record.salaryPeriod ? ` / ${asText(record.salaryPeriod)}` : ""}`;
-  const sourceUrl = normalizedUrl(record.url) || "https://himalayas.app";
-  const job = makeListing({ source: "himalayas", externalId: guid, title, company, location,
-    description: record.description ?? record.excerpt, employmentType: record.employmentType,
-    postedAt: record.pubDate, url: record.applicationLink, sourceUrl, logo: record.companyLogo,
-    tags: record.categories, record: { ...record, salary }, attributionLabel: "Himalayas" });
+  const salary =
+    min === null && max === null
+      ? "Not disclosed"
+      : `${currency ? `${currency} ` : ""}${min?.toLocaleString() ?? ""}${min !== null && max !== null ? " – " : ""}${max?.toLocaleString() ?? (min !== null ? "+" : "")}${record.salaryPeriod ? ` / ${asText(record.salaryPeriod)}` : ""}`;
+
+  const sourceUrl = normalizedUrl(record.guid || record.url) || "https://himalayas.app";
+  const applyUrl = normalizedUrl(record.applicationLink || record.guid);
+  const postedAt =
+    typeof record.pubDate === "number"
+      ? new Date(record.pubDate * 1000).toISOString()
+      : validIso(record.pubDate);
+  const closingDate =
+    Number.isFinite(expiry) && expiry > 0 ? new Date(expiry * 1000).toISOString().slice(0, 10) : null;
+
+  const job = makeListing({
+    source: "himalayas",
+    externalId: guid,
+    title,
+    company,
+    location,
+    description: cleanDesc,
+    employmentType: asText(record.employmentType) || null,
+    postedAt,
+    url: applyUrl,
+    sourceUrl,
+    logo: record.companyLogo,
+    tags: record.categories,
+    record: {
+      ...record,
+      salary,
+      application_deadline: closingDate,
+    },
+    attributionLabel: "Himalayas Remote",
+  });
+
   job.id = `himalayas:${guid}`;
   job.workArrangement = "remote";
-  job.experienceLevel = asText(record.seniority).toLowerCase().includes("entry") ? "entry"
-    : asText(record.seniority).toLowerCase().includes("senior") ? "senior"
-      : asText(record.seniority).toLowerCase().includes("mid") ? "mid" : "unspecified";
+  job.experienceLevel = asText(record.seniority).toLowerCase().includes("entry")
+    ? "entry"
+    : asText(record.seniority).toLowerCase().includes("senior")
+    ? "senior"
+    : asText(record.seniority).toLowerCase().includes("mid")
+    ? "mid"
+    : "unspecified";
+
+  if (closingDate) {
+    job.closingDate = closingDate;
+    job.deadlineProvenance = "verified_source";
+  }
+
   return job;
 }
 
 export function normalizeDemoJob(job: Job): NormalizedJobListing {
-  const listing = makeListing({ source: "demo", externalId: job.id, title: job.title, company: job.company,
-    location: job.location, description: job.description, employmentType: job.type, postedAt: null,
-    tags: job.tags, attributionLabel: "Demo data" });
-  return { ...listing, id: job.id, matchScore: job.matchScore, posted: job.posted, saved: job.saved, applied: job.applied,
-    salary: job.salary, logo: job.logo, tags: job.tags };
+  const listing = makeListing({
+    source: "demo",
+    externalId: job.id,
+    title: job.title,
+    company: job.company,
+    location: job.location,
+    description: job.description,
+    employmentType: job.type,
+    postedAt: null,
+    tags: job.tags,
+    attributionLabel: "Demo Catalog",
+  });
+  return {
+    ...listing,
+    id: job.id,
+    matchScore: job.matchScore,
+    posted: job.posted,
+    saved: job.saved,
+    applied: job.applied,
+    salary: job.salary,
+    logo: job.logo,
+    tags: job.tags,
+  };
 }
 
 export function matchesJobSearch(job: NormalizedJobListing, query: string, location: string): boolean {
   const text = `${job.title} ${job.company} ${job.description} ${job.skills.join(" ")} ${job.employmentType || ""} ${job.experienceLevel} ${job.workArrangement}`.toLowerCase();
   const place = `${job.location} ${job.workArrangement}`.toLowerCase();
-  return (!query || query.toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.includes(term))) &&
-    (!location || location.toLowerCase().split(/\s+/).filter(Boolean).every((term) => place.includes(term)));
+  return (
+    (!query || query.toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.includes(term))) &&
+    (!location || location.toLowerCase().split(/\s+/).filter(Boolean).every((term) => place.includes(term)))
+  );
 }

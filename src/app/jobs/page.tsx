@@ -372,7 +372,11 @@ export default function JobsPage() {
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [dataSource, setDataSource] = useState<string>("demo");
-  const [pagination, setPagination] = useState<{ jsearchNextCursor: string | null; himalayasNextPage: number | null }>({ jsearchNextCursor: null, himalayasNextPage: null });
+  const [pagination, setPagination] = useState<{
+    openwebninjaNextCursor?: string | null;
+    jsearchNextCursor?: string | null;
+    himalayasNextPage?: number | null;
+  }>({ openwebninjaNextCursor: null, jsearchNextCursor: null, himalayasNextPage: null });
 
   // Match scoring
   const [matchResults, setMatchResults] = useState<Map<string, MatchResult>>(new Map());
@@ -564,7 +568,8 @@ export default function JobsPage() {
   };
 
   const loadMoreJobs = async () => {
-    if (!pagination.jsearchNextCursor && !pagination.himalayasNextPage) return;
+    const nextCursor = pagination.openwebninjaNextCursor || pagination.jsearchNextCursor;
+    if (!nextCursor && !pagination.himalayasNextPage) return;
     setSearching(true);
     try {
       const result = await searchJobs(filters.search, filters.location, {
@@ -572,7 +577,8 @@ export default function JobsPage() {
         employment: filters.jobTypes[0],
         experience: filters.experienceLevel,
         postedWithin: filters.postedWithin,
-        jsearchCursor: pagination.jsearchNextCursor || undefined,
+        openwebninjaCursor: nextCursor || undefined,
+        jsearchCursor: nextCursor || undefined,
         himalayasPage: pagination.himalayasNextPage || undefined,
       });
       const warnings = Object.entries(result.sources || {}).filter(([, status]) => status.status !== "ok")
@@ -754,7 +760,12 @@ export default function JobsPage() {
             ) : (
               <Wifi className="w-3 h-3" />
             )}
-            {dataSource === "demo" ? "Demo Data" : `Live · ${dataSource}`}
+            {dataSource === "demo"
+              ? "Demo Catalog"
+              : `Live · ${dataSource
+                  .split(",")
+                  .map((s) => (s === "openwebninja" ? "OpenWeb Ninja" : s === "himalayas" ? "Himalayas" : s))
+                  .join(" + ")}`}
           </div>
 
           {/* Results count */}
@@ -1095,9 +1106,34 @@ export default function JobsPage() {
                             {job.title}
                           </p>
                           <p className="text-xs text-slate-400 mt-0.5">{job.company}</p>
-                          {job.attributionLabel && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">Source: {job.attributionLabel}</p>
-                          )}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span
+                              className={clsx(
+                                "px-2 py-0.5 rounded-full text-[10px] font-semibold border inline-flex items-center gap-1",
+                                job.source === "openwebninja"
+                                  ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"
+                                  : job.source === "himalayas"
+                                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
+                                  : "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                              )}
+                            >
+                              <span
+                                className={clsx(
+                                  "w-1.5 h-1.5 rounded-full",
+                                  job.source === "openwebninja"
+                                    ? "bg-indigo-400"
+                                    : job.source === "himalayas"
+                                    ? "bg-emerald-400"
+                                    : "bg-amber-400"
+                                )}
+                              />
+                              {job.source === "openwebninja"
+                                ? "OpenWeb Ninja (JSearch)"
+                                : job.source === "himalayas"
+                                ? "Himalayas Remote"
+                                : "Demo Catalog"}
+                            </span>
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -1224,7 +1260,7 @@ export default function JobsPage() {
                 )}
               </div>
             )}
-            {(pagination.jsearchNextCursor || pagination.himalayasNextPage) && (
+            {(pagination.openwebninjaNextCursor || pagination.jsearchNextCursor || pagination.himalayasNextPage) && (
               <Button variant="secondary" size="md" className="w-full" onClick={loadMoreJobs} disabled={searching}>
                 {searching ? "Loading more…" : "Load More Jobs"}
               </Button>

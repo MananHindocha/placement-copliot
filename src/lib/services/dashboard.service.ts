@@ -198,16 +198,28 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       .eq("completed", true),
   ]);
 
-  const apps = (appsRes.data || []) as any[];
-  const totalApps = apps.length;
-  const appliedCount = apps.filter((c: any) => c.status === "Applied").length;
-  const interviewStageCount = apps.filter((c: any) => ["Phone Screen", "Interview"].includes(c.status)).length;
-  const scheduledInterviews = apps.filter((c: any) => ["Phone Screen", "Interview"].includes(c.status) || !!c.next_step_date);
+  type AppRow = {
+    id: string;
+    company: string;
+    title: string;
+    status: string;
+    next_step?: string | null;
+    next_step_date?: string | null;
+    logo?: string | null;
+    application_url?: string | null;
+  };
+  type InterviewRow = { score?: number | null };
 
-  const interviewSessions = (interviewsRes.data || []) as any[];
+  const apps = (appsRes.data || []) as AppRow[];
+  const totalApps = apps.length;
+  const appliedCount = apps.filter((c) => c.status === "Applied").length;
+  const interviewStageCount = apps.filter((c) => ["Phone Screen", "Interview"].includes(c.status)).length;
+  const scheduledInterviews = apps.filter((c) => ["Phone Screen", "Interview"].includes(c.status) || !!c.next_step_date);
+
+  const interviewSessions = (interviewsRes.data || []) as InterviewRow[];
   const avgInterviewScore =
     interviewSessions.length > 0
-      ? Math.round(interviewSessions.reduce((s: number, i: any) => s + (i.score || 0), 0) / interviewSessions.length)
+      ? Math.round(interviewSessions.reduce((s, i) => s + (i.score || 0), 0) / interviewSessions.length)
       : 75;
 
   const latestResume = resumeRes.data?.[0];
@@ -260,7 +272,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     },
   ];
 
-  const upcomingInterviews: UpcomingInterviewItem[] = scheduledInterviews.map((c: any) => ({
+  const upcomingInterviews: UpcomingInterviewItem[] = scheduledInterviews.map((c) => ({
     id: c.id,
     company: c.company,
     role: c.title,
@@ -268,7 +280,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     date: c.next_step_date || "Upcoming",
     time: "Scheduled",
     logo: c.logo || c.company.slice(0, 2).toUpperCase(),
-    url: c.application_url,
+    url: c.application_url || undefined,
   }));
 
   return {

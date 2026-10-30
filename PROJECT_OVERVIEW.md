@@ -56,8 +56,8 @@ Defined in `src/lib/supabase/config.ts` and project root:
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `string` | Client & Server | Supabase public anon/publishable key for browser clients. |
 | `NEXT_PUBLIC_DATA_MODE` | `"demo" \| "live"` | Client & Server | Explicit data mode toggle. If unset or invalid credentials, defaults to `"demo"`. |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | `string` | Server only | Optional Gemini API key. When present, enables real-time LLM job matching. |
-| `ADZUNA_APP_ID` | `string` | Server only | Optional Adzuna Job Search App ID for live job queries. |
-| `ADZUNA_APP_KEY` | `string` | Server only | Optional Adzuna Job Search API Key. |
+| `OPENWEBNINJA_API_KEY` | `string` | Server only | Primary OpenWeb Ninja JSearch API key for Indian & global tech jobs. |
+| `HIMALAYAS_API_KEY` | `string` | Server only | Supplementary Himalayas API key for remote & worldwide tech roles. |
 
 ---
 
@@ -244,14 +244,14 @@ Defined in `supabase/migrations/20261021000000_initial_schema.sql` and mirrored 
   - `location: string` (geographic query)
   - `country: string` (defaults to `"in"`)
   - `mode: "demo" | "live"`
-- **Output:** `{ jobs: Job[], source: "adzuna" | "remotive" | "demo" | "supabase", total: number }`
+- **Output:** `{ jobs: Job[], source: "openwebninja" | "himalayas" | "demo", total: number }`
 - **Internal Variables & Helpers:**
   - `timeAgo(dateStr)`: Converts UTC timestamps into human-readable relative dates (`"2 days ago"`, `"Today"`).
   - `formatSalary(min, max)`: Formats numbers into INR (₹) or USD ($) bracket strings.
-  - Multi-tier cascading fallback:
-    1. Tries **Adzuna API** (if `ADZUNA_APP_ID` & `ADZUNA_APP_KEY` set).
-    2. Falls back to **Remotive API** (free public remote jobs).
-    3. Falls back to local normalized dataset (`JOBS` + `EXTENDED_JOBS`) with fuzzy matching on title, company, description, and tags.
+  - Multi-tier dual provider architecture:
+    1. Tries **OpenWeb Ninja API** (`OPENWEBNINJA_API_KEY`) for Indian & global roles.
+    2. Queries **Himalayas Remote API** (`HIMALAYAS_API_KEY`) for worldwide remote listings.
+    3. Falls back to local curated dataset (`JOBS` + `EXTENDED_JOBS`) with fuzzy matching on title, company, description, and tags when no API keys or in demo mode.
 
 ---
 
@@ -377,7 +377,7 @@ All services isolate database and API logic from UI components:
   - `savedJobIds: Set<string>`: Set of bookmarked job IDs.
   - `appliedJobIds: Set<string>`: Set of applied job IDs.
   - `userSkills: string[]`: Skills list used for matching tags and highlights.
-  - `dataSource: "adzuna" | "remotive" | "demo" | "supabase"`: Source badge showing where jobs were retrieved.
+  - `dataSource: "openwebninja" | "himalayas" | "demo"`: Source badge showing where jobs were retrieved.
   - `isMobileFilterOpen: boolean`: Toggle for mobile filter drawer.
   - `showApplyModal: boolean`: Modal for submitting quick application.
 - **Key UI Components:**
