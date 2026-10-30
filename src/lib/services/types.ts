@@ -21,6 +21,12 @@ export interface ApplicationRow {
   next_step_date: string | null;
   match_score: number | null;
   notes: string | null;
+  application_url?: string | null;
+  source_url?: string | null;
+  location?: string | null;
+  job_source?: string | null;
+  closing_date?: string | null;
+  deadline_provenance?: "verified_source" | "user_entered" | "unknown" | null;
   created_at: string;
   updated_at: string;
 }
@@ -93,5 +99,7 @@ export interface ResumeAnalysisRow {
   gaps: string[] | null;
   suggestions: unknown;
   keywords: unknown;
+    parsed_resume?: unknown;
+    analysis_payload?: unknown;
   created_at: string;
 }

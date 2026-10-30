@@ -7,7 +7,6 @@ import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import {
-  getJobs,
   searchJobs,
   scoreJobMatches,
   applyFilters,
@@ -17,6 +16,7 @@ import {
 } from "@/lib/services/jobs.service";
 import type { JobFilters, MatchResult } from "@/lib/services/jobs.service";
 import type { Job } from "@/types";
+import { addApplication } from "@/lib/services/applications.service";
 import {
   Search,
   MapPin,
@@ -89,7 +89,7 @@ const DIMENSION_LABELS: Record<string, string> = {
   preferenceFit:  "Preferences",
 };
 
-const JOB_TYPES = ["Full-time", "Part-time", "Internship", "Contract", "Remote"];
+const JOB_TYPES = ["Full-time", "Part-time", "Internship", "Contract"];
 const EXPERIENCE_LEVELS = [
   { value: "fresher", label: "Fresher (0-1 yr)" },
   { value: "junior",  label: "Junior (1-3 yr)" },
@@ -179,10 +179,8 @@ function ScoreSourcePill({ source }: { source: "gemini" | "heuristic" }) {
 
 function MatchInsightPanel({
   match,
-  jobTitle,
 }: {
   match: MatchResult;
-  jobTitle: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -352,9 +350,11 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providerWarning, setProviderWarning] = useState<string | null>(null);
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [dataSource, setDataSource] = useState<string>("demo");
+  const [pagination, setPagination] = useState<{ jsearchNextCursor: string | null; himalayasNextPage: number | null }>({ jsearchNextCursor: null, himalayasNextPage: null });
 
   // Match scoring
   const [matchResults, setMatchResults] = useState<Map<string, MatchResult>>(new Map());
@@ -379,6 +379,7 @@ export default function JobsPage() {
     if (!filters.includeSalaryNotDisclosed) count++;
     if (filters.skills.length > 0) count++;
     if (filters.postedWithin !== "any") count++;
+    if (filters.workArrangement !== "any") count++;
     return count;
   })();
 
@@ -388,13 +389,16 @@ export default function JobsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getJobs();
+      const result = await searchJobs("", "");
+      const data = result.jobs;
       setJobs(data);
-      if (data.length > 0) {
-        setSelectedJob(data[0]);
-        setSavedJobs(new Set(data.filter((j) => j.saved).map((j) => j.id)));
-      }
-      setDataSource("demo");
+      setSelectedJob(data[0] || null);
+      setSavedJobs(new Set(data.filter((job) => job.saved).map((job) => job.id)));
+      setDataSource(result.source);
+      const warnings = Object.entries(result.sources || []).filter(([, status]) => status.status !== "ok")
+        .map(([provider, status]) => `${provider}: ${status.message || status.status}`);
+      setProviderWarning(warnings.length ? warnings.join(" · ") : null);
+      setPagination(result.pagination || { jsearchNextCursor: null, himalayasNextPage: null });
 
       const skills = getUserSkills();
       setUserSkillsState(skills);
@@ -414,6 +418,8 @@ export default function JobsPage() {
         })
       );
     } catch (err: unknown) {
+      setJobs([]);
+      setSelectedJob(null);
       setError(err instanceof Error ? err.message : "Failed to load jobs.");
     } finally {
       setLoading(false);
@@ -422,30 +428,43 @@ export default function JobsPage() {
   }, []);
 
   useEffect(() => {
-    loadJobs();
+    const initialLoad = window.setTimeout(() => { void loadJobs(); }, 0);
 
     const handleSkillsUpdate = () => {
       loadJobs();
     };
     window.addEventListener("placement_skills_updated", handleSkillsUpdate);
-    return () => window.removeEventListener("placement_skills_updated", handleSkillsUpdate);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.removeEventListener("placement_skills_updated", handleSkillsUpdate);
+    };
   }, [loadJobs]);
 
   // ─── Live search with debounce ──────────────────────────────────────────
 
   const handleLiveSearch = useCallback(
-    (searchQuery: string, locationQuery: string) => {
+    (searchQuery: string, locationQuery: string, overrides: Partial<JobFilters> = {}) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-
-      if (!searchQuery && !locationQuery) return;
 
       debounceRef.current = setTimeout(async () => {
         setSearching(true);
         try {
-          const result = await searchJobs(searchQuery, locationQuery);
+          const searchFilters = { ...filters, ...overrides };
+          const result = await searchJobs(searchQuery, locationQuery, {
+            workArrangement: searchFilters.workArrangement,
+            employment: searchFilters.jobTypes[0],
+            experience: searchFilters.experienceLevel,
+            postedWithin: searchFilters.postedWithin,
+          });
+          const warnings = Object.entries(result.sources || {})
+            .filter(([, status]) => status.status !== "ok")
+            .map(([provider, status]) => `${provider}: ${status.message || status.status}`);
+          setProviderWarning(warnings.length ? warnings.join(" · ") : null);
+          setDataSource(result.source);
+          setPagination(result.pagination || { jsearchNextCursor: null, himalayasNextPage: null });
           if (result.jobs.length > 0) {
+            setError(null);
             setJobs(result.jobs);
-            setDataSource(result.source);
             setSelectedJob(result.jobs[0]);
 
             // Re-score with location as a preference signal
@@ -468,16 +487,28 @@ export default function JobsPage() {
               })
             );
             setScoring(false);
+          } else {
+            setJobs([]);
+            setSelectedJob(null);
+            const providerErrors = Object.entries(result.sources || {})
+              .filter(([, status]) => status.status !== "ok")
+              .map(([provider, status]) => `${provider}: ${status.message || status.status}`);
+            setError(providerErrors.length
+              ? `Live job search returned no results. ${providerErrors.join(" ")}`
+              : "No live listings matched that search. Try another role or location.");
           }
-        } catch {
-          // Keep existing jobs on search failure
+        } catch (err: unknown) {
+          setJobs([]);
+          setSelectedJob(null);
+          setPagination({ jsearchNextCursor: null, himalayasNextPage: null });
+          setError(err instanceof Error ? err.message : "Live job search failed.");
         } finally {
           setSearching(false);
           setScoring(false);
         }
       }, 300);
     },
-    [filters.jobTypes]
+    [filters]
   );
 
   // ─── Update filter ──────────────────────────────────────────────────────
@@ -485,9 +516,9 @@ export default function JobsPage() {
   const updateFilter = <K extends keyof JobFilters>(key: K, value: JobFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-    if (key === "search" || key === "location") {
+    if (key === "search" || key === "location" || key === "workArrangement" || key === "experienceLevel" || key === "postedWithin") {
       const newFilters = { ...filters, [key]: value };
-      handleLiveSearch(newFilters.search, newFilters.location);
+      handleLiveSearch(newFilters.search, newFilters.location, newFilters);
     }
   };
 
@@ -497,13 +528,11 @@ export default function JobsPage() {
   };
 
   const toggleJobType = (type: string) => {
-    setFilters((prev) => {
-      const existing = prev.jobTypes;
-      const next = existing.includes(type)
-        ? existing.filter((t) => t !== type)
-        : [...existing, type];
-      return { ...prev, jobTypes: next };
-    });
+    const nextTypes = filters.jobTypes.includes(type)
+      ? filters.jobTypes.filter((t) => t !== type)
+      : [...filters.jobTypes, type];
+    setFilters((prev) => ({ ...prev, jobTypes: nextTypes }));
+    handleLiveSearch(filters.search, filters.location, { ...filters, jobTypes: nextTypes });
   };
 
   const toggleSkill = (skill: string) => {
@@ -514,6 +543,40 @@ export default function JobsPage() {
         : [...existing, skill];
       return { ...prev, skills: next };
     });
+  };
+
+  const loadMoreJobs = async () => {
+    if (!pagination.jsearchNextCursor && !pagination.himalayasNextPage) return;
+    setSearching(true);
+    try {
+      const result = await searchJobs(filters.search, filters.location, {
+        workArrangement: filters.workArrangement,
+        employment: filters.jobTypes[0],
+        experience: filters.experienceLevel,
+        postedWithin: filters.postedWithin,
+        jsearchCursor: pagination.jsearchNextCursor || undefined,
+        himalayasPage: pagination.himalayasNextPage || undefined,
+      });
+      const warnings = Object.entries(result.sources || {}).filter(([, status]) => status.status !== "ok")
+        .map(([provider, status]) => `${provider}: ${status.message || status.status}`);
+      setProviderWarning(warnings.length ? warnings.join(" · ") : null);
+      setPagination(result.pagination || { jsearchNextCursor: null, himalayasNextPage: null });
+      const existingIds = new Set(jobs.map((job) => job.id));
+      const added = result.jobs.filter((job) => !existingIds.has(job.id));
+      if (added.length) {
+        const scores = await scoreJobMatches(added, getUserSkills(), "Frontend Developer", {
+          preferredLocation: filters.location,
+          preferredTypes: filters.jobTypes,
+        });
+        setJobs((previous) => [...previous, ...added.map((job) => ({ ...job, matchScore: scores.get(job.id)?.matchScore ?? job.matchScore }))]);
+        setMatchResults((previous) => new Map([...previous, ...scores]));
+      }
+      setError(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not load more job listings.");
+    } finally {
+      setSearching(false);
+    }
   };
 
   // ─── Toggle save ────────────────────────────────────────────────────────
@@ -542,12 +605,36 @@ export default function JobsPage() {
     }
   };
 
-  const handleApply = (job: Job) => {
-    setJobs((prev) =>
-      prev.map((j) => (j.id === job.id ? { ...j, applied: true } : j))
-    );
-    if (selectedJob?.id === job.id) {
-      setSelectedJob((prev) => (prev ? { ...prev, applied: true } : null));
+  const handleApply = async (job: Job) => {
+    if (job.applied) return;
+    const destination = job.applyUrl || job.sourceUrl;
+    const applyWindow = destination ? window.open("about:blank", "_blank") : null;
+    if (applyWindow) applyWindow.opener = null;
+    try {
+      await addApplication({
+        company: job.company,
+        title: job.title,
+        logo: job.logo,
+        status: "Wishlist",
+        priority: "medium",
+        matchScore: job.matchScore,
+        salary: job.salaryRange || job.salary,
+        url: job.applyUrl || undefined,
+        location: job.location,
+        source: job.source,
+        sourceUrl: job.sourceUrl || undefined,
+        closingDate: job.closingDate || undefined,
+        deadlineProvenance: job.deadlineProvenance || "unknown",
+        notes: job.attributionLabel ? `Listed by ${job.attributionLabel}.` : undefined,
+      });
+      setJobs((prev) => prev.map((item) => item.id === job.id ? { ...item, applied: true } : item));
+      if (selectedJob?.id === job.id) setSelectedJob((prev) => prev ? { ...prev, applied: true } : null);
+      if (destination && applyWindow) applyWindow.location.href = destination;
+      else if (destination) setError("The job was added to your tracker, but the browser blocked the new tab. Open its saved link from the tracker.");
+      else setError("This job was added to your tracker, but the source did not provide an application link.");
+    } catch (err: unknown) {
+      applyWindow?.close();
+      setError(err instanceof Error ? err.message : "Could not add this job to your tracker.");
     }
   };
 
@@ -575,6 +662,11 @@ export default function JobsPage() {
           message={error}
           onRetry={loadJobs}
         />
+      )}
+      {providerWarning && (
+        <div role="status" className="px-4 py-2 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200">
+          Some job sources are unavailable: {providerWarning}
+        </div>
       )}
 
       {/* Top bar with source indicator */}
@@ -731,6 +823,19 @@ export default function JobsPage() {
                         />
                       </div>
                     </div>
+                  </FilterSection>
+
+                  <FilterSection title="Work Arrangement" icon={Globe} defaultOpen={false}>
+                    <select
+                      value={filters.workArrangement}
+                      onChange={(e) => updateFilter("workArrangement", e.target.value as JobFilters["workArrangement"])}
+                      className="w-full bg-[#050811] border border-white/8 rounded-lg p-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="any">Any arrangement</option>
+                      <option value="remote">Remote</option>
+                      <option value="hybrid">Hybrid</option>
+                      <option value="onsite">On-site</option>
+                    </select>
                   </FilterSection>
 
                   {/* Job Type */}
@@ -954,6 +1059,9 @@ export default function JobsPage() {
                             {job.title}
                           </p>
                           <p className="text-xs text-slate-400 mt-0.5">{job.company}</p>
+                          {job.attributionLabel && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">Source: {job.attributionLabel}</p>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1025,7 +1133,7 @@ export default function JobsPage() {
                         {/* Applied badge */}
                         {job.applied && (
                           <Badge variant="emerald" size="sm" dot>
-                            Applied
+                            Tracked
                           </Badge>
                         )}
                       </div>
@@ -1066,7 +1174,7 @@ export default function JobsPage() {
                 <p className="text-xs text-slate-500 mt-1">
                   {jobs.length > 0
                     ? "Your current filters removed all jobs. Try broadening your search."
-                    : "No jobs available. Check your connection or try a different search."}
+                    : "No live jobs found. Check the provider status above, verify your API keys, or adjust your search."}
                 </p>
                 {activeFilterCount > 0 && (
                   <button
@@ -1079,6 +1187,11 @@ export default function JobsPage() {
                   </button>
                 )}
               </div>
+            )}
+            {(pagination.jsearchNextCursor || pagination.himalayasNextPage) && (
+              <Button variant="secondary" size="md" className="w-full" onClick={loadMoreJobs} disabled={searching}>
+                {searching ? "Loading more…" : "Load More Jobs"}
+              </Button>
             )}
           </div>
 
@@ -1111,6 +1224,27 @@ export default function JobsPage() {
                   </div>
                 </div>
 
+                {(activeJob.attributionLabel || activeJob.workArrangement || activeJob.closingDate) && (
+                  <div className="mb-5 p-3 rounded-xl bg-white/3 border border-white/5 space-y-1.5 text-xs text-slate-400">
+                    {activeJob.attributionLabel && (
+                      <p>
+                        Source: {activeJob.sourceUrl ? (
+                          <a href={activeJob.sourceUrl} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">
+                            {activeJob.attributionLabel}
+                          </a>
+                        ) : activeJob.attributionLabel}
+                      </p>
+                    )}
+                    {activeJob.workArrangement && <p>Work arrangement: {activeJob.workArrangement}</p>}
+                    {activeJob.closingDate && (
+                      <p>Application deadline: {new Date(activeJob.closingDate).toLocaleDateString()} · verified by source</p>
+                    )}
+                    {!activeJob.closingDate && activeJob.source && activeJob.source !== "demo" && (
+                      <p>Application deadline: Not listed by source</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Match score section */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
@@ -1131,7 +1265,6 @@ export default function JobsPage() {
                     <div className="mt-3">
                       <MatchInsightPanel
                         match={activeMatchResult}
-                        jobTitle={activeJob.title}
                       />
                     </div>
                   ) : scoring ? (
@@ -1168,7 +1301,7 @@ export default function JobsPage() {
                       icon={<Briefcase className="w-4 h-4" />}
                       className="flex-1"
                     >
-                      Applied ✓
+                      Added to tracker ✓
                     </Button>
                   ) : (
                     <Button
@@ -1178,7 +1311,7 @@ export default function JobsPage() {
                       className="flex-1"
                       onClick={() => handleApply(activeJob)}
                     >
-                      Apply Now
+                      {activeJob.applyUrl || activeJob.sourceUrl ? "Track & Apply" : "Track Job"}
                     </Button>
                   )}
                   <Button

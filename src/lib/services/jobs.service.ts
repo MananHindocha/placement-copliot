@@ -1,11 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
-import { JOBS, EXTENDED_JOBS, DEMO_USER_SKILLS } from "@/lib/mock-data";
+import { DEMO_USER_SKILLS } from "@/lib/mock-data";
 import type { Job } from "@/types";
 import type { JobListingRow } from "./types";
 import type { EnrichedMatchResult } from "@/app/api/jobs/match/route";
-
-let demoJobs: Job[] = [...JOBS, ...EXTENDED_JOBS];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,6 +18,7 @@ export interface JobFilters {
   includeSalaryNotDisclosed: boolean;
   skills: string[];
   postedWithin: string;
+  workArrangement: "any" | "remote" | "hybrid" | "onsite";
 }
 
 /**
@@ -30,7 +29,18 @@ export type { EnrichedMatchResult as MatchResult } from "@/app/api/jobs/match/ro
 
 export interface JobSearchResponse {
   jobs: Job[];
-  source: "adzuna" | "remotive" | "demo" | "supabase";
+  source: string;
+  sources?: Record<string, { status: "ok" | "disabled" | "error"; message?: string; count: number }>;
+  pagination?: { jsearchNextCursor: string | null; himalayasNextPage: number | null };
+}
+
+export interface JobSearchOptions {
+  workArrangement?: JobFilters["workArrangement"];
+  employment?: string;
+  experience?: string;
+  postedWithin?: string;
+  jsearchCursor?: string;
+  himalayasPage?: number;
 }
 
 /**
@@ -55,6 +65,7 @@ export const DEFAULT_FILTERS: JobFilters = {
   includeSalaryNotDisclosed: true,
   skills: [],
   postedWithin: "any",
+  workArrangement: "any",
 };
 
 // ─── Job fetching ─────────────────────────────────────────────────────────────
@@ -62,9 +73,7 @@ export const DEFAULT_FILTERS: JobFilters = {
 export async function getJobs(): Promise<Job[]> {
   const mode = getEffectiveDataMode();
 
-  if (mode === "demo") {
-    return [...demoJobs];
-  }
+  if (mode === "demo") return [];
 
   const supabase = createClient();
   const { data, error } = await supabase
@@ -99,28 +108,30 @@ export async function getJobs(): Promise<Job[]> {
 export async function searchJobs(
   query: string,
   location: string,
+  options: JobSearchOptions = {},
 ): Promise<JobSearchResponse> {
-  const mode = getEffectiveDataMode();
-
   try {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (location) params.set("location", location);
-    if (mode === "demo") params.set("mode", "demo");
-
+    if (options.workArrangement && options.workArrangement !== "any") params.set("arrangement", options.workArrangement);
+    if (options.employment) params.set("employment", options.employment);
+    if (options.experience) params.set("experience", options.experience);
+    if (options.postedWithin) params.set("postedWithin", options.postedWithin);
+    if (options.jsearchCursor) params.set("jsearchCursor", options.jsearchCursor);
+    if (options.himalayasPage) params.set("himalayasPage", String(options.himalayasPage));
     const res = await fetch(`/api/jobs/search?${params}`);
     if (!res.ok) throw new Error("Search API unavailable");
 
     const data = await res.json();
     return {
       jobs: data.jobs || [],
-      source: data.source || "demo",
+      source: data.source || "live-empty",
+      sources: data.sources,
+      pagination: data.pagination,
     };
-  } catch {
-    return {
-      jobs: [...demoJobs],
-      source: "demo",
-    };
+  } catch (error) {
+    throw error instanceof Error ? error : new Error("Job search failed.");
   }
 }
 
@@ -227,6 +238,7 @@ function postedWithinDays(posted: string): number {
 
 export function applyFilters(jobs: Job[], filters: JobFilters): Job[] {
   return jobs.filter((job) => {
+    if (filters.workArrangement !== "any" && job.workArrangement !== filters.workArrangement) return false;
     // Text search
     if (filters.search) {
       const q = filters.search.toLowerCase();
@@ -317,12 +329,7 @@ export function setUserSkills(skills: string[]): void {
 // ─── Toggle save ──────────────────────────────────────────────────────────────
 
 export async function toggleSaveJob(id: string, saved: boolean): Promise<void> {
-  const mode = getEffectiveDataMode();
-
-  if (mode === "demo") {
-    demoJobs = demoJobs.map((j) => (j.id === id ? { ...j, saved } : j));
-    return;
-  }
-
+  void id;
+  void saved;
   throw new Error("Job bookmark persistence in live mode will be available in Phase 3.");
 }

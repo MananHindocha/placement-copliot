@@ -37,13 +37,39 @@ export type SectionScores = {
 
 export type TailorSuggestion = {
   id: string;
-  section: "summary" | "experience" | "skills" | "education" | "projects";
+  section: "summary" | "experience" | "skills" | "education" | "projects" | "custom";
+  targetSection?: "summary" | "experience" | "skills" | "education" | "projects" | "custom";
+  targetEntryId?: string;
+  targetBulletId?: string;
+  sectionLabel?: string;
   original: string;
   suggested: string;
+  improved?: string;
   impact: "high" | "medium" | "low";
   reason?: string;
   impactLevel?: "high" | "medium" | "low";
 };
+
+export interface ResumeBullet {
+  id: string;
+  text: string;
+}
+
+export interface ResumeEntry {
+  id: string;
+  title: string;
+  subtitle: string;
+  dateRange: string;
+  location?: string;
+  scoreOrMeta?: string;
+  bullets: ResumeBullet[];
+}
+
+export interface ResumeCustomSection {
+  id: string;
+  heading: string;
+  items: ResumeBullet[];
+}
 
 export interface ParsedResumeDocument {
   fileName: string;
@@ -53,26 +79,12 @@ export interface ParsedResumeDocument {
   location: string;
   links: string[];
   summary: string;
+  skillCategories: Array<{ category: string; skills: string[] }>;
   skills: string[];
-  experience: Array<{
-    id: string;
-    role: string;
-    company: string;
-    duration: string;
-    bullets: string[];
-  }>;
-  projects: Array<{
-    id: string;
-    title: string;
-    techStack: string;
-    bullets: string[];
-  }>;
-  education: Array<{
-    institution: string;
-    degree: string;
-    year: string;
-    score?: string;
-  }>;
+  experience: ResumeEntry[];
+  projects: ResumeEntry[];
+  education: ResumeEntry[];
+  customSections: ResumeCustomSection[];
   rawText: string;
 }
 
@@ -110,7 +122,7 @@ export type Job = {
   title: string;
   company: string;
   location: string;
-  type: "Full-time" | "Internship" | "Contract" | "Part-time";
+  type: "Full-time" | "Internship" | "Contract" | "Part-time" | "Unspecified";
   salary: string;
   matchScore: number;
   posted: string;
@@ -119,7 +131,53 @@ export type Job = {
   saved: boolean;
   applied: boolean;
   description: string;
+  source?: JobProviderSource;
+  externalId?: string;
+  isDemo?: boolean;
+  workArrangement?: WorkArrangement;
+  employmentType?: string | null;
+  experienceLevel?: JobExperienceLevel;
+  skills?: string[];
+  salaryRange?: string | null;
+  salaryCurrency?: string | null;
+  postedAt?: string | null;
+  postedDateLabel?: string;
+  closingDate?: string | null;
+  deadlineProvenance?: DeadlineProvenance;
+  applyUrl?: string | null;
+  sourceUrl?: string | null;
+  attributionLabel?: string;
+  retrievedAt?: string;
 };
+
+export type JobProviderSource = "jobvetta" | "greenhouse" | "remotive" | "jsearch" | "himalayas" | "demo";
+export type WorkArrangement = "remote" | "hybrid" | "onsite" | "unspecified";
+export type DeadlineProvenance = "verified_source" | "user_entered" | "unknown";
+export type JobExperienceLevel = "internship" | "fresher" | "entry" | "mid" | "senior" | "unspecified";
+
+/** Provider-backed job with explicit source and field provenance, plus legacy UI fields. */
+export interface NormalizedJobListing extends Job {
+  source: JobProviderSource;
+  externalId: string;
+  isDemo: boolean;
+  companyLogo?: string | null;
+  workArrangement: WorkArrangement;
+  employmentType: string | null;
+  experienceLevel: JobExperienceLevel;
+  skills: string[];
+  salaryRange: string | null;
+  salaryMinLpa?: number | null;
+  salaryMaxLpa?: number | null;
+  salaryCurrency?: string | null;
+  postedAt: string | null;
+  postedDateLabel: string;
+  closingDate: string | null;
+  deadlineProvenance: DeadlineProvenance;
+  applyUrl: string | null;
+  sourceUrl: string | null;
+  attributionLabel: string;
+  retrievedAt: string;
+}
 
 // ─── Kanban / Tracker ────────────────────────────────────────────────────────
 
@@ -146,6 +204,10 @@ export type KanbanCard = {
   salary?: string;
   url?: string;
   location?: string;
+  source?: JobProviderSource;
+  sourceUrl?: string;
+  closingDate?: string;
+  deadlineProvenance?: DeadlineProvenance;
 };
 
 // ─── Interview ───────────────────────────────────────────────────────────────

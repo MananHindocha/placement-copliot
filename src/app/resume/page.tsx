@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import {
-  getResumeAnalysis,
+  getResumeWorkspace,
   analyzeResumeFile,
   reEvaluateResumeText,
+  saveResumeWorkspace,
 } from "@/lib/services/resume.service";
 import { setUserSkills, getUserSkills } from "@/lib/services/jobs.service";
-import type { ResumeAnalysis, ParsedResumeDocument, TailorSuggestion } from "@/types";
+import type { ResumeAnalysis, ParsedResumeDocument, ResumeEntry } from "@/types";
+import { getResumeBulletTargets, replaceResumeBullet } from "@/lib/resume/parser";
 import {
   Upload,
   FileText,
@@ -22,7 +23,6 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
-  RotateCcw,
   Loader2,
   Check,
   Target,
@@ -30,17 +30,10 @@ import {
   TrendingUp,
   Cpu,
   RefreshCw,
-  ExternalLink,
   Printer,
-  Sliders,
   AlertCircle,
   ShieldCheck,
   Award,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Globe,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -58,6 +51,51 @@ const IMPACT_BADGE: Record<string, "rose" | "amber" | "emerald"> = {
   low: "emerald",
 };
 
+function EditableText({ value, onSave, className = "", multiline = false }: { value: string; onSave: (value: string) => void; className?: string; multiline?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  if (editing) {
+    return (
+      <textarea
+        autoFocus
+        rows={multiline ? 4 : 2}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => { setEditing(false); if (draft !== value) onSave(draft.trim()); }}
+        onKeyDown={(event) => { if (event.key === "Escape") { setDraft(value); setEditing(false); } }}
+        aria-label="Edit resume text"
+        className={`w-full rounded border border-indigo-400 bg-white text-[13px] leading-relaxed font-normal text-slate-800 outline-none ${className}`}
+      />
+    );
+  }
+  return (
+    <button type="button" onClick={() => { setDraft(value); setEditing(true); }} title="Click to edit" className={`text-left ${className}`}>
+      {value || <span className="text-slate-400 italic">Click to add</span>}
+    </button>
+  );
+}
+
+function ResumeEntryView({ entry, section, onEditEntry, onEditBullet }: {
+  entry: ResumeEntry;
+  section: "experience" | "projects" | "education";
+  onEditEntry: (section: "experience" | "projects" | "education", entryId: string, field: "title" | "subtitle" | "dateRange" | "scoreOrMeta", text: string) => void;
+  onEditBullet: (section: "experience" | "projects" | "education", entryId: string, bulletId: string, text: string) => void;
+}) {
+  return (
+    <article className="space-y-1">
+      <div className="flex justify-between items-baseline gap-3 font-sans text-[11px] text-slate-800">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <EditableText value={entry.title} onSave={(text) => onEditEntry(section, entry.id, "title", text)} className="font-semibold text-slate-800" />
+          {entry.subtitle && <EditableText value={entry.subtitle} onSave={(text) => onEditEntry(section, entry.id, "subtitle", text)} className="text-slate-700" />}
+        </div>
+        {entry.dateRange && <EditableText value={entry.dateRange} onSave={(text) => onEditEntry(section, entry.id, "dateRange", text)} className="shrink-0 text-[10px] text-slate-500" />}
+      </div>
+      {entry.scoreOrMeta && <EditableText value={entry.scoreOrMeta} onSave={(text) => onEditEntry(section, entry.id, "scoreOrMeta", text)} className="block text-[11px] text-slate-600" />}
+      {entry.bullets.length > 0 && <ul className="list-disc pl-5 space-y-1">{entry.bullets.map((bullet) => <li key={bullet.id} className="text-[13px] leading-relaxed font-normal text-slate-800"><EditableText multiline value={bullet.text} onSave={(text) => onEditBullet(section, entry.id, bullet.id, text)} className="w-full text-[13px] leading-relaxed font-normal text-slate-800" /></li>)}</ul>}
+    </article>
+  );
+}
+
 export default function ResumePage() {
   const [activeTab, setActiveTab] = useState<"analyse" | "tailor">("analyse");
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>("sug-1");
@@ -66,6 +104,7 @@ export default function ResumePage() {
 
   // Core Data
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
+  const [editableResume, setEditableResume] = useState<ParsedResumeDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,9 +130,12 @@ export default function ResumePage() {
   const loadInitialAnalysis = () => {
     setLoading(true);
     setError(null);
-    getResumeAnalysis()
-      .then((data) => {
+    getResumeWorkspace()
+      .then((workspace) => {
+        const data = workspace.analysis;
         setAnalysis(data);
+        setEditableResume(workspace.editableResume || data.parsedResume || null);
+        setAppliedSuggestions(new Set(workspace.appliedSuggestionIds));
         if (data.jobTitle && data.jobTitle !== "Upload a resume to begin") {
           setTargetRole(data.jobTitle);
         }
@@ -107,10 +149,13 @@ export default function ResumePage() {
 
   useEffect(() => {
     let isMounted = true;
-    getResumeAnalysis()
-      .then((data) => {
+    getResumeWorkspace()
+      .then((workspace) => {
         if (!isMounted) return;
+        const data = workspace.analysis;
         setAnalysis(data);
+        setEditableResume(workspace.editableResume || data.parsedResume || null);
+        setAppliedSuggestions(new Set(workspace.appliedSuggestionIds));
         if (data.jobTitle && data.jobTitle !== "Upload a resume to begin") {
           setTargetRole(data.jobTitle);
         }
@@ -159,6 +204,7 @@ export default function ResumePage() {
       setUploadProgress(100);
 
       setAnalysis(result.analysis);
+      setEditableResume(result.analysis.parsedResume || null);
       setPythonParserActive(result.pythonParserActive);
       setDiagnosticTip(result.diagnosticTip || null);
       setAppliedSuggestions(new Set());
@@ -191,6 +237,7 @@ export default function ResumePage() {
           targetJd
         );
         setAnalysis(res.analysis);
+        setEditableResume(res.analysis.parsedResume || null);
         setDiagnosticTip(res.diagnosticTip || null);
         showToast("Re-evaluated resume against new role & JD!");
       } catch (err: unknown) {
@@ -237,18 +284,31 @@ export default function ResumePage() {
     }
   };
 
-  const handleApplySuggestion = (id: string) => {
-    setAppliedSuggestions((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        showToast("Reverted suggestion from resume preview.");
-      } else {
-        next.add(id);
-        showToast("Applied improved bullet to resume preview!");
-      }
-      return next;
-    });
+  const handleApplySuggestion = async (id: string) => {
+    if (!analysis || !editableResume) return;
+    const suggestion = analysis.suggestions.find((item) => item.id === id);
+    if (!suggestion) return;
+    const nextApplied = new Set(appliedSuggestions);
+    const undo = nextApplied.has(id);
+    let target = suggestion.targetBulletId
+      ? getResumeBulletTargets(editableResume).find((item) => item.targetBulletId === suggestion.targetBulletId && (!suggestion.targetEntryId || item.targetEntryId === suggestion.targetEntryId))
+      : undefined;
+    target ||= getResumeBulletTargets(editableResume).find((item) => item.text === suggestion.original)
+      || getResumeBulletTargets(editableResume).find((item) => item.text.trim() === suggestion.original.trim());
+    if (!target) {
+      setError("This suggestion no longer matches a bullet in the current resume. Re-analyze the resume to refresh its targets.");
+      return;
+    }
+    const nextResume = replaceResumeBullet(editableResume, target.targetBulletId, undo ? suggestion.original : (suggestion.improved || suggestion.suggested).replace(/\*\*/g, ""));
+    if (undo) nextApplied.delete(id); else nextApplied.add(id);
+    setEditableResume(nextResume);
+    setAppliedSuggestions(nextApplied);
+    try {
+      await saveResumeWorkspace(analysis, nextResume, [...nextApplied]);
+      showToast(undo ? "Restored the original resume bullet." : "Applied the rewrite to your resume.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not save resume changes.");
+    }
   };
 
   const handleSyncSkills = () => {
@@ -263,25 +323,90 @@ export default function ResumePage() {
     showToast(`Synced ${analysis.extractedSkills.length} skills to your profile & Job Matcher!`);
   };
 
+  const handlePrintResume = () => {
+    if (!editableResume) {
+      setError("Upload a resume before saving it as a PDF.");
+      return;
+    }
+
+    setError(null);
+    const printSheet = document.getElementById("resume-print-sheet");
+    if (!printSheet) {
+      setError("The resume preview is unavailable. Reopen the Tailor Workspace and try again.");
+      return;
+    }
+    const originalTitle = document.title;
+    const candidate = editableResume.candidateName.trim().replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, "_");
+    document.title = candidate ? `${candidate}_Tailored_Resume` : "Tailored_Resume";
+    const printAncestors: HTMLElement[] = [];
+    let ancestor = printSheet.parentElement;
+    while (ancestor && ancestor !== document.body) {
+      ancestor.classList.add("resume-print-ancestor");
+      printAncestors.push(ancestor);
+      ancestor = ancestor.parentElement;
+    }
+    document.body.classList.add("resume-printing");
+    let restored = false;
+    const restorePrintState = () => {
+      if (restored) return;
+      restored = true;
+      document.title = originalTitle;
+      document.body.classList.remove("resume-printing");
+      printAncestors.forEach((element) => element.classList.remove("resume-print-ancestor"));
+      window.removeEventListener("afterprint", restorePrintState);
+    };
+    window.addEventListener("afterprint", restorePrintState);
+
+    const focusedEditor = document.activeElement;
+    if (focusedEditor instanceof HTMLElement && focusedEditor.closest("#resume-print-sheet")) focusedEditor.blur();
+
+    window.requestAnimationFrame(() => {
+      try {
+        window.print();
+        window.setTimeout(restorePrintState, 60_000);
+      } catch {
+        restorePrintState();
+        setError("Your browser could not open the PDF print dialog. Try again or use your browser’s Print command.");
+      }
+    });
+  };
+
   const matchScore = analysis?.matchScore ?? 82;
   const atsScore = analysis?.atsScore ?? 78;
   const impactScore = analysis?.sectionScores?.impact ?? 80;
   const verbScore = analysis?.sectionScores?.style ?? 75;
 
-  const parsedResume = analysis?.parsedResume;
-  const isUploadedResume = Boolean(parsedResume && parsedResume.candidateName !== "Arjun Kumar");
-
-  // Helper to check if a specific bullet line has an applied rewrite
-  const getRenderedBullet = (originalText: string, suggestionId?: string) => {
-    if (!analysis) return { text: originalText, isApplied: false };
-    // Find matching suggestion
-    const match = analysis.suggestions.find(
-      (s) => (suggestionId && s.id === suggestionId) || s.original.trim() === originalText.trim()
-    );
-    if (match && appliedSuggestions.has(match.id)) {
-      return { text: match.suggested, isApplied: true };
-    }
-    return { text: originalText, isApplied: false };
+  const parsedResume = editableResume;
+  const resumeBullets = parsedResume ? getResumeBulletTargets(parsedResume).map((target) => target.text) : [];
+  const matchedKeywordCount = analysis?.keywords.filter((keyword) => keyword.present).length ?? 0;
+  const quantifiedBulletCount = resumeBullets.filter((bullet) => /\b\d+(?:\.\d+)?\s*(%|x|ms|s|seconds|minutes|hours|days|users|clients|requests|queries|k|m|₹|\$)\b/i.test(bullet)).length;
+  const weakOpeners = resumeBullets.filter((bullet) => /^(worked on|responsible for|helped|assisted|participated in|involved in)\b/i.test(bullet));
+  const atsChecks = parsedResume ? [
+    [Boolean(parsedResume.email && parsedResume.phone), "Contact details"],
+    [Boolean(parsedResume.links.length), "Portfolio links"],
+    [Boolean(parsedResume.education.length), "Education section"],
+    [Boolean(parsedResume.experience.length || parsedResume.projects.length), "Experience or projects"],
+  ] as const : [];
+  const saveEditedResume = (nextResume: ParsedResumeDocument) => {
+    setEditableResume(nextResume);
+    if (analysis) saveResumeWorkspace(analysis, nextResume, [...appliedSuggestions]).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : "Could not save resume changes.");
+    });
+  };
+  const editBullet = (section: "experience" | "projects" | "education", entryId: string, bulletId: string, text: string) => {
+    if (!parsedResume) return;
+    const next = { ...parsedResume, [section]: parsedResume[section].map((entry) => entry.id === entryId ? { ...entry, bullets: entry.bullets.map((bullet) => bullet.id === bulletId ? { ...bullet, text } : bullet) } : entry) };
+    saveEditedResume(next);
+  };
+  const editEntry = (section: "experience" | "projects" | "education", entryId: string, field: "title" | "subtitle" | "dateRange" | "scoreOrMeta", text: string) => {
+    if (!parsedResume) return;
+    const next = { ...parsedResume, [section]: parsedResume[section].map((entry) => entry.id === entryId ? { ...entry, [field]: text } : entry) };
+    saveEditedResume(next);
+  };
+  const editCustomItem = (sectionId: string, itemId: string, text: string) => {
+    if (!parsedResume) return;
+    const next = { ...parsedResume, customSections: parsedResume.customSections.map((section) => section.id === sectionId ? { ...section, items: section.items.map((item) => item.id === itemId ? { ...item, text } : item) } : section) };
+    saveEditedResume(next);
   };
 
   return (
@@ -380,7 +505,7 @@ export default function ResumePage() {
               {/* Overall JD Match */}
               <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">JD Match Score</span>
+                  <span className="font-medium">Role & Keyword Fit</span>
                   <Target className="w-4 h-4 text-indigo-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-white mb-2">
@@ -392,39 +517,38 @@ export default function ResumePage() {
                   value={matchScore}
                   color={matchScore >= 80 ? "emerald" : matchScore >= 65 ? "amber" : "rose"}
                   size="sm"
-                  label="JD Match"
+                  label="Role fit"
                 />
-                <span className="text-[10px] text-slate-500 mt-2 block">
-                  {matchScore >= 80 ? "Strong Placement Alignment" : "Add missing keywords to reach 80%+"}
-                </span>
+                <p className="text-[10px] text-slate-400 mt-2">{matchedKeywordCount} of {analysis.keywords.length} target skills matched for {targetRole || analysis.jobTitle}.</p>
+                <p className="text-[10px] text-slate-500 mt-1">{analysis.keywords.length === 0 ? "Upload a resume to compare its skills with this role." : matchedKeywordCount === analysis.keywords.length ? "Your listed target skills are all present." : `Add ${analysis.keywords.length - matchedKeywordCount} missing target skill${analysis.keywords.length - matchedKeywordCount === 1 ? "" : "s"} where your experience supports them.`}</p>
               </div>
 
               {/* ATS Parsability */}
               <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">ATS Parsability</span>
+                  <span className="font-medium">ATS Readability & Structure</span>
                   <ShieldCheck className="w-4 h-4 text-violet-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-violet-400 mb-2">
                   {atsScore}%
                 </div>
                 <ProgressBar value={atsScore} color="violet" size="sm" label="ATS Score" />
-                <span className="text-[10px] text-slate-500 mt-2 block">Standard hierarchy & headers</span>
+                <p className="text-[10px] text-slate-400 mt-2">Checks section headers, contact links, length & machine readability.</p>
+                <p className="text-[10px] text-slate-500 mt-1">{atsChecks.length ? atsChecks.map(([passed, label]) => `${passed ? "✓" : "!"} ${label}`).join(" · ") : "Upload a resume to see structural checks."}</p>
               </div>
 
               {/* Quantified Impact */}
               <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">Quantified Impact</span>
+                  <span className="font-medium">Measurable Impact</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-emerald-400 mb-2">
                   {impactScore}%
                 </div>
                 <ProgressBar value={impactScore} color="emerald" size="sm" label="Impact Score" />
-                <span className="text-[10px] text-slate-500 mt-2 block">
-                  {analysis.meta?.hasQuantifiedMetrics ? "Numbers & % present" : "Needs %, $, scale metrics"}
-                </span>
+                <p className="text-[10px] text-slate-400 mt-2">{quantifiedBulletCount} of {resumeBullets.length} bullets include a measurable number.</p>
+                <p className="text-[10px] text-slate-500 mt-1">Recruiters can see scope more clearly with outcomes such as “reduced latency by 30%.”</p>
               </div>
 
               {/* Action Verb Strength */}
@@ -437,7 +561,8 @@ export default function ResumePage() {
                   {verbScore}%
                 </div>
                 <ProgressBar value={verbScore} color="amber" size="sm" label="Verb Strength" />
-                <span className="text-[10px] text-slate-500 mt-2 block">Active technical verbs</span>
+                <p className="text-[10px] text-slate-400 mt-2">Measures strong engineering verbs against passive phrasing.</p>
+                <p className="text-[10px] text-slate-500 mt-1">{weakOpeners.length ? `${weakOpeners.length} weak opener${weakOpeners.length === 1 ? "" : "s"} found: ${weakOpeners.slice(0, 2).map((bullet) => `“${bullet.slice(0, 28)}”`).join(", ")}. Try “Engineered,” “Optimized,” or “Architected.”` : "No common weak openers found. Keep leading with specific actions."}</p>
               </div>
             </div>
 
@@ -688,7 +813,7 @@ export default function ResumePage() {
           /* Tailor Mode Workspace */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             {/* Left: AI XYZ-Formula Suggestions */}
-            <div className="space-y-4">
+            <div className="space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
@@ -735,7 +860,7 @@ export default function ResumePage() {
                       <div className="flex items-center gap-2">
                         {isApplied && (
                           <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                            Applied
+                            ✓ Applied to Resume
                           </span>
                         )}
                         {isExpanded ? (
@@ -807,12 +932,12 @@ export default function ResumePage() {
                             {isApplied ? (
                               <>
                                 <Check className="w-3.5 h-3.5" />
-                                Revert
+                                Undo Change
                               </>
                             ) : (
                               <>
                                 <Sparkles className="w-3.5 h-3.5" />
-                                Apply to Preview
+                                Apply to Resume
                               </>
                             )}
                           </button>
@@ -825,7 +950,7 @@ export default function ResumePage() {
             </div>
 
             {/* Right: Live Resume Document Preview Pane */}
-            <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-6 space-y-4 sticky top-6">
+            <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-6 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-white/8">
                 <div>
                   <h4 className="text-sm font-semibold text-white">Live Resume Document</h4>
@@ -836,7 +961,7 @@ export default function ResumePage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => window.print()}
+                  onClick={handlePrintResume}
                   className="gap-1.5 text-xs"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -844,182 +969,32 @@ export default function ResumePage() {
                 </Button>
               </div>
 
-              {/* Status Header Badge */}
-              <div className="text-[11px] px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 flex items-center justify-between">
-                <span>
-                  {isUploadedResume
-                    ? `Live Preview: ${parsedResume?.fileName || "Uploaded Resume"}`
-                    : "Viewing Sample Demo Resume (Upload your resume to tailor your own)"}
-                </span>
-                {isUploadedResume && (
-                  <span className="font-semibold text-emerald-400">Custom Document</span>
-                )}
+              <div className="text-[11px] px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                {parsedResume ? `Editing ${parsedResume.fileName}` : "Upload a resume to see and edit the complete document here."}
               </div>
 
-              {/* Printable Document Sheet (Binds dynamically to candidate's parsedResume) */}
-              <div className="bg-white text-slate-900 rounded-xl p-6 sm:p-8 font-serif shadow-2xl space-y-4 text-left text-xs leading-relaxed max-h-[750px] overflow-y-auto">
-                {/* Dynamic Header */}
-                <div className="text-center border-b border-slate-200 pb-3">
-                  <h2 className="text-lg font-bold text-slate-900 font-sans tracking-tight">
-                    {(parsedResume?.candidateName || "ARJUN KUMAR").toUpperCase()}
-                  </h2>
-                  <p className="text-[11px] text-slate-600 mt-1 font-sans">
-                    {[
-                      parsedResume?.email || "arjun.kumar@nitt.edu",
-                      parsedResume?.phone || "+91 98765 43210",
-                      parsedResume?.location || "Bangalore, India",
-                      parsedResume?.links?.[0] || "github.com/profile",
-                    ]
-                      .filter(Boolean)
-                      .join(" | ")}
-                  </p>
-                </div>
-
-                {/* Professional Summary */}
-                <div>
-                  <h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">
-                    Professional Summary
-                  </h3>
-                  <p className="text-slate-700">
-                    {(() => {
-                      const summarySug = analysis.suggestions.find((s) => s.section === "summary");
-                      if (summarySug && appliedSuggestions.has(summarySug.id)) {
-                        return (
-                          <span className="bg-emerald-50 text-emerald-950 font-medium px-1 rounded border-l-2 border-emerald-500 block">
-                            {summarySug.suggested}
-                          </span>
-                        );
-                      }
-                      return (
-                        parsedResume?.summary ||
-                        "Full-stack engineer with proven experience building high-scale consumer applications, specialising in modern frontend and backend architectures."
-                      );
-                    })()}
-                  </p>
-                </div>
-
-                {/* Work Experience */}
-                <div>
-                  <h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">
-                    Experience
-                  </h3>
-                  <div className="space-y-3">
-                    {parsedResume?.experience && parsedResume.experience.length > 0 ? (
-                      parsedResume.experience.map((exp) => (
-                        <div key={exp.id} className="space-y-1">
-                          <div className="flex justify-between items-baseline font-sans font-semibold text-slate-800 text-[11px]">
-                            <span>{exp.role} — {exp.company}</span>
-                            <span className="text-slate-500 font-normal text-[10px]">{exp.duration}</span>
-                          </div>
-                          <ul className="list-disc pl-4 space-y-1 text-slate-700">
-                            {exp.bullets.map((b, bIdx) => {
-                              const bulletState = getRenderedBullet(b);
-                              return (
-                                <li
-                                  key={bIdx}
-                                  className={clsx(
-                                    bulletState.isApplied &&
-                                      "bg-emerald-50 text-emerald-950 font-medium p-1 rounded border-l-2 border-emerald-500 transition-all font-sans"
-                                  )}
-                                >
-                                  {bulletState.text}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="space-y-1">
-                        <div className="flex justify-between items-baseline font-sans font-semibold text-slate-800 text-[11px]">
-                          <span>Software Engineering Intern — Razorpay</span>
-                          <span className="text-slate-500 font-normal text-[10px]">Jan 2026 – Present</span>
-                        </div>
-                        <ul className="list-disc pl-4 space-y-1 text-slate-700">
-                          <li>Engineered responsive client-facing interfaces across core views.</li>
-                          <li>Standardized reusable frontend component libraries.</li>
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Technical Skills */}
-                <div>
-                  <h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">
-                    Technical Skills
-                  </h3>
-                  <p className="text-slate-700 font-sans">
-                    <span className="font-semibold text-slate-900">Technologies & Tools: </span>
-                    {parsedResume?.skills && parsedResume.skills.length > 0
-                      ? parsedResume.skills.join(", ")
-                      : analysis.extractedSkills?.join(", ") || "TypeScript, React, Next.js, Node.js, PostgreSQL, Docker"}
-                  </p>
-                </div>
-
-                {/* Projects */}
-                <div>
-                  <h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">
-                    Projects
-                  </h3>
-                  <div className="space-y-3">
-                    {parsedResume?.projects && parsedResume.projects.length > 0 ? (
-                      parsedResume.projects.map((proj) => (
-                        <div key={proj.id} className="space-y-1">
-                          <div className="flex justify-between items-baseline font-sans font-semibold text-slate-800 text-[11px]">
-                            <span>{proj.title}</span>
-                            <span className="text-slate-500 font-normal text-[10px]">{proj.techStack}</span>
-                          </div>
-                          <ul className="list-disc pl-4 space-y-1 text-slate-700">
-                            {proj.bullets.map((b, pIdx) => {
-                              const bulletState = getRenderedBullet(b);
-                              return (
-                                <li
-                                  key={pIdx}
-                                  className={clsx(
-                                    bulletState.isApplied &&
-                                      "bg-emerald-50 text-emerald-950 font-medium p-1 rounded border-l-2 border-emerald-500 transition-all font-sans"
-                                  )}
-                                >
-                                  {bulletState.text}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="space-y-1">
-                        <span className="font-semibold text-slate-900 font-sans text-[11px]">
-                          Placement Co-pilot — AI Career Suite
-                        </span>
-                        <p className="text-slate-700">
-                          Architected full-stack career platform utilizing modern REST APIs and PostgreSQL.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Education */}
-                {parsedResume?.education && parsedResume.education.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">
-                      Education
-                    </h3>
-                    <div className="space-y-1">
-                      {parsedResume.education.map((edu, eIdx) => (
-                        <div key={eIdx} className="flex justify-between items-baseline font-sans text-[11px]">
-                          <div>
-                            <span className="font-semibold text-slate-800">{edu.institution}</span>
-                            <span className="text-slate-600 block text-[10px]">{edu.degree} {edu.score ? `• ${edu.score}` : ""}</span>
-                          </div>
-                          <span className="text-slate-500 text-[10px]">{edu.year}</span>
-                        </div>
-                      ))}
+              <div id="resume-print-sheet" className="bg-white text-slate-800 rounded-xl p-6 sm:p-8 shadow-2xl space-y-4 text-left text-[13px] leading-relaxed font-normal min-h-[842px] h-auto">
+                {parsedResume ? <>
+                  <header className="text-center border-b border-slate-200 pb-3 space-y-1">
+                    <EditableText value={parsedResume.candidateName} onSave={(text) => saveEditedResume({ ...parsedResume, candidateName: text })} className="block mx-auto text-lg font-bold font-sans tracking-tight text-slate-900" />
+                    <div className="flex flex-wrap justify-center gap-x-2 text-[11px] text-slate-600 font-sans">
+                      {parsedResume.email && <EditableText value={parsedResume.email} onSave={(text) => saveEditedResume({ ...parsedResume, email: text })} />}
+                      {parsedResume.phone && <EditableText value={parsedResume.phone} onSave={(text) => saveEditedResume({ ...parsedResume, phone: text })} />}
+                      {parsedResume.location && <EditableText value={parsedResume.location} onSave={(text) => saveEditedResume({ ...parsedResume, location: text })} />}
+                      {parsedResume.links.map((link, index) => <a key={`${link}-${index}`} href={link.startsWith("http") ? link : `https://${link}`} target="_blank" rel="noreferrer" className="underline">{link}</a>)}
                     </div>
-                  </div>
-                )}
+                  </header>
+
+                  {parsedResume.summary && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Professional Summary</h3><EditableText multiline value={parsedResume.summary} onSave={(text) => saveEditedResume({ ...parsedResume, summary: text })} className="block w-full text-[13px] leading-relaxed font-normal text-slate-800" /></section>}
+
+                  {parsedResume.education.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Education</h3><div className="space-y-2">{parsedResume.education.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="education" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
+                  {parsedResume.experience.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Work Experience</h3><div className="space-y-3">{parsedResume.experience.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="experience" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
+                  {parsedResume.projects.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Projects</h3><div className="space-y-3">{parsedResume.projects.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="projects" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
+
+                  {(parsedResume.skillCategories.length > 0 || parsedResume.skills.length > 0) && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Technical Skills</h3><div className="space-y-1">{parsedResume.skillCategories.length > 0 ? parsedResume.skillCategories.map((group, index) => <p key={`${group.category}-${index}`}><strong className="text-slate-900">{group.category}: </strong><EditableText value={group.skills.join(", ")} onSave={(text) => { const skillCategories = parsedResume.skillCategories.map((item, itemIndex) => itemIndex === index ? { ...item, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) } : item); saveEditedResume({ ...parsedResume, skillCategories, skills: Array.from(new Set(skillCategories.flatMap((item) => item.skills))) }); }} /></p>) : <EditableText value={parsedResume.skills.join(", ")} onSave={(text) => saveEditedResume({ ...parsedResume, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) })} />}</div></section>}
+
+                  {parsedResume.customSections.map((section) => <section key={section.id}><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">{section.heading}</h3><ul className="list-disc pl-5 space-y-1">{section.items.map((item) => <li key={item.id} className="text-[13px] leading-relaxed font-normal text-slate-800"><EditableText multiline value={item.text} onSave={(text) => editCustomItem(section.id, item.id, text)} className="w-full text-[13px] leading-relaxed font-normal text-slate-800" /></li>)}</ul></section>)}
+                </> : <div className="min-h-64 flex flex-col items-center justify-center text-center text-slate-500"><FileText className="w-8 h-8 mb-2" /><p className="font-sans font-medium">Your resume preview will appear here</p><p className="text-xs">Upload a PDF, DOCX, or TXT resume to begin.</p></div>}
               </div>
             </div>
           </div>

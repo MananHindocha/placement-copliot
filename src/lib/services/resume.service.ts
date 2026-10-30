@@ -1,7 +1,16 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
 import { RESUME_ANALYSIS } from "@/lib/mock-data";
-import type { ResumeAnalysis } from "@/types";
+import type { ParsedResumeDocument, ResumeAnalysis } from "@/types";
+
+const WORKSPACE_KEY = "copilot_latest_resume_analysis";
+
+export interface ResumeWorkspace {
+  analysis: ResumeAnalysis;
+  editableResume: ParsedResumeDocument | null;
+  appliedSuggestionIds: string[];
+  userId: string | null;
+}
 
 let demoAnalysis: ResumeAnalysis = {
   ...RESUME_ANALYSIS,
@@ -25,20 +34,61 @@ export interface AnalyzeResumeResponse {
 }
 
 export async function getResumeAnalysis(): Promise<ResumeAnalysis> {
+  return (await getResumeWorkspace()).analysis;
+}
+
+function readStoredWorkspace(): ResumeWorkspace | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw: unknown = JSON.parse(window.localStorage.getItem(WORKSPACE_KEY) || "null");
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+    const value = raw as Partial<ResumeWorkspace>;
+    if (!value.analysis || typeof value.analysis !== "object") return null;
+    return {
+      analysis: value.analysis as ResumeAnalysis,
+      editableResume: value.editableResume && typeof value.editableResume === "object" ? value.editableResume : null,
+      appliedSuggestionIds: Array.isArray(value.appliedSuggestionIds) ? value.appliedSuggestionIds.filter((id): id is string => typeof id === "string") : [],
+      userId: typeof value.userId === "string" ? value.userId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredWorkspace(workspace: ResumeWorkspace): boolean {
+  if (typeof window === "undefined") return false;
+  const compactWorkspace: ResumeWorkspace = {
+    ...workspace,
+    analysis: { ...workspace.analysis, parsedResume: undefined },
+    editableResume: workspace.editableResume ? { ...workspace.editableResume, rawText: "" } : null,
+  };
+  try {
+    window.localStorage.setItem(WORKSPACE_KEY, JSON.stringify(compactWorkspace));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function emptyAnalysis(): ResumeAnalysis {
+  return { matchScore: 0, atsScore: 0, jobTitle: "Upload a resume to begin", company: "", strengths: [], gaps: [], suggestions: [], keywords: [] };
+}
+
+export async function getResumeWorkspace(): Promise<ResumeWorkspace> {
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    return { ...demoAnalysis };
+    const stored = readStoredWorkspace();
+    return stored && stored.userId === null ? stored : { analysis: { ...demoAnalysis }, editableResume: demoAnalysis.parsedResume || null, appliedSuggestionIds: [], userId: null };
   }
 
   const supabase = createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    throw new Error(
-      authError?.message || "Authentication required: please sign in to view your resume analysis."
-    );
-  }
+  if (authError || !user) return { analysis: emptyAnalysis(), editableResume: null, appliedSuggestionIds: [], userId: null };
+
+  const stored = readStoredWorkspace();
+  if (stored && stored.userId === user.id) return stored;
 
   const { data, error } = await supabase
     .from("resume_analyses")
@@ -54,19 +104,13 @@ export async function getResumeAnalysis(): Promise<ResumeAnalysis> {
 
   if (!data) {
     // If user has not analyzed a resume yet in live mode, provide an empty state structure
-    return {
-      matchScore: 0,
-      atsScore: 0,
-      jobTitle: "Upload a resume to begin",
-      company: "",
-      strengths: [],
-      gaps: [],
-      suggestions: [],
-      keywords: [],
-    };
+    return { analysis: emptyAnalysis(), editableResume: null, appliedSuggestionIds: [], userId: user.id };
   }
 
-  return {
+  const payload = typeof data.analysis_payload === "object" && data.analysis_payload !== null
+    ? data.analysis_payload as ResumeAnalysis
+    : null;
+  const analysis: ResumeAnalysis = payload || {
     matchScore: data.match_score,
     atsScore: data.ats_score,
     jobTitle: data.target_role,
@@ -82,6 +126,55 @@ export async function getResumeAnalysis(): Promise<ResumeAnalysis> {
       skills: 85,
     },
   };
+  const parsed = typeof data.parsed_resume === "object" && data.parsed_resume !== null
+    ? data.parsed_resume as ParsedResumeDocument
+    : analysis.parsedResume || null;
+  return { analysis: { ...analysis, parsedResume: parsed || undefined }, editableResume: parsed, appliedSuggestionIds: [], userId: user.id };
+}
+
+export async function saveResumeWorkspace(
+  analysis: ResumeAnalysis,
+  editableResume: ParsedResumeDocument | null,
+  appliedSuggestionIds: string[]
+): Promise<void> {
+  const mode = getEffectiveDataMode();
+  let userId: string | null = null;
+  if (mode === "live") {
+    const supabase = createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) throw new Error(error?.message || "Sign in to save this resume workspace.");
+    userId = user.id;
+  }
+
+  const savedAnalysis = { ...analysis, parsedResume: editableResume || undefined };
+  const workspace: ResumeWorkspace = { analysis: savedAnalysis, editableResume, appliedSuggestionIds, userId };
+  const storedLocally = writeStoredWorkspace(workspace);
+  if (mode === "demo") {
+    demoAnalysis = savedAnalysis;
+    if (!storedLocally) throw new Error("Browser storage is full; this resume could not be saved for reloads.");
+    return;
+  }
+
+  const supabase = createClient();
+  const { data: existing, error: fetchError } = await supabase.from("resume_analyses")
+    .select("id").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (fetchError) throw new Error(`Failed to locate resume analysis: ${fetchError.message}`);
+  const payload = {
+    target_role: savedAnalysis.jobTitle || "Software Engineer",
+    target_company: savedAnalysis.company || null,
+    match_score: savedAnalysis.matchScore,
+    ats_score: savedAnalysis.atsScore,
+    strengths: savedAnalysis.strengths,
+    gaps: savedAnalysis.gaps,
+    suggestions: savedAnalysis.suggestions,
+    keywords: savedAnalysis.keywords,
+    parsed_resume: editableResume,
+    analysis_payload: savedAnalysis,
+  };
+  const result = existing
+    ? await supabase.from("resume_analyses").update(payload).eq("id", existing.id).eq("user_id", userId)
+    : await supabase.from("resume_analyses").insert({ ...payload, user_id: userId });
+  if (result.error) throw new Error(`Failed to save resume workspace: ${result.error.message}`);
 }
 
 export async function analyzeResumeFile(
@@ -106,6 +199,7 @@ export async function analyzeResumeFile(
 
   const result: AnalyzeResumeResponse = await res.json();
   demoAnalysis = result.analysis;
+  await saveResumeWorkspace(result.analysis, result.analysis.parsedResume || null, []);
   return result;
 }
 
@@ -133,6 +227,7 @@ export async function reEvaluateResumeText(
 
   const result: AnalyzeResumeResponse = await res.json();
   demoAnalysis = result.analysis;
+  await saveResumeWorkspace(result.analysis, result.analysis.parsedResume || null, []);
   return result;
 }
 

@@ -1,269 +1,229 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Job } from "@/types";
-import { JOBS, EXTENDED_JOBS } from "@/lib/mock-data";
+import {
+  matchesJobSearch,
+  normalizeGreenhouse,
+  normalizeHimalayas,
+  normalizeJSearch,
+  normalizeJobvetta,
+  normalizeRemotive,
+} from "@/lib/jobs/normalize";
+import type { NormalizedJobListing } from "@/types";
 
-// ─── Types for external API responses ────────────────────────────────────────
+export const dynamic = "force-dynamic";
 
-interface AdzunaResult {
-  id: string;
-  title: string;
-  company?: { display_name?: string };
-  location?: { display_name?: string };
-  description?: string;
-  salary_min?: number;
-  salary_max?: number;
-  contract_type?: string;
-  redirect_url?: string;
-  created?: string;
-  category?: { label?: string; tag?: string };
+type ProviderResult = { jobs: NormalizedJobListing[]; status: "ok" | "disabled" | "error"; message?: string };
+const timeout = () => AbortSignal.timeout(10_000);
+const responseCache = new Map<string, { expiresAt: number; payload: unknown }>();
+const inFlight = new Map<string, Promise<unknown>>();
+let jsearchMonth = "";
+let jsearchRequests = 0;
+const jobvettaResultCache = new Map<string, { expiresAt: number; result: ProviderResult }>();
+let jobvettaRequestDay = "";
+let jobvettaRequestsToday = 0;
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-interface AdzunaResponse {
-  results: AdzunaResult[];
-  count?: number;
+async function cachedJson(url: string, headers: HeadersInit, ttlMs: number): Promise<unknown> {
+  const cached = responseCache.get(url);
+  if (cached && cached.expiresAt > Date.now()) return cached.payload;
+  const pending = inFlight.get(url);
+  if (pending) return pending;
+  const request = (async () => {
+    const response = await fetch(url, {
+      headers,
+      signal: timeout(),
+      next: { revalidate: Math.max(60, Math.floor(ttlMs / 1000)) },
+    });
+    if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
+    const payload: unknown = await response.json();
+    responseCache.set(url, { expiresAt: Date.now() + ttlMs, payload });
+    return payload;
+  })();
+  inFlight.set(url, request);
+  try { return await request; } finally { inFlight.delete(url); }
 }
 
-interface RemotiveJob {
-  id: number;
-  title: string;
-  company_name: string;
-  candidate_required_location: string;
-  description: string;
-  salary: string;
-  job_type: string;
-  url: string;
-  publication_date: string;
-  tags?: string[];
-  category?: string;
+async function fetchJobvetta(query: string, location: string): Promise<ProviderResult> {
+  const key = process.env.JOBVETTA_API_KEY;
+  if (!key || key.startsWith("your_")) return { jobs: [], status: "disabled", message: "JOBVETTA_API_KEY is not configured." };
+  const cacheKey = `${query.toLowerCase()}|${location.toLowerCase()}`;
+  const cached = jobvettaResultCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+  const day = new Date().toISOString().slice(0, 10);
+  if (jobvettaRequestDay !== day) {
+    jobvettaRequestDay = day;
+    jobvettaRequestsToday = 0;
+  }
+  if (jobvettaRequestsToday >= 40) {
+    return { jobs: [], status: "disabled", message: "Jobvetta daily request safeguard reached (40 requests per server process)." };
+  }
+  jobvettaRequestsToday += 1;
+  try {
+    const params = new URLSearchParams({ limit: "10" });
+    if (query) params.set("q", query.slice(0, 100));
+    if (location) params.set("location", location.slice(0, 100));
+    const response = await fetch(`https://api.jobvetta.com/v1/jobs?${params}`, {
+      headers: { Authorization: `Bearer ${key}` }, signal: timeout(), next: { revalidate: 3600 },
+    });
+    if (!response.ok) return { jobs: [], status: "error", message: `Jobvetta returned HTTP ${response.status}.` };
+    const payload = await response.json() as { jobs?: unknown[] };
+    const result = { jobs: (payload.jobs || []).map(normalizeJobvetta).filter((job): job is NormalizedJobListing => Boolean(job)), status: "ok" as const };
+    jobvettaResultCache.set(cacheKey, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, result });
+    return result;
+  } catch {
+    return { jobs: [], status: "error", message: "Jobvetta could not be reached." };
+  }
 }
 
-interface RemotiveResponse {
-  jobs: RemotiveJob[];
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function timeAgo(dateStr: string): string {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "1 day ago";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 14) return "1 week ago";
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  return `${Math.floor(diffDays / 30)} month(s) ago`;
-}
-
-function formatSalary(min?: number, max?: number): string {
-  if (!min && !max) return "Not disclosed";
-  const fmt = (n: number) => {
-    if (n >= 100000) return `₹${(n / 100000).toFixed(0)}L`;
-    if (n >= 1000) return `$${(n / 1000).toFixed(0)}k`;
-    return `$${n}`;
-  };
-  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
-  if (min) return `${fmt(min)}+`;
-  return `Up to ${fmt(max!)}`;
-}
-
-function mapContractType(ct?: string): Job["type"] {
-  if (!ct) return "Full-time";
-  const lower = ct.toLowerCase();
-  if (lower.includes("full")) return "Full-time";
-  if (lower.includes("part")) return "Part-time";
-  if (lower.includes("intern")) return "Internship";
-  if (lower.includes("contract") || lower.includes("freelance")) return "Contract";
-  return "Full-time";
-}
-
-function extractTagsFromDescription(desc: string): string[] {
-  const techKeywords = [
-    "React", "Angular", "Vue", "TypeScript", "JavaScript", "Python", "Java",
-    "Go", "Rust", "C++", "Node.js", "Next.js", "GraphQL", "REST", "SQL",
-    "PostgreSQL", "MongoDB", "Redis", "Docker", "Kubernetes", "AWS", "GCP",
-    "Azure", "Machine Learning", "AI", "DevOps", "CI/CD", "Git", "Linux",
-    "Spring", "Django", "Flask", "FastAPI", "Terraform", "Kafka",
-  ];
-  const found = new Set<string>();
-  const descLower = desc.toLowerCase();
-  for (const kw of techKeywords) {
-    if (descLower.includes(kw.toLowerCase())) {
-      found.add(kw);
+async function fetchGreenhouse(query: string, location: string): Promise<ProviderResult> {
+  const boardTokens = Array.from(new Set((process.env.GREENHOUSE_BOARD_TOKENS || "")
+    .split(",").map((token) => token.trim()).filter((token) => !token.startsWith("your_") && /^[a-zA-Z0-9_-]{1,80}$/.test(token))));
+  if (!boardTokens.length) return { jobs: [], status: "disabled", message: "No GREENHOUSE_BOARD_TOKENS are configured." };
+  const results = await Promise.all(boardTokens.map(async (token) => {
+    try {
+      const response = await fetch(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs?content=true`, {
+        signal: timeout(), next: { revalidate: 1800 },
+      });
+      if (!response.ok) return { jobs: [] as NormalizedJobListing[], error: `Greenhouse board ${token} returned HTTP ${response.status}.` };
+      const payload = await response.json() as { jobs?: unknown[] };
+      const jobs = (payload.jobs || []).map((job) => normalizeGreenhouse(job, token))
+        .filter((job): job is NormalizedJobListing => Boolean(job));
+      return { jobs, error: "" };
+    } catch {
+      return { jobs: [] as NormalizedJobListing[], error: `Greenhouse board ${token} could not be reached.` };
     }
-  }
-  return Array.from(found).slice(0, 6);
+  }));
+  const jobs = results.flatMap((result) => result.jobs).filter((job) => matchesJobSearch(job, query, location));
+  const errors = results.map((result) => result.error).filter(Boolean);
+  if (jobs.length || !errors.length) return { jobs, status: "ok" };
+  return { jobs: [], status: "error", message: errors.join(" ") };
 }
 
-function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-// ─── Adzuna Fetch ────────────────────────────────────────────────────────────
-
-async function fetchAdzuna(
-  query: string,
-  location: string
-): Promise<{ jobs: Job[]; source: "adzuna" } | null> {
-  const appId = process.env.ADZUNA_APP_ID;
-  const appKey = process.env.ADZUNA_APP_KEY;
-
-  if (!appId || !appKey) return null;
-
+async function fetchRemotive(query: string, location: string): Promise<ProviderResult> {
   try {
-    const params = new URLSearchParams({
-      app_id: appId,
-      app_key: appKey,
-      results_per_page: "20",
-      what: query || "software engineer",
-      "content-type": "application/json",
+    // A single unfiltered feed URL is cached for six hours to honor Remotive's low request guidance.
+    const response = await fetch("https://remotive.com/api/remote-jobs?limit=100", {
+      signal: timeout(), next: { revalidate: 21_600 },
     });
-    if (location) params.set("where", location);
-
-    const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?${params}`;
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-    });
-
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as AdzunaResponse;
-
-    const jobs: Job[] = (data.results || []).map(
-      (r: AdzunaResult, idx: number) => ({
-        id: `adzuna-${r.id || idx}`,
-        title: r.title || "Untitled Role",
-        company: r.company?.display_name || "Unknown Company",
-        location: r.location?.display_name || "India",
-        type: mapContractType(r.contract_type),
-        salary: formatSalary(r.salary_min, r.salary_max),
-        matchScore: 0, // will be scored by AI match endpoint
-        posted: r.created ? timeAgo(r.created) : "Recently",
-        tags: extractTagsFromDescription(r.description || r.title || ""),
-        logo: (r.company?.display_name || "?")[0].toUpperCase(),
-        saved: false,
-        applied: false,
-        description: stripHtmlTags(r.description || "No description available.").slice(0, 600),
-      })
-    );
-
-    return { jobs, source: "adzuna" };
+    if (!response.ok) return { jobs: [], status: "error", message: `Remotive returned HTTP ${response.status}.` };
+    const payload = await response.json() as { jobs?: unknown[] };
+    const jobs = (payload.jobs || []).map(normalizeRemotive)
+      .filter((job): job is NormalizedJobListing => Boolean(job))
+      .filter((job) => matchesJobSearch(job, query, location));
+    return { jobs, status: "ok" };
   } catch {
-    return null;
+    return { jobs: [], status: "error", message: "Remotive could not be reached." };
   }
 }
 
-// ─── Remotive Fetch ──────────────────────────────────────────────────────────
+function providerStatus(status: "ok" | "disabled" | "error", jobs: NormalizedJobListing[], message?: string) {
+  return { jobs, status, ...(message ? { message } : {}) };
+}
 
-async function fetchRemotive(
-  query: string
-): Promise<{ jobs: Job[]; source: "remotive" } | null> {
+function indiaLocation(location: string): boolean {
+  return /\b(india|bengaluru|bangalore|mumbai|delhi|hyderabad|chennai|pune|kolkata|gurugram|gurgaon|noida|ahmedabad|jaipur|kochi)\b/i.test(location);
+}
+
+function countryCode(location: string): string | null {
+  if (!location || indiaLocation(location)) return "in";
+  const value = location.toLowerCase();
+  if (/\b(united states|usa|\bus\b|new york|california|texas)\b/.test(value)) return "us";
+  if (/\b(united kingdom|\buk\b|england|london)\b/.test(value)) return "gb";
+  if (/\b(canada|toronto|vancouver)\b/.test(value)) return "ca";
+  if (/\b(australia|sydney|melbourne)\b/.test(value)) return "au";
+  if (/\b(germany|berlin|france|paris)\b/.test(value)) return value.includes("france") || value.includes("paris") ? "fr" : "de";
+  return null;
+}
+
+async function fetchJSearch(input: { query: string; location: string; arrangement: string; postedWithin: string; cursor: string }): Promise<ProviderResult & { nextCursor: string | null }> {
+  const apiKey = process.env.OPENWEBNINJA_API_KEY;
+  if (!apiKey) return { ...providerStatus("disabled", [], "OPENWEBNINJA_API_KEY is not configured."), nextCursor: null };
+  const month = new Date().toISOString().slice(0, 7);
+  if (jsearchMonth !== month) { jsearchMonth = month; jsearchRequests = 0; }
+  const params = new URLSearchParams({ query: [input.query, input.location && `in ${input.location}`].filter(Boolean).join(" ") || "software engineer jobs in India", language: "en" });
+  const country = countryCode(input.location);
+  if (country) params.set("country", country);
+  if (input.arrangement === "remote") params.set("work_from_home", "true");
+  if (input.postedWithin && input.postedWithin !== "any") params.set("date_posted", ({ today: "today", "3days": "3days", week: "week", month: "month" } as Record<string, string>)[input.postedWithin] || "all");
+  if (input.cursor) params.set("cursor", input.cursor);
+  const url = `https://api.openwebninja.com/jsearch/search-v2?${params}`;
+  const needsUpstreamCall = !responseCache.has(url) && !inFlight.has(url);
+  if (jsearchRequests >= 150 && needsUpstreamCall) return { ...providerStatus("disabled", [], "JSearch monthly safety cap reached for this server process."), nextCursor: null };
+  if (needsUpstreamCall) jsearchRequests += 1;
   try {
-    const params = new URLSearchParams({
-      limit: "20",
-    });
-    if (query) params.set("search", query);
-
-    const url = `https://remotive.com/api/remote-jobs?${params}`;
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-    });
-
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as RemotiveResponse;
-
-    const jobs: Job[] = (data.jobs || []).slice(0, 20).map(
-      (r: RemotiveJob, idx: number) => ({
-        id: `remotive-${r.id || idx}`,
-        title: r.title || "Untitled Role",
-        company: r.company_name || "Unknown Company",
-        location: r.candidate_required_location || "Remote",
-        type: mapContractType(r.job_type),
-        salary: r.salary || "Not disclosed",
-        matchScore: 0,
-        posted: r.publication_date ? timeAgo(r.publication_date) : "Recently",
-        tags: r.tags?.slice(0, 6) ||
-          extractTagsFromDescription(stripHtmlTags(r.description || r.title || "")),
-        logo: (r.company_name || "?")[0].toUpperCase(),
-        saved: false,
-        applied: false,
-        description: stripHtmlTags(r.description || "No description available.").slice(0, 600),
-      })
-    );
-
-    return { jobs, source: "remotive" };
-  } catch {
-    return null;
+    const payload = (await cachedJson(url, { "x-api-key": apiKey }, 12 * 60 * 60 * 1000)) as Record<string, unknown>;
+    const rawJobs = Array.isArray(payload.data) ? payload.data : Array.isArray(payload.jobs) ? payload.jobs : [];
+    const jobs = rawJobs.map(normalizeJSearch).filter((job): job is NormalizedJobListing => Boolean(job))
+      .filter((job) => input.arrangement === "unspecified" || !input.arrangement || job.workArrangement === input.arrangement);
+    const cursor = text(payload.nextCursor ?? payload.next_cursor ?? payload.cursor);
+    return { ...providerStatus("ok", jobs), nextCursor: cursor || null };
+  } catch (error) {
+    return { ...providerStatus("error", [], error instanceof Error ? error.message : "JSearch request failed."), nextCursor: null };
   }
 }
 
-// ─── Mock Fallback ───────────────────────────────────────────────────────────
-
-function getMockJobs(query: string, location: string): Job[] {
-  const allMock = [...JOBS, ...EXTENDED_JOBS];
-  const q = query.toLowerCase();
-  const loc = location.toLowerCase();
-
-  return allMock.filter((j) => {
-    const matchQuery =
-      !q ||
-      j.title.toLowerCase().includes(q) ||
-      j.company.toLowerCase().includes(q) ||
-      j.tags.some((t) => t.toLowerCase().includes(q)) ||
-      j.description.toLowerCase().includes(q);
-    const matchLoc =
-      !loc ||
-      j.location.toLowerCase().includes(loc) ||
-      (loc === "remote" && j.location.toLowerCase().includes("remote"));
-    return matchQuery && matchLoc;
-  });
+async function fetchHimalayas(input: { query: string; location: string; arrangement: string; experience: string; employment: string; page: number }): Promise<ProviderResult & { nextPage: number | null }> {
+  if (input.arrangement === "onsite" || input.arrangement === "hybrid") return { ...providerStatus("disabled", [], "Himalayas provides remote-only listings."), nextPage: null };
+  const params = new URLSearchParams({ sort: "recent", page: String(input.page) });
+  if (input.query) params.set("q", input.query);
+  if (indiaLocation(input.location)) params.set("country", "IN");
+  else if (!input.location || /remote|worldwide|global/i.test(input.location)) params.set("worldwide", "true");
+  const seniority = ({ entry: "Entry-level", fresher: "Entry-level", junior: "Entry-level", mid: "Mid-level", senior: "Senior" } as Record<string, string>)[input.experience];
+  if (seniority) params.set("seniority", seniority);
+  const employment = ({ internship: "Intern", "full-time": "Full Time", "part-time": "Part Time", contract: "Contractor" } as Record<string, string>)[input.employment.toLowerCase()];
+  if (employment) params.set("employment_type", employment);
+  const url = `https://himalayas.app/jobs/api/search?${params}`;
+  const apiKey = process.env.HIMALAYAS_API_KEY;
+  try {
+    const payload = (await cachedJson(url, apiKey ? { Authorization: `Bearer ${apiKey}` } : {}, 24 * 60 * 60 * 1000)) as Record<string, unknown>;
+    const rawJobs = Array.isArray(payload.jobs) ? payload.jobs : Array.isArray(payload.data) ? payload.data : [];
+    const country = indiaLocation(input.location) ? "IN" : undefined;
+    const jobs = rawJobs.map((job) => normalizeHimalayas(job, country)).filter((job): job is NormalizedJobListing => Boolean(job));
+    return { ...providerStatus("ok", jobs), nextPage: rawJobs.length >= 20 ? input.page + 1 : null };
+  } catch (error) {
+    return { ...providerStatus("error", [], error instanceof Error ? error.message : "Himalayas request failed."), nextPage: null };
+  }
 }
-
-// ─── Route Handler ───────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const query = searchParams.get("q") || "";
-  const location = searchParams.get("location") || "";
-  const mode = searchParams.get("mode") || "auto"; // "auto" | "demo"
+  const query = text(request.nextUrl.searchParams.get("q")).slice(0, 120);
+  const location = text(request.nextUrl.searchParams.get("location")).slice(0, 120);
+  const arrangement = text(request.nextUrl.searchParams.get("arrangement")).toLowerCase();
+  const postedWithin = text(request.nextUrl.searchParams.get("postedWithin"));
+  const experience = text(request.nextUrl.searchParams.get("experience"));
+  const employment = text(request.nextUrl.searchParams.get("employment"));
+  const jsearchCursor = text(request.nextUrl.searchParams.get("jsearchCursor"));
+  const himalayasPage = Math.max(1, Number(request.nextUrl.searchParams.get("himalayasPage") || "1") || 1);
+  const settled = await Promise.allSettled([
+    fetchJobvetta(query, location), fetchGreenhouse(query, location), fetchRemotive(query, location),
+    fetchJSearch({ query, location, arrangement, postedWithin, cursor: jsearchCursor }),
+    fetchHimalayas({ query, location, arrangement, experience, employment, page: himalayasPage }),
+  ]);
+  const results = settled.map((entry) => entry.status === "fulfilled" ? entry.value : null);
+  const [jobvetta, greenhouse, remotive, jsearch, himalayas] = results as [ProviderResult | null, ProviderResult | null, ProviderResult | null, (ProviderResult & { nextCursor: string | null }) | null, (ProviderResult & { nextPage: number | null }) | null];
+  const providers: Record<string, ProviderResult> = {
+    jobvetta: jobvetta || providerStatus("error", [], "Jobvetta request failed."),
+    greenhouse: greenhouse || providerStatus("error", [], "Greenhouse request failed."),
+    remotive: remotive || providerStatus("error", [], "Remotive request failed."),
+    jsearch: jsearch || providerStatus("error", [], "JSearch request failed."),
+    himalayas: himalayas || providerStatus("error", [], "Himalayas request failed."),
+  };
+  const jobs = Object.values(providers).flatMap((provider) => provider.jobs);
+  const dedupeKey = (job: NormalizedJobListing) => job.applyUrl?.toLowerCase().replace(/\/$/, "") || `${job.title}|${job.company}|${job.location}`.toLowerCase().replace(/\s+/g, " ");
+  const uniqueJobs = Array.from(new Map(jobs.map((job) => [dedupeKey(job), job])).values()).slice(0, 80);
+  const sources = Object.fromEntries(Object.entries(providers).map(([name, result]) => [name, {
+    status: result.status,
+    ...(result.message ? { message: result.message } : {}),
+    count: result.jobs.length,
+  }]));
+  const source = uniqueJobs.length
+    ? Array.from(new Set(uniqueJobs.map((job) => job.source))).join(",")
+    : "live-empty";
 
-  // If explicitly demo mode, skip APIs
-  if (mode === "demo") {
-    return NextResponse.json({
-      jobs: getMockJobs(query, location),
-      source: "demo",
-      count: getMockJobs(query, location).length,
-    });
-  }
-
-  // Try Adzuna first
-  const adzunaResult = await fetchAdzuna(query, location);
-  if (adzunaResult && adzunaResult.jobs.length > 0) {
-    return NextResponse.json({
-      jobs: adzunaResult.jobs,
-      source: adzunaResult.source,
-      count: adzunaResult.jobs.length,
-    });
-  }
-
-  // Fallback to Remotive
-  const remotiveResult = await fetchRemotive(query);
-  if (remotiveResult && remotiveResult.jobs.length > 0) {
-    return NextResponse.json({
-      jobs: remotiveResult.jobs,
-      source: remotiveResult.source,
-      count: remotiveResult.jobs.length,
-    });
-  }
-
-  // Final fallback to mock data
-  const mockJobs = getMockJobs(query, location);
-  return NextResponse.json({
-    jobs: mockJobs,
-    source: "demo",
-    count: mockJobs.length,
-  });
+  return NextResponse.json({ jobs: uniqueJobs, source, sources, count: uniqueJobs.length, pagination: {
+    jsearchNextCursor: jsearch?.nextCursor || null,
+    himalayasNextPage: himalayas?.nextPage || null,
+  } });
 }

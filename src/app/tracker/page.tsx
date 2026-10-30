@@ -846,6 +846,31 @@ export default function TrackerPage() {
               </select>
             </div>
 
+            {(selectedCard.url || selectedCard.sourceUrl || selectedCard.location || selectedCard.closingDate) && (
+              <div className="p-3 rounded-xl bg-white/3 border border-white/6 space-y-2 text-xs">
+                {selectedCard.location && <p className="text-slate-400">Location: {selectedCard.location}</p>}
+                {selectedCard.source && <p className="text-slate-400">Source: {selectedCard.source}</p>}
+                {selectedCard.closingDate && (
+                  <p className="text-slate-400">
+                    Deadline: {selectedCard.closingDate}
+                    {selectedCard.deadlineProvenance === "verified_source" ? " · verified by source" : " · user entered"}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {selectedCard.url && (
+                    <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 inline-flex items-center gap-1">
+                      Application page <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {selectedCard.sourceUrl && selectedCard.sourceUrl !== selectedCard.url && (
+                    <a href={selectedCard.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 inline-flex items-center gap-1">
+                      Listing source <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Priority & Match */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">

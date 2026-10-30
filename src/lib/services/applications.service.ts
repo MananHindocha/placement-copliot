@@ -44,6 +44,12 @@ export async function getApplications(): Promise<KanbanCard[]> {
     matchScore: row.match_score ?? 0,
     priority: row.priority || "medium",
     notes: row.notes || undefined,
+    url: row.application_url || undefined,
+    location: row.location || undefined,
+    source: row.job_source ? row.job_source as NonNullable<KanbanCard["source"]> : undefined,
+    sourceUrl: row.source_url || undefined,
+    closingDate: row.closing_date || undefined,
+    deadlineProvenance: row.deadline_provenance || "unknown",
   }));
 }
 
@@ -106,11 +112,19 @@ export async function addApplication(
       logo: card.logo,
       status: card.status,
       priority: card.priority,
-      applied_date: card.appliedDate ? new Date(card.appliedDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      applied_date: card.appliedDate
+        ? new Date(card.appliedDate).toISOString().split("T")[0]
+        : card.status === "Wishlist" ? null : new Date().toISOString().split("T")[0],
       next_step: card.nextStep,
       next_step_date: card.nextStepDate ? new Date(card.nextStepDate).toISOString().split("T")[0] : null,
       match_score: card.matchScore,
       notes: card.notes,
+      application_url: card.url || null,
+      source_url: card.sourceUrl || null,
+      location: card.location || null,
+      job_source: card.source || null,
+      closing_date: card.closingDate || null,
+      deadline_provenance: card.deadlineProvenance || "unknown",
     })
     .select()
     .single();
@@ -131,6 +145,12 @@ export async function addApplication(
     matchScore: data.match_score,
     priority: data.priority,
     notes: data.notes,
+    url: data.application_url || undefined,
+    sourceUrl: data.source_url || undefined,
+    location: data.location || undefined,
+    source: data.job_source ? data.job_source as NonNullable<KanbanCard["source"]> : undefined,
+    closingDate: data.closing_date || undefined,
+    deadlineProvenance: data.deadline_provenance || "unknown",
   };
 }
 
@@ -186,6 +206,12 @@ export async function updateApplication(
   if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.company !== undefined) dbUpdates.company = updates.company;
+  if (updates.url !== undefined) dbUpdates.application_url = updates.url;
+  if (updates.sourceUrl !== undefined) dbUpdates.source_url = updates.sourceUrl;
+  if (updates.location !== undefined) dbUpdates.location = updates.location;
+  if (updates.source !== undefined) dbUpdates.job_source = updates.source;
+  if (updates.closingDate !== undefined) dbUpdates.closing_date = updates.closingDate;
+  if (updates.deadlineProvenance !== undefined) dbUpdates.deadline_provenance = updates.deadlineProvenance;
 
   const { error } = await supabase
     .from("applications")

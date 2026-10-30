@@ -3,6 +3,177 @@ import { extractText } from "unpdf";
 import mammoth from "mammoth";
 import zlib from "zlib";
 import type { ResumeAnalysis, TailorSuggestion, ParsedResumeDocument } from "@/types";
+import { getResumeBulletTargets, parseStructuredResume } from "@/lib/resume/parser";
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_MULTIPART_BYTES = MAX_FILE_BYTES + 256 * 1024;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function readScore(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, Math.round(value)))
+    : fallback;
+}
+
+function readStringArray(value: unknown, limit: number): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, limit)
+    : [];
+}
+
+function cleanPlainText(value: string): string {
+  return value
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .replace(/\*\*/g, "")
+    .replace(/^\s*[-•▪]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeSuggestions(value: unknown, parsedDoc: ParsedResumeDocument): TailorSuggestion[] {
+  if (!Array.isArray(value)) return [];
+  const targets = getResumeBulletTargets(parsedDoc);
+  const targetById = new Map(targets.map((target) => [target.targetBulletId, target]));
+  const normalized: TailorSuggestion[] = [];
+
+  for (const [index, item] of value.entries()) {
+    if (!isRecord(item)) continue;
+    const requestedId = readString(item.targetBulletId);
+    const requestedOriginal = readString(item.original).trim();
+    const target = targetById.get(requestedId) || targets.find((candidate) => candidate.text.trim() === requestedOriginal);
+    if (!target || !requestedOriginal || requestedOriginal !== target.text.trim()) continue;
+    const improved = cleanPlainText(readString(item.improved, readString(item.suggested)));
+    if (!improved || improved === target.text.trim()) continue;
+    const impactLevel = item.impactLevel === "high" ? "high" : "medium";
+    normalized.push({
+      id: `sug-${index + 1}-${target.targetBulletId}`,
+      section: target.targetSection,
+      targetSection: target.targetSection,
+      targetEntryId: target.targetEntryId,
+      targetBulletId: target.targetBulletId,
+      sectionLabel: target.sectionLabel,
+      original: target.text,
+      suggested: improved,
+      improved,
+      impact: impactLevel,
+      impactLevel,
+      reason: readString(item.reason, "Keeps your original facts while making the contribution easier to scan."),
+    });
+    if (normalized.length >= 8) break;
+  }
+  return normalized;
+}
+
+function buildAiAnalysis(
+  value: unknown,
+  parsedDoc: ParsedResumeDocument,
+  targetRole: string,
+  pageCount: number
+): ResumeAnalysis | null {
+  if (!isRecord(value) || typeof value.matchScore !== "number" || !Array.isArray(value.gaps)) return null;
+  const baseline = scoreResumeAccurately(parsedDoc, targetRole, "", pageCount);
+  const keywords = Array.isArray(value.keywords)
+    ? value.keywords.filter(isRecord).map((item) => ({
+        word: readString(item.word),
+        present: item.present === true,
+        importance: item.importance === "high" ? "high" as const : "medium" as const,
+      })).filter((item) => item.word.length > 0).slice(0, 40)
+    : baseline.keywords;
+
+  return {
+    ...baseline,
+    matchScore: readScore(value.matchScore, baseline.matchScore),
+    atsScore: readScore(value.atsScore, baseline.atsScore),
+    jobTitle: targetRole || "Software Engineer",
+    company: "Target Placement Role",
+    strengths: readStringArray(value.strengths, 6),
+    gaps: readStringArray(value.gaps, 8),
+    suggestions: (() => {
+      const suggestions = normalizeSuggestions(value.suggestions, parsedDoc);
+      return suggestions.length > 0 ? suggestions : baseline.suggestions;
+    })(),
+    keywords,
+    sectionScores: {
+      impact: readScore(isRecord(value.sectionScores) ? value.sectionScores.impact : undefined, baseline.sectionScores?.impact ?? 50),
+      brevity: readScore(isRecord(value.sectionScores) ? value.sectionScores.brevity : undefined, baseline.sectionScores?.brevity ?? 50),
+      style: readScore(isRecord(value.sectionScores) ? value.sectionScores.style : undefined, baseline.sectionScores?.style ?? 50),
+      skills: readScore(isRecord(value.sectionScores) ? value.sectionScores.skills : undefined, baseline.sectionScores?.skills ?? 50),
+    },
+    extractedSkills: readStringArray(value.extractedSkills, 60).length > 0
+      ? readStringArray(value.extractedSkills, 60)
+      : parsedDoc.skills,
+    meta: { ...baseline.meta, pageCount },
+    rawText: parsedDoc.rawText,
+    parsedResume: parsedDoc,
+  };
+}
+
+async function readBoundedBody(request: NextRequest, maxBytes: number): Promise<Uint8Array | null> {
+  if (!request.body) return null;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+function conservativeRewrite(text: string): string | null {
+  const normalized = cleanPlainText(text);
+  const rewrites: Array<[RegExp, string]> = [
+    [/^worked on\s+/i, "Contributed to "],
+    [/^helped (?:to )?/i, "Supported "],
+    [/^assisted (?:with|in)\s+/i, "Supported "],
+    [/^participated in\s+/i, "Contributed to "],
+    [/^responsible for\s+/i, "Managed "],
+    [/^developed\s+/i, "Engineered "],
+    [/^built\s+/i, "Engineered "],
+    [/^created\s+/i, "Developed "],
+    [/^conducted\s+/i, "Executed "],
+    [/^performed\s+/i, "Executed "],
+    [/^implemented\s+/i, "Delivered "],
+    [/^optimized\s+/i, "Improved "],
+    [/^improved\s+/i, "Strengthened "],
+    [/^designed\s+/i, "Architected "],
+    [/^managed\s+/i, "Led "],
+    [/^led\s+/i, "Directed "],
+    [/^reduced\s+/i, "Cut "],
+    [/^increased\s+/i, "Raised "],
+    [/^deployed\s+/i, "Launched "],
+    [/^integrated\s+/i, "Connected "],
+    [/^collaborated on\s+/i, "Contributed to "],
+  ];
+  for (const [pattern, replacement] of rewrites) {
+    if (pattern.test(normalized)) return normalized.replace(pattern, replacement);
+  }
+  if (normalized.length < 35 || !/\b(?:using|with|for|across|through|to)\b/i.test(normalized)) return null;
+  return `Contributed to ${normalized.charAt(0).toLowerCase()}${normalized.slice(1)}`;
+}
 
 // ─── Dictionaries & Role Keywords ───────────────────────────────────────────
 
@@ -183,284 +354,13 @@ async function extractDocumentText(
 
 // ─── Structural Resume Parser (ParsedResumeDocument) ────────────────────────
 
-export function parseStructuredResume(
-  rawText: string,
-  fileName: string,
-  extractedLinks: string[] = []
-): ParsedResumeDocument {
-  const lines = rawText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  // 1. Candidate Name Extraction
-  let candidateName = "";
-  for (let i = 0; i < Math.min(lines.length, 5); i++) {
-    const line = lines[i];
-    // Skip if it contains email, phone digits, urls, or obvious section labels
-    if (
-      line.includes("@") ||
-      line.match(/https?:\/\/|github\.com|linkedin\.com/i) ||
-      line.match(/\d{4,}/) ||
-      line.match(/^(resume|curriculum vitae|cv|contact|profile|portfolio)$/i)
-    ) {
-      continue;
-    }
-    // Candidate names are typically 2 to 4 words and alphabetical
-    const words = line.split(/\s+/);
-    if (words.length >= 1 && words.length <= 4 && line.length < 35 && /^[a-zA-Z\s.'-]+$/.test(line)) {
-      candidateName = line;
-      break;
-    }
-  }
-
-  // Fallback: derive cleanly from filename if not cleanly discovered in text
-  if (!candidateName || candidateName.length < 2) {
-    const cleanFile = fileName
-      .replace(/\.(pdf|docx|txt)$/i, "")
-      .replace(/[_-]+/g, " ")
-      .replace(/\b(resume|updated|final|cv|latest|new|document)\b/gi, "")
-      .trim();
-    candidateName = cleanFile.length >= 2 ? cleanFile : "Candidate";
-  }
-
-  // 2. Contact Info
-  const emailMatch = rawText.match(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/);
-  const email = emailMatch ? emailMatch[0] : "";
-
-  const phoneMatch = rawText.match(/(?:(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5})/);
-  const phone = phoneMatch ? phoneMatch[0] : "";
-
-  // Location detection
-  const locationMatch = rawText.match(/\b(Bangalore|Bengaluru|Hyderabad|Pune|Mumbai|Delhi|Noida|Gurgaon|Chennai|Kolkata|Remote|India)\b/i);
-  const location = locationMatch ? locationMatch[0] : "India";
-
-  // Links
-  const allLinks = Array.from(new Set([...extractedLinks]));
-
-  // 3. Section Segmentation
-  const sectionHeaders = [
-    { key: "summary", regex: /^(professional summary|summary|profile|about me|objective)$/i },
-    { key: "experience", regex: /^(work experience|experience|employment history|internships|work history)$/i },
-    { key: "projects", regex: /^(projects|personal projects|key projects|academic projects)$/i },
-    { key: "skills", regex: /^(technical skills|skills|skills & expertise|core competencies|tech stack|technologies)$/i },
-    { key: "education", regex: /^(education|academics|academic background|qualifications)$/i },
-  ];
-
-  type SectionKey = "header" | "summary" | "experience" | "projects" | "skills" | "education";
-  const sectionContent: Record<SectionKey, string[]> = {
-    header: [],
-    summary: [],
-    experience: [],
-    projects: [],
-    skills: [],
-    education: [],
-  };
-
-  let currentSec: SectionKey = "header";
-
-  for (const line of lines) {
-    const cleanHeader = line.replace(/[:\-_\*#]/g, "").trim();
-    let matchedKey: SectionKey | null = null;
-
-    for (const h of sectionHeaders) {
-      if (h.regex.test(cleanHeader)) {
-        matchedKey = h.key as SectionKey;
-        break;
-      }
-    }
-
-    if (matchedKey) {
-      currentSec = matchedKey;
-    } else {
-      sectionContent[currentSec].push(line);
-    }
-  }
-
-  // 4. Parse Summary
-  const summary = sectionContent.summary.join(" ").slice(0, 450) ||
-    (sectionContent.header.length > 2 ? sectionContent.header.slice(2, 5).join(" ") : "");
-
-  // 5. Parse Skills
-  const detectedSkills: string[] = [];
-  const skillsText = sectionContent.skills.join(" ") + " " + rawText;
-  const commonTech = [
-    "JavaScript", "TypeScript", "React", "Next.js", "Node.js", "Express",
-    "Python", "Django", "FastAPI", "Java", "Spring Boot", "C++", "C",
-    "Go", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Docker", "Kubernetes",
-    "AWS", "GCP", "Git", "GitHub", "Linux", "REST APIs", "GraphQL", "Tailwind CSS",
-    "HTML5", "CSS3", "Redux", "Kafka", "CI/CD", "Jest", "PyTorch", "TensorFlow",
-    "System Design", "Microservices"
-  ];
-
-  for (const tech of commonTech) {
-    const escaped = tech.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escaped}\\b`, "i");
-    if (regex.test(skillsText) && !detectedSkills.includes(tech)) {
-      detectedSkills.push(tech);
-    }
-  }
-
-  // 6. Parse Experience items
-  const expLines = sectionContent.experience;
-  const experience: ParsedResumeDocument["experience"] = [];
-  let currentExpItem: { id: string; role: string; company: string; duration: string; bullets: string[] } | null = null;
-
-  for (let i = 0; i < expLines.length; i++) {
-    const line = expLines[i];
-    const isBullet = /^[•\-\*▪\u2022\u25E6]|\b(engineered|developed|built|optimized|implemented|designed|created|led|architected)\b/i.test(line);
-
-    if (!isBullet && line.length < 90 && (line.includes("—") || line.includes("-") || line.includes("|") || line.match(/\b(20\d{2}|present|intern|engineer|developer|analyst)\b/i))) {
-      // New role header
-      if (currentExpItem && currentExpItem.bullets.length > 0) {
-        experience.push(currentExpItem);
-      }
-      const parts = line.split(/[-—|]/).map((s) => s.trim());
-      currentExpItem = {
-        id: `exp-${experience.length + 1}`,
-        role: parts[0] || "Software Engineer",
-        company: parts[1] || "Technology Firm",
-        duration: parts[2] || "Recent",
-        bullets: [],
-      };
-    } else if (currentExpItem) {
-      const cleanBullet = line.replace(/^[•\-\*▪\u2022\u25E6]\s*/, "").trim();
-      if (cleanBullet.length > 15) {
-        currentExpItem.bullets.push(cleanBullet);
-      }
-    }
-  }
-  if (currentExpItem && currentExpItem.bullets.length > 0) {
-    experience.push(currentExpItem);
-  }
-
-  // Fallback experience if not parsed into items
-  if (experience.length === 0 && expLines.length > 0) {
-    const bullets = expLines.filter((l) => l.length > 20).slice(0, 4);
-    if (bullets.length > 0) {
-      experience.push({
-        id: "exp-1",
-        role: "Software Engineering Project / Internship",
-        company: "Engineering Organization",
-        duration: "Recent",
-        bullets,
-      });
-    }
-  }
-
-  // 7. Parse Projects
-  const projLines = sectionContent.projects;
-  const projects: ParsedResumeDocument["projects"] = [];
-  let currentProjItem: { id: string; title: string; techStack: string; bullets: string[] } | null = null;
-
-  for (let i = 0; i < projLines.length; i++) {
-    const line = projLines[i];
-    const isBullet = /^[•\-\*▪\u2022\u25E6]|\b(architected|engineered|built|developed|implemented)\b/i.test(line);
-
-    if (!isBullet && line.length < 70 && (line.includes("—") || line.includes("-") || line.includes("|") || line.match(/\b(system|app|engine|bot|platform|copilot|dashboard)\b/i))) {
-      if (currentProjItem && currentProjItem.bullets.length > 0) {
-        projects.push(currentProjItem);
-      }
-      const parts = line.split(/[-—|]/).map((s) => s.trim());
-      currentProjItem = {
-        id: `proj-${projects.length + 1}`,
-        title: parts[0] || "Engineering Project",
-        techStack: parts[1] || "TypeScript, Next.js, PostgreSQL",
-        bullets: [],
-      };
-    } else if (currentProjItem) {
-      const cleanBullet = line.replace(/^[•\-\*▪\u2022\u25E6]\s*/, "").trim();
-      if (cleanBullet.length > 15) {
-        currentProjItem.bullets.push(cleanBullet);
-      }
-    }
-  }
-  if (currentProjItem && currentProjItem.bullets.length > 0) {
-    projects.push(currentProjItem);
-  }
-
-  if (projects.length === 0 && projLines.length > 0) {
-    const bullets = projLines.filter((l) => l.length > 20).slice(0, 4);
-    if (bullets.length > 0) {
-      projects.push({
-        id: "proj-1",
-        title: "Technical Engineering Project",
-        techStack: detectedSkills.slice(0, 4).join(", ") || "Full-Stack Web Technologies",
-        bullets,
-      });
-    }
-  }
-
-  // 8. Parse Education
-  const eduLines = sectionContent.education;
-  const education: ParsedResumeDocument["education"] = [];
-
-  for (const line of eduLines) {
-    if (line.match(/\b(b\.tech|bachelor|master|m\.tech|b\.e|b\.s|m\.s|degree|institute|university|college|school)\b/i)) {
-      const yearMatch = line.match(/\b(20\d{2}(?:\s*[-–]\s*(?:20\d{2}|present))?)\b/i);
-      const scoreMatch = line.match(/\b(cgpa\s*[:=]?\s*\d+(\.\d+)?|\b\d+(\.\d+)?\s*(?:\/10|%)|\b\d{2}%\b)/i);
-      education.push({
-        institution: line.split(/[-—|,]/)[0]?.trim() || "National Institute of Technology",
-        degree: line.match(/\b(b\.tech|bachelor of technology|b\.e|b\.s|computer science)\b/i)?.[0] || "B.Tech in Computer Science",
-        year: yearMatch ? yearMatch[0] : "2022 – 2026",
-        score: scoreMatch ? scoreMatch[0] : undefined,
-      });
-      break;
-    }
-  }
-
-  if (education.length === 0) {
-    education.push({
-      institution: "Technical University / College of Engineering",
-      degree: "Bachelor of Technology in Computer Science & Engineering",
-      year: "2022 – 2026",
-      score: "CGPA: 8.5/10",
-    });
-  }
-
-  return {
-    fileName,
-    candidateName,
-    email,
-    phone,
-    location,
-    links: allLinks,
-    summary: summary || "Results-driven Software Engineer with demonstrated experience in modern full-stack development, high-performance web systems, and cloud infrastructure.",
-    skills: detectedSkills.length > 0 ? detectedSkills : ["TypeScript", "React", "Node.js", "PostgreSQL", "Git", "REST APIs"],
-    experience: experience.length > 0 ? experience : [
-      {
-        id: "exp-1",
-        role: "Software Development Intern",
-        company: "Technology Solutions",
-        duration: "Jan 2026 – Present",
-        bullets: [
-          "Developed core responsive web interfaces utilizing modern component architectures and client-side optimization.",
-          "Integrated scalable REST endpoints with backend database services, improving API reliability and response times."
-        ]
-      }
-    ],
-    projects: projects.length > 0 ? projects : [
-      {
-        id: "proj-1",
-        title: "Placement Co-pilot Career Platform",
-        techStack: "Next.js, TypeScript, PostgreSQL, Tailwind CSS",
-        bullets: [
-          "Built a full-stack platform featuring resume scoring and real-time interactive interview evaluation.",
-          "Implemented database models and optimized caching layers to deliver sub-100ms response latencies."
-        ]
-      }
-    ],
-    education,
-    rawText,
-  };
-}
-
 // ─── Deterministic Dynamic Scoring & Critical Gaps Engine ────────────────────
 
 function scoreResumeAccurately(
   parsedDoc: ParsedResumeDocument,
   targetRole: string,
-  jobDescription: string
+  jobDescription: string,
+  pageCount = 1
 ): ResumeAnalysis {
   const textLower = parsedDoc.rawText.toLowerCase();
   const jdLower = (jobDescription || "").toLowerCase();
@@ -524,9 +424,8 @@ function scoreResumeAccurately(
   }
 
   // 2. Real Metric Density (Quantified Impact)
-  const allBullets: string[] = [];
-  parsedDoc.experience.forEach((e) => allBullets.push(...e.bullets));
-  parsedDoc.projects.forEach((p) => allBullets.push(...p.bullets));
+  const bulletTargets = getResumeBulletTargets(parsedDoc);
+  const allBullets = bulletTargets.map((target) => target.text);
 
   const metricRegex = /\b\d+(\.\d+)?\s*(%|x|ms|s|seconds|minutes|hours|days|users|clients|requests|queries|k|M|LPA|₹|\$|commits|models|datasets|accuracy|latency|fps)\b/i;
   const quantifiedBullets = allBullets.filter((b) => metricRegex.test(b));
@@ -627,63 +526,26 @@ function scoreResumeAccurately(
     gaps.push("Increase keyword alignment with specific production technologies mentioned in target job listings.");
   }
 
-  // 8. Dynamic AI Bullet Rewrites from User's Real Bullets
-  const suggestions: TailorSuggestion[] = [];
-
-  // Pick up to 3 real bullets from user's uploaded resume to improve
-  const candidateBullets = unquantifiedBullets.length > 0 ? unquantifiedBullets : allBullets;
-
-  if (candidateBullets.length > 0) {
-    const b1 = candidateBullets[0];
-    suggestions.push({
-      id: "sug-1",
-      section: "experience",
-      original: b1,
-      suggested: `Architected scalable modules for ${b1.replace(/^(developed|worked on|built|handled)\s+/i, "")}, boosting system throughput by 32% and reducing latency to sub-120ms.`,
-      impact: "high",
-      reason: "Applies Google XYZ Formula: Replaces descriptive task statement with measurable latency and throughput gains.",
-      impactLevel: "high",
-    });
-  }
-
-  if (candidateBullets.length > 1) {
-    const b2 = candidateBullets[1];
-    suggestions.push({
-      id: "sug-2",
-      section: "projects",
-      original: b2,
-      suggested: `Engineered and deployed ${b2.replace(/^(built|created|developed)\s+/i, "")} supporting 500+ active users with 99.8% uptime.`,
-      impact: "high",
-      reason: "Adds explicit user scale and operational reliability metrics.",
-      impactLevel: "high",
-    });
-  }
-
-  if (candidateBullets.length > 2) {
-    const b3 = candidateBullets[2];
-    suggestions.push({
-      id: "sug-3",
-      section: "experience",
-      original: b3,
-      suggested: `Refactored core workflows by integrating ${foundSkills.slice(0, 2).join(" & ") || "REST APIs and caching"}, cutting load times by 40%.`,
-      impact: "medium",
-      reason: "Highlights architectural modernization and performance optimization.",
-      impactLevel: "medium",
-    });
-  }
-
-  // Fallback suggestions if resume had very few bullets
-  if (suggestions.length === 0) {
-    suggestions.push({
-      id: "sug-1",
-      section: "experience",
-      original: "Worked on software development tasks and collaborated with engineering team.",
-      suggested: "Architected responsive client-facing interfaces across core views, reducing page latency by 28% and resolving 40+ production tickets.",
-      impact: "high",
-      reason: "Applies Google XYZ Formula with concrete latency and ticket resolution counts.",
-      impactLevel: "high",
-    });
-  }
+  // Only propose deterministic rewrites that preserve the candidate's facts.
+  const suggestions: TailorSuggestion[] = bulletTargets.flatMap((target, index) => {
+    const improved = conservativeRewrite(target.text);
+    if (!improved || improved === target.text) return [];
+    const impactLevel: "high" | "medium" = /\d/.test(target.text) ? "medium" : "high";
+    return [{
+      id: `sug-${index + 1}-${target.targetBulletId}`,
+      section: target.targetSection,
+      targetSection: target.targetSection,
+      targetEntryId: target.targetEntryId,
+      targetBulletId: target.targetBulletId,
+      sectionLabel: target.sectionLabel,
+      original: target.text,
+      suggested: improved,
+      improved,
+      impact: impactLevel,
+      impactLevel,
+      reason: "Strengthens the opening while keeping the original claim and metrics intact.",
+    }];
+  }).slice(0, 8);
 
   return {
     matchScore,
@@ -702,7 +564,7 @@ function scoreResumeAccurately(
     },
     extractedSkills: Array.from(new Set([...foundSkills, ...parsedDoc.skills])).slice(0, 20),
     meta: {
-      pageCount: 1,
+      pageCount,
       wordCount,
       bulletCount: allBullets.length,
       hasQuantifiedMetrics: quantifiedBullets.length > 0,
@@ -713,7 +575,7 @@ function scoreResumeAccurately(
         links: parsedDoc.links,
       },
     },
-    rawText: parsedDoc.rawText.slice(0, 4000),
+    rawText: parsedDoc.rawText,
     parsedResume: parsedDoc,
   };
 }
@@ -723,50 +585,20 @@ function scoreResumeAccurately(
 async function analyzeWithGemini(
   parsedDoc: ParsedResumeDocument,
   targetRole: string,
-  jobDescription: string
+  jobDescription: string,
+  pageCount: number
 ): Promise<ResumeAnalysis | null> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey || apiKey.includes("your_gemini")) return null;
 
   try {
-    const prompt = `You are a Principal Staff Engineer and Bar-Raiser ATS Reviewer.
-Analyze this uploaded resume against the target role and JD.
-
-Target Role: ${targetRole || "Software Engineer"}
-Target JD: ${jobDescription || "Campus Placement Software Engineer"}
-Candidate Name: ${parsedDoc.candidateName}
-Resume Raw Text:
-"""
-${parsedDoc.rawText.slice(0, 3200)}
-"""
-
-Respond ONLY with valid JSON:
-{
-  "matchScore": <number 0-100>,
-  "atsScore": <number 0-100>,
-  "sectionScores": {
-    "impact": <number 0-100>,
-    "brevity": <number 0-100>,
-    "style": <number 0-100>,
-    "skills": <number 0-100>
-  },
-  "strengths": [<3-4 specific strengths citing actual projects/skills>],
-  "gaps": [<3-5 highly actionable gaps citing missing keywords and unquantified bullets>],
-  "suggestions": [
-    {
-      "id": "sug-1",
-      "section": "experience",
-      "original": "<exact weak bullet quote from candidate's resume>",
-      "suggested": "<Google XYZ formula rewrite: Accomplished [X] as measured by [Y] by doing [Z]>",
-      "reason": "<explanation>",
-      "impactLevel": "high"
-    }
-  ],
-  "keywords": [
-    { "word": "<keyword>", "present": <boolean>, "importance": "high" }
-  ],
-  "extractedSkills": [<string>, ...]
-}`;
+  const bulletTargets = getResumeBulletTargets(parsedDoc);
+  const structure = { ...parsedDoc, rawText: undefined };
+  const prompt = `Analyze this resume for ${targetRole || "Software Engineer"}. Use only facts in the resume; never invent metrics or credentials. Suggestions must quote exact bullet text and target its supplied targetBulletId. Return JSON matching the response schema.
+Target job description: ${jobDescription || "Not provided"}
+Full resume text:\n${parsedDoc.rawText}
+Parsed resume structure:\n${JSON.stringify(structure)}
+Valid bullet targets:\n${JSON.stringify(bulletTargets)}`;
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -777,7 +609,19 @@ Respond ONLY with valid JSON:
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.15,
-            maxOutputTokens: 1400,
+            maxOutputTokens: 3000,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                matchScore: { type: "NUMBER" }, atsScore: { type: "NUMBER" },
+                sectionScores: { type: "OBJECT", properties: { impact: { type: "NUMBER" }, brevity: { type: "NUMBER" }, style: { type: "NUMBER" }, skills: { type: "NUMBER" } } },
+                strengths: { type: "ARRAY", items: { type: "STRING" } }, gaps: { type: "ARRAY", items: { type: "STRING" } },
+                suggestions: { type: "ARRAY", items: { type: "OBJECT", properties: { targetBulletId: { type: "STRING" }, original: { type: "STRING" }, improved: { type: "STRING" }, reason: { type: "STRING" }, impactLevel: { type: "STRING", enum: ["high", "medium"] } }, required: ["targetBulletId", "original", "improved", "reason", "impactLevel"] } },
+                keywords: { type: "ARRAY", items: { type: "OBJECT", properties: { word: { type: "STRING" }, present: { type: "BOOLEAN" }, importance: { type: "STRING", enum: ["high", "medium"] } }, required: ["word", "present", "importance"] } },
+                extractedSkills: { type: "ARRAY", items: { type: "STRING" } },
+              }, required: ["matchScore", "atsScore", "sectionScores", "strengths", "gaps", "suggestions", "keywords", "extractedSkills"],
+            },
           },
         }),
         signal: AbortSignal.timeout(9000),
@@ -786,67 +630,15 @@ Respond ONLY with valid JSON:
 
     if (!res.ok) return null;
 
-    const data = await res.json();
-    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    const parsedAi = JSON.parse(jsonMatch[0]);
-    if (typeof parsedAi.matchScore !== "number" || !Array.isArray(parsedAi.gaps)) return null;
-
-    const clamp = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
-
-    return {
-      matchScore: clamp(parsedAi.matchScore),
-      atsScore: clamp(parsedAi.atsScore),
-      jobTitle: targetRole || "Software Engineer",
-      company: "Target Placement Role",
-      strengths: Array.isArray(parsedAi.strengths) ? parsedAi.strengths.slice(0, 4) : [],
-      gaps: Array.isArray(parsedAi.gaps) && parsedAi.gaps.length > 0 ? parsedAi.gaps.slice(0, 5) : [
-        "Include more quantified impact metrics across recent technical project bullets."
-      ],
-      suggestions: Array.isArray(parsedAi.suggestions)
-        ? parsedAi.suggestions.map((s: any, idx: number) => ({
-            id: s.id || `sug-${idx + 1}`,
-            section: ["summary", "experience", "skills", "projects", "education"].includes(s.section) ? s.section : "experience",
-            original: s.original || "",
-            suggested: s.suggested || "",
-            impact: s.impactLevel === "high" ? "high" : "medium",
-            reason: s.reason || "Applies Google XYZ impact formula.",
-            impactLevel: s.impactLevel === "high" ? "high" : "medium",
-          }))
-        : [],
-      keywords: Array.isArray(parsedAi.keywords)
-        ? parsedAi.keywords.map((k: any) => ({
-            word: String(k.word || ""),
-            present: Boolean(k.present),
-            importance: k.importance === "high" ? "high" : "medium",
-          }))
-        : [],
-      sectionScores: {
-        impact: clamp(parsedAi.sectionScores?.impact ?? 75),
-        brevity: clamp(parsedAi.sectionScores?.brevity ?? 80),
-        style: clamp(parsedAi.sectionScores?.style ?? 78),
-        skills: clamp(parsedAi.sectionScores?.skills ?? 82),
-      },
-      extractedSkills: Array.isArray(parsedAi.extractedSkills) && parsedAi.extractedSkills.length > 0
-        ? parsedAi.extractedSkills.map(String).slice(0, 20)
-        : parsedDoc.skills,
-      meta: {
-        pageCount: 1,
-        wordCount: parsedDoc.rawText.split(/\s+/).length,
-        bulletCount: parsedDoc.experience.length * 2,
-        hasQuantifiedMetrics: true,
-        fileName: parsedDoc.fileName,
-        contact: {
-          email: parsedDoc.email,
-          phone: parsedDoc.phone,
-          links: parsedDoc.links,
-        },
-      },
-      rawText: parsedDoc.rawText.slice(0, 4000),
-      parsedResume: parsedDoc,
-    };
+    const data: unknown = await res.json();
+    if (!isRecord(data)) return null;
+    const candidates = data.candidates;
+    if (!Array.isArray(candidates) || !isRecord(candidates[0])) return null;
+    const content = candidates[0].content;
+    if (!isRecord(content) || !Array.isArray(content.parts) || !isRecord(content.parts[0])) return null;
+    const responseText = readString(content.parts[0].text);
+    if (!responseText) return null;
+    return buildAiAnalysis(JSON.parse(responseText) as unknown, parsedDoc, targetRole, pageCount);
   } catch {
     return null;
   }
@@ -857,30 +649,20 @@ Respond ONLY with valid JSON:
 async function analyzeWithGroq(
   parsedDoc: ParsedResumeDocument,
   targetRole: string,
-  jobDescription: string
+  jobDescription: string,
+  pageCount: number
 ): Promise<ResumeAnalysis | null> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey || apiKey.includes("your_groq")) return null;
 
   try {
-    const prompt = `You are a Principal Staff Engineer ATS Evaluator. Analyze this resume text:
+  const bulletTargets = getResumeBulletTargets(parsedDoc);
+  const prompt = `You are a Principal Staff Engineer ATS Evaluator. Use only resume facts and do not invent metrics. Analyze the full resume:
 Role: ${targetRole || "Software Engineer"}
 JD: ${jobDescription || "Campus Placement Software Engineer"}
-Text: ${parsedDoc.rawText.slice(0, 2800)}
-
-Return ONLY JSON:
-{
-  "matchScore": 82,
-  "atsScore": 84,
-  "sectionScores": { "impact": 80, "brevity": 85, "style": 80, "skills": 85 },
-  "strengths": ["...", "..."],
-  "gaps": ["...", "..."],
-  "suggestions": [
-    { "id": "sug-1", "section": "experience", "original": "...", "suggested": "Accomplished [X] as measured by [Y] by doing [Z]", "reason": "XYZ formula", "impactLevel": "high" }
-  ],
-  "keywords": [{ "word": "React", "present": true, "importance": "high" }],
-  "extractedSkills": ["TypeScript", "React"]
-}`;
+Full resume text:\n${parsedDoc.rawText}
+Valid bullet targets:\n${JSON.stringify(bulletTargets)}
+Return JSON with matchScore, atsScore, sectionScores, strengths, gaps, suggestions (targetBulletId, exact original, improved, reason, impactLevel), keywords, and extractedSkills.`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -899,37 +681,13 @@ Return ONLY JSON:
     });
 
     if (!res.ok) return null;
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
+    const data: unknown = await res.json();
+    if (!isRecord(data) || !Array.isArray(data.choices) || !isRecord(data.choices[0])) return null;
+    const message = data.choices[0].message;
+    if (!isRecord(message)) return null;
+    const content = readString(message.content);
     if (!content) return null;
-
-    const parsedAi = JSON.parse(content);
-    return {
-      matchScore: parsedAi.matchScore || 80,
-      atsScore: parsedAi.atsScore || 82,
-      jobTitle: targetRole || "Software Engineer",
-      company: "Target Placement Role",
-      strengths: parsedAi.strengths || [],
-      gaps: parsedAi.gaps || [],
-      suggestions: parsedAi.suggestions || [],
-      keywords: parsedAi.keywords || [],
-      sectionScores: parsedAi.sectionScores || { impact: 75, brevity: 80, style: 75, skills: 80 },
-      extractedSkills: parsedAi.extractedSkills || parsedDoc.skills,
-      meta: {
-        pageCount: 1,
-        wordCount: parsedDoc.rawText.split(/\s+/).length,
-        bulletCount: parsedDoc.experience.length * 2,
-        hasQuantifiedMetrics: true,
-        fileName: parsedDoc.fileName,
-        contact: {
-          email: parsedDoc.email,
-          phone: parsedDoc.phone,
-          links: parsedDoc.links,
-        },
-      },
-      rawText: parsedDoc.rawText.slice(0, 4000),
-      parsedResume: parsedDoc,
-    };
+    return buildAiAnalysis(JSON.parse(content) as unknown, parsedDoc, targetRole, pageCount);
   } catch {
     return null;
   }
@@ -939,11 +697,30 @@ Return ONLY JSON:
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > MAX_MULTIPART_BYTES) {
+      return NextResponse.json({ error: "File exceeds 5MB limit" }, { status: 413 });
+    }
+    const boundedBody = await readBoundedBody(request, MAX_MULTIPART_BYTES);
+    if (!boundedBody) {
+      return NextResponse.json({ error: "File exceeds 5MB limit" }, { status: 413 });
+    }
+    const contentType = request.headers.get("content-type") || "";
+    if (!/^multipart\/form-data\s*;\s*boundary=/i.test(contentType)) {
+      return NextResponse.json({ error: "The upload request is missing its multipart boundary. Please retry the upload." }, { status: 400 });
+    }
+    const bodyBuffer = new ArrayBuffer(boundedBody.byteLength);
+    new Uint8Array(bodyBuffer).set(boundedBody);
+    const formDataRequest = new Request(request.url, {
+      method: "POST",
+      headers: { "content-type": contentType },
+      body: bodyBuffer,
+    });
+    const formData = await formDataRequest.formData();
     const file = formData.get("file");
-    const targetRole = (formData.get("targetRole") as string) || "Software Engineer";
-    const jobDescription = (formData.get("jobDescription") as string) || "";
-    const rawTextOverride = (formData.get("rawText") as string) || "";
+    const targetRole = readString(formData.get("targetRole"), "Software Engineer");
+    const jobDescription = readString(formData.get("jobDescription"));
+    const rawTextOverride = readString(formData.get("rawText"));
 
     let rawText = "";
     let pageCount = 1;
@@ -954,9 +731,19 @@ export async function POST(request: NextRequest) {
     if (rawTextOverride && rawTextOverride.length > 20) {
       // Direct text re-evaluation
       rawText = rawTextOverride;
-      fileName = (formData.get("fileName") as string) || "Current_Resume.pdf";
+      fileName = readString(formData.get("fileName"), "Current_Resume.pdf");
     } else if (file && file instanceof Blob) {
-      fileName = (file as any).name || "uploaded_resume.pdf";
+      if (file.size > MAX_FILE_BYTES) {
+        return NextResponse.json({ error: "File exceeds 5MB limit" }, { status: 413 });
+      }
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: "Please upload a valid .pdf, .docx, or .txt resume file." }, { status: 400 });
+      }
+      fileName = file.name || "uploaded_resume.pdf";
+      const extension = fileName.split(".").pop()?.toLowerCase();
+      if (!extension || !["pdf", "docx", "txt"].includes(extension)) {
+        return NextResponse.json({ error: "Please upload a valid .pdf, .docx, or .txt resume file." }, { status: 400 });
+      }
       const fileBytes = Buffer.from(await file.arrayBuffer());
 
       // 1. Quick probe to local Python FastAPI if active (1500ms timeout)
@@ -973,11 +760,13 @@ export async function POST(request: NextRequest) {
         });
 
         if (pyRes.ok) {
-          const pyData = await pyRes.json();
-          if (pyData?.rawText && pyData.rawText.trim().length > 30) {
+          const pyData: unknown = await pyRes.json();
+          if (isRecord(pyData) && typeof pyData.rawText === "string" && pyData.rawText.trim().length > 30) {
             rawText = pyData.rawText.trim();
-            extractedLinks = pyData.contact?.links || [];
-            pageCount = pyData.meta?.pageCount || 1;
+            const contact = isRecord(pyData.contact) ? pyData.contact : {};
+            const meta = isRecord(pyData.meta) ? pyData.meta : {};
+            extractedLinks = readStringArray(contact.links, 20);
+            pageCount = typeof meta.pageCount === "number" && meta.pageCount > 0 ? Math.floor(meta.pageCount) : 1;
             pythonParserActive = true;
           }
         }
@@ -1013,20 +802,20 @@ export async function POST(request: NextRequest) {
     let analysis: ResumeAnalysis | null = null;
     let engineSource: "gemini" | "groq" | "heuristic" = "heuristic";
 
-    analysis = await analyzeWithGemini(parsedDoc, targetRole, jobDescription);
+    analysis = await analyzeWithGemini(parsedDoc, targetRole, jobDescription, pageCount);
     if (analysis) {
       engineSource = "gemini";
     }
 
     if (!analysis) {
-      analysis = await analyzeWithGroq(parsedDoc, targetRole, jobDescription);
+      analysis = await analyzeWithGroq(parsedDoc, targetRole, jobDescription, pageCount);
       if (analysis) {
         engineSource = "groq";
       }
     }
 
     if (!analysis) {
-      analysis = scoreResumeAccurately(parsedDoc, targetRole, jobDescription);
+      analysis = scoreResumeAccurately(parsedDoc, targetRole, jobDescription, pageCount);
       engineSource = "heuristic";
     }
 
