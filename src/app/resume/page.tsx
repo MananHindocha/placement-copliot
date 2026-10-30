@@ -12,6 +12,7 @@ import {
   saveResumeWorkspace,
 } from "@/lib/services/resume.service";
 import { setUserSkills, getUserSkills } from "@/lib/services/jobs.service";
+import { addReadinessMilestone } from "@/lib/services/readiness.service";
 import type { ResumeAnalysis, ParsedResumeDocument, ResumeEntry } from "@/types";
 import { getResumeBulletTargets, replaceResumeBullet } from "@/lib/resume/parser";
 import {
@@ -122,9 +123,35 @@ export default function ResumePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [readinessToast, setReadinessToast] = useState<string | null>(null);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleAddGapsToReadiness = async () => {
+    if (!analysis) return;
+    const missing = analysis.keywords.filter((k) => !k.present).map((k: any) => k.keyword || k.word);
+    const toAdd = missing.length > 0 ? missing.slice(0, 8) : analysis.gaps.slice(0, 5);
+
+    if (toAdd.length === 0) return;
+
+    try {
+      for (const item of toAdd) {
+        await addReadinessMilestone({
+          category: "skills",
+          title: `Master & add ${item} to portfolio for ${targetRole || "target role"}`,
+          description: `Identified gap from resume diagnostic scan.`,
+          completed: false,
+          priority: "high",
+        });
+      }
+      setReadinessToast(`Added ${toAdd.length} missing skill${toAdd.length > 1 ? "s" : ""} to your Placement Readiness Plan!`);
+      setTimeout(() => setReadinessToast(null), 4000);
+    } catch {
+      setError("Failed to add skills to readiness plan.");
+    }
   };
 
   const loadInitialAnalysis = () => {
@@ -148,6 +175,21 @@ export default function ResumePage() {
   };
 
   useEffect(() => {
+    // Check if coming from jobs with handoff
+    const handoffRaw = typeof window !== "undefined" ? window.sessionStorage.getItem("copilot_target_jd_handoff") : null;
+    if (handoffRaw) {
+      try {
+        const handoff = JSON.parse(handoffRaw);
+        if (handoff.targetRole) setTargetRole(handoff.targetRole);
+        if (handoff.jobDescription) {
+          setTargetJd(handoff.jobDescription);
+          setIsJdOpen(true);
+        }
+        window.sessionStorage.removeItem("copilot_target_jd_handoff");
+        showToast(`Loaded job requirements for ${handoff.targetRole}!`);
+      } catch {}
+    }
+
     let isMounted = true;
     getResumeWorkspace()
       .then((workspace) => {
@@ -156,7 +198,7 @@ export default function ResumePage() {
         setAnalysis(data);
         setEditableResume(workspace.editableResume || data.parsedResume || null);
         setAppliedSuggestions(new Set(workspace.appliedSuggestionIds));
-        if (data.jobTitle && data.jobTitle !== "Upload a resume to begin") {
+        if (data.jobTitle && data.jobTitle !== "Upload a resume to begin" && !handoffRaw) {
           setTargetRole(data.jobTitle);
         }
         setLoading(false);

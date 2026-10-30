@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -17,6 +18,7 @@ import {
 import type { JobFilters, MatchResult } from "@/lib/services/jobs.service";
 import type { Job } from "@/types";
 import { addApplication } from "@/lib/services/applications.service";
+import { addReadinessMilestone } from "@/lib/services/readiness.service";
 import {
   Search,
   MapPin,
@@ -50,6 +52,7 @@ import {
   HelpCircle,
   ArrowRight,
   Target,
+  MessageSquare,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -179,8 +182,10 @@ function ScoreSourcePill({ source }: { source: "gemini" | "heuristic" }) {
 
 function MatchInsightPanel({
   match,
+  onAddSkills,
 }: {
   match: MatchResult;
+  onAddSkills?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -230,9 +235,20 @@ function MatchInsightPanel({
 
         {match.missingSkills.length > 0 && (
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">
-              Skills to learn
-            </p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                Skills to learn
+              </p>
+              {onAddSkills && (
+                <button
+                  type="button"
+                  onClick={onAddSkills}
+                  className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <Target className="w-2.5 h-2.5" /> + Add to Readiness Plan
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-1">
               {match.missingSkills.map((s) => (
                 <span
@@ -345,11 +361,13 @@ function MatchInsightPanel({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function JobsPage() {
+  const router = useRouter();
   // Core data
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [skillsAddedMessage, setSkillsAddedMessage] = useState<string | null>(null);
   const [providerWarning, setProviderWarning] = useState<string | null>(null);
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -602,6 +620,24 @@ export default function JobsPage() {
         return next;
       });
       setError(err instanceof Error ? err.message : "Failed to update saved job status.");
+    }
+  };
+
+  const handleAddSkillsToReadiness = async (skills: string[], jobTitle: string, company: string) => {
+    try {
+      for (const skill of skills) {
+        await addReadinessMilestone({
+          category: "skills",
+          title: `Master & add ${skill} to portfolio project for ${jobTitle}`,
+          description: `Identified gap from ${company} position requirements.`,
+          completed: false,
+          priority: "high",
+        });
+      }
+      setSkillsAddedMessage(`Added ${skills.length} missing skill${skills.length > 1 ? "s" : ""} to your Placement Readiness Plan!`);
+      setTimeout(() => setSkillsAddedMessage(null), 4000);
+    } catch {
+      setError("Failed to add skills to readiness plan.");
     }
   };
 
@@ -1265,6 +1301,13 @@ export default function JobsPage() {
                     <div className="mt-3">
                       <MatchInsightPanel
                         match={activeMatchResult}
+                        onAddSkills={() =>
+                          handleAddSkillsToReadiness(
+                            activeMatchResult.missingSkills,
+                            activeJob.title,
+                            activeJob.company
+                          )
+                        }
                       />
                     </div>
                   ) : scoring ? (
@@ -1292,14 +1335,22 @@ export default function JobsPage() {
                   </p>
                 </div>
 
+                {/* Feedback banner for adding skills to readiness */}
+                {skillsAddedMessage && (
+                  <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{skillsAddedMessage}</span>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="flex flex-wrap items-center gap-2.5 pt-2">
                   {activeJob.applied ? (
                     <Button
                       variant="success"
                       size="md"
                       icon={<Briefcase className="w-4 h-4" />}
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
                     >
                       Added to tracker ✓
                     </Button>
@@ -1308,18 +1359,61 @@ export default function JobsPage() {
                       variant="primary"
                       size="md"
                       icon={<ExternalLink className="w-4 h-4" />}
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
                       onClick={() => handleApply(activeJob)}
                     >
                       {activeJob.applyUrl || activeJob.sourceUrl ? "Track & Apply" : "Track Job"}
                     </Button>
                   )}
+
                   <Button
                     variant="secondary"
                     size="md"
+                    icon={<Sparkles className="w-4 h-4 text-violet-400" />}
+                    onClick={() => {
+                      sessionStorage.setItem(
+                        "copilot_target_jd_handoff",
+                        JSON.stringify({
+                          targetRole: `${activeJob.title} (${activeJob.company})`,
+                          jobDescription: activeJob.description,
+                          requiredSkills: activeJob.tags,
+                        })
+                      );
+                      router.push("/resume");
+                    }}
+                    title="Tailor your resume against this exact job posting"
+                    className="border-violet-500/30 text-violet-300 hover:text-white"
+                  >
+                    ✨ Tailor Resume
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    icon={<MessageSquare className="w-4 h-4 text-emerald-400" />}
+                    onClick={() => {
+                      sessionStorage.setItem(
+                        "copilot_interview_handoff",
+                        JSON.stringify({
+                          role: activeJob.title,
+                          company: activeJob.company,
+                          jobDescription: activeJob.description,
+                        })
+                      );
+                      router.push("/interview");
+                    }}
+                    title="Practice a mock interview tailored to this company and role"
+                    className="border-emerald-500/30 text-emerald-300 hover:text-white"
+                  >
+                    🎙️ Practice Interview
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="md"
                     icon={
                       savedJobs.has(activeJob.id) ? (
-                        <BookmarkCheck className="w-4 h-4" />
+                        <BookmarkCheck className="w-4 h-4 text-amber-400" />
                       ) : (
                         <Bookmark className="w-4 h-4" />
                       )
@@ -1327,13 +1421,6 @@ export default function JobsPage() {
                     onClick={() => toggleSave(activeJob.id)}
                   >
                     {savedJobs.has(activeJob.id) ? "Saved" : "Save"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    icon={<ChevronRight className="w-4 h-4" />}
-                  >
-                    Track
                   </Button>
                 </div>
               </Card>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ErrorBanner from "@/components/ui/ErrorBanner";
@@ -175,8 +176,25 @@ export default function TrackerPage() {
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const router = useRouter();
+
   // Inline Quick-Add State per column
   const [quickAddTexts, setQuickAddTexts] = useState<Record<string, string>>({});
+
+  const handlePracticeInterview = (card: KanbanCard) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        "copilot_interview_handoff",
+        JSON.stringify({
+          company: card.company,
+          title: card.title,
+          jobDescription: card.notes || `Role at ${card.company} for ${card.title}. Next step: ${card.nextStep || card.status}`,
+          skills: [],
+        })
+      );
+    }
+    router.push("/interview");
+  };
 
   // Slide-over Add Application Form State
   const [newCompany, setNewCompany] = useState("");
@@ -930,6 +948,16 @@ export default function TrackerPage() {
                 Auto-saves when you click out of the box.
               </span>
             </div>
+
+            {/* Practice Interview Button */}
+            <button
+              type="button"
+              onClick={() => handlePracticeInterview(selectedCard)}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+              <span>🎙️ Practice Mock Interview for This Role</span>
+            </button>
 
             {/* Footer Actions */}
             <div className="pt-4 border-t border-white/8 flex items-center justify-between">

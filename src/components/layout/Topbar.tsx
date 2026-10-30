@@ -22,8 +22,16 @@ import {
   X,
   ShieldCheck,
   Zap,
+  Calendar,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
+import {
+  getStoredApplications,
+  getStoredReadinessMilestones,
+  getStoredResumeWorkspace,
+} from "@/lib/storage-sync";
 import {
   getCurrentUser,
   getUserProfile,
@@ -104,6 +112,56 @@ export default function Topbar() {
   const [statusData, setStatusData] = useState<SystemStatusData | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Search & Notifications Popover State
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(2);
+
+  // Cross-Module Data for Global Search & Alerts
+  const [apps, setApps] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const [latestResume, setLatestResume] = useState<any | null>(null);
+
+  const loadSearchAndAlertData = () => {
+    try {
+      const storedApps = getStoredApplications();
+      setApps(storedApps);
+      const storedMilestones = getStoredReadinessMilestones();
+      setMilestones(storedMilestones);
+      const resumeAnalysis = getStoredResumeWorkspace()?.analysis;
+      setLatestResume(resumeAnalysis || null);
+    } catch {
+      // safe fallback
+    }
+  };
+
+  useEffect(() => {
+    loadSearchAndAlertData();
+    const handleUpdate = () => loadSearchAndAlertData();
+    window.addEventListener("copilot-data-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("copilot-data-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearchModal((prev) => !prev);
+      }
+      if (e.key === "Escape") {
+        setShowSearchModal(false);
+        setShowNotifications(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -212,25 +270,133 @@ export default function Topbar() {
             </span>
           </button>
 
-          {/* Quick Search */}
-          <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="pl-8 pr-3 py-1.5 text-xs bg-white/5 border border-white/8 rounded-xl text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:bg-white/8 transition-all w-36"
-            />
-          </div>
-
-          {/* Notifications */}
+          {/* Quick Search Button */}
           <button
             type="button"
-            aria-label="Notifications"
-            className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 border border-white/8 text-slate-400 hover:text-white hover:bg-white/10 transition-all focus:outline-none"
+            onClick={() => setShowSearchModal(true)}
+            className="hidden md:flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/8 rounded-xl text-slate-400 hover:text-white transition-all shadow-sm"
           >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full" />
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-[11px] text-slate-400">Search co-pilot...</span>
+            <kbd className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-300 font-mono">⌘K</kbd>
           </button>
+
+          {/* Notifications Trigger & Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                if (!showNotifications) setUnreadCount(0);
+              }}
+              aria-label="Notifications"
+              className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 border border-white/8 text-slate-400 hover:text-white hover:bg-white/10 transition-all focus:outline-none"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+              )}
+            </button>
+
+            {/* Notification Popover Dropdown */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-[#0e1424] border border-white/10 shadow-2xl p-4 z-50 animate-fadeIn space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/8">
+                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Bell className="w-3.5 h-3.5 text-indigo-400" />
+                    Notifications &amp; Reminders
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotifications(false)}
+                    className="text-slate-400 hover:text-white text-xs"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {/* Real Scheduled Interview notification */}
+                  {apps
+                    .filter((a) => a.status === "Interview" || a.status === "Phone Screen" || a.nextStepDate)
+                    .slice(0, 2)
+                    .map((app) => (
+                      <div
+                        key={app.id}
+                        onClick={() => {
+                          setShowNotifications(false);
+                          router.push("/tracker");
+                        }}
+                        className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/15 cursor-pointer transition-all space-y-1"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-300">
+                          <span>{app.company}</span>
+                          <span className="text-[10px] text-amber-300 font-normal">
+                            {app.nextStepDate || "Interview"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-300">
+                          {app.nextStep || `${app.title} - Round scheduled.`}
+                        </p>
+                      </div>
+                    ))}
+
+                  {/* High priority task reminder */}
+                  {milestones
+                    .filter((m) => !m.completed && m.priority === "high")
+                    .slice(0, 2)
+                    .map((m) => (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setShowNotifications(false);
+                          router.push("/readiness");
+                        }}
+                        className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15 cursor-pointer transition-all space-y-1"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-amber-300">
+                          <span>Goal Reminder</span>
+                          <span className="text-[10px] text-rose-400">High Priority</span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 leading-snug">{m.title}</p>
+                      </div>
+                    ))}
+
+                  {/* Resume scan reminder */}
+                  {latestResume && (
+                    <div
+                      onClick={() => {
+                        setShowNotifications(false);
+                        router.push("/resume");
+                      }}
+                      className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/15 cursor-pointer transition-all space-y-1"
+                    >
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
+                        <span>Resume Diagnostic</span>
+                        <span className="text-[10px] text-emerald-400">{latestResume.matchScore}% Match</span>
+                      </div>
+                      <p className="text-[10px] text-slate-300">
+                        ATS Score: {latestResume.atsScore}%. Ready for application tailoring.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-white/6 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnreadCount(0);
+                      setShowNotifications(false);
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-white"
+                  >
+                    Clear reminders
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Sign In link or Sign Out button */}
           {isAuthenticated ? (
@@ -451,6 +617,156 @@ export default function Topbar() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── GLOBAL SEARCH MODAL (Ctrl+K / Cmd+K) ──────────────────────────────── */}
+      {showSearchModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/70 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-lg rounded-2xl bg-[#0B1120] border border-white/12 shadow-2xl overflow-hidden">
+            {/* Search Input Bar */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-white/2">
+              <Search className="w-4 h-4 text-indigo-400 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search jobs, tracked applications, readiness goals, or pages..."
+                className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowSearchModal(false)}
+                className="text-[10px] bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded text-slate-400 font-mono"
+              >
+                ESC
+              </button>
+            </div>
+
+            {/* Results container */}
+            <div className="max-h-80 overflow-y-auto p-3 space-y-3 text-xs">
+              {/* Navigation Shortcuts */}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                  Navigation
+                </p>
+                <div className="space-y-1">
+                  {[
+                    { label: "Overview & Dashboard", href: "/dashboard", desc: "KPIs and schedule" },
+                    { label: "Resume Studio", href: "/resume", desc: "ATS scanner & diagnostic" },
+                    { label: "Job Discovery", href: "/jobs", desc: "Find matched jobs" },
+                    { label: "Application Tracker", href: "/tracker", desc: "Kanban pipeline" },
+                    { label: "AI Mock Interview Coach", href: "/interview", desc: "Whisper audio & video studio" },
+                    { label: "Placement Readiness Plan", href: "/readiness", desc: "Milestones roadmap" },
+                  ]
+                    .filter(
+                      (p) =>
+                        !searchQuery.trim() ||
+                        p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        p.desc.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((item) => (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={() => {
+                          setShowSearchModal(false);
+                          router.push(item.href);
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-left text-slate-300 hover:text-white transition-all group"
+                      >
+                        <span className="font-medium">{item.label}</span>
+                        <span className="text-[11px] text-slate-500 group-hover:text-indigo-400 flex items-center gap-1">
+                          {item.desc} <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Tracked Applications matching query */}
+              {apps.filter(
+                (a) =>
+                  searchQuery.trim() &&
+                  ((a.company && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
+              ).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                    Tracked Applications
+                  </p>
+                  <div className="space-y-1">
+                    {apps
+                      .filter(
+                        (a) =>
+                          searchQuery.trim() &&
+                          ((a.company && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                            (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
+                      )
+                      .slice(0, 4)
+                      .map((app) => (
+                        <button
+                          key={app.id}
+                          type="button"
+                          onClick={() => {
+                            setShowSearchModal(false);
+                            router.push("/tracker");
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-indigo-500/10 text-left transition-all"
+                        >
+                          <div>
+                            <p className="text-white font-medium">{app.company}</p>
+                            <p className="text-[10px] text-slate-400">{app.title}</p>
+                          </div>
+                          <span className="text-[10px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full">
+                            {app.status}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Readiness Milestones matching query */}
+              {milestones.filter(
+                (m) =>
+                  searchQuery.trim() &&
+                  m.title &&
+                  m.title.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                    Readiness Goals
+                  </p>
+                  <div className="space-y-1">
+                    {milestones
+                      .filter(
+                        (m) =>
+                          searchQuery.trim() &&
+                          m.title &&
+                          m.title.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .slice(0, 3)
+                      .map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setShowSearchModal(false);
+                            router.push("/readiness");
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/10 text-left transition-all"
+                        >
+                          <span className="text-slate-300 truncate max-w-xs">{m.title}</span>
+                          <span className="text-[10px] text-slate-400">{m.completed ? "✓ Done" : "Pending"}</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

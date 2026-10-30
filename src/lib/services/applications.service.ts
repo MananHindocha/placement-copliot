@@ -1,17 +1,19 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
-import { KANBAN_CARDS } from "@/lib/mock-data";
+import {
+  getStoredApplications,
+  setStoredApplications,
+  logActivity,
+  dispatchCopilotUpdate,
+} from "@/lib/storage-sync";
 import type { KanbanCard, KanbanStatus } from "@/types";
 import type { ApplicationRow } from "./types";
-
-// In-memory demo store to keep UI reactive during guest demo sessions
-let demoCards: KanbanCard[] = [...KANBAN_CARDS];
 
 export async function getApplications(): Promise<KanbanCard[]> {
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    return [...demoCards];
+    return getStoredApplications();
   }
 
   const supabase = createClient();
@@ -38,15 +40,19 @@ export async function getApplications(): Promise<KanbanCard[]> {
     company: row.company,
     logo: row.logo || row.company.slice(0, 2).toUpperCase(),
     status: row.status,
-    appliedDate: row.applied_date ? new Date(row.applied_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : undefined,
+    appliedDate: row.applied_date
+      ? new Date(row.applied_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+      : undefined,
     nextStep: row.next_step || undefined,
-    nextStepDate: row.next_step_date ? new Date(row.next_step_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : undefined,
+    nextStepDate: row.next_step_date
+      ? new Date(row.next_step_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+      : undefined,
     matchScore: row.match_score ?? 0,
     priority: row.priority || "medium",
     notes: row.notes || undefined,
     url: row.application_url || undefined,
     location: row.location || undefined,
-    source: row.job_source ? row.job_source as NonNullable<KanbanCard["source"]> : undefined,
+    source: row.job_source ? (row.job_source as NonNullable<KanbanCard["source"]>) : undefined,
     sourceUrl: row.source_url || undefined,
     closingDate: row.closing_date || undefined,
     deadlineProvenance: row.deadline_provenance || "unknown",
@@ -60,7 +66,16 @@ export async function updateApplicationStatus(
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    demoCards = demoCards.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
+    const current = getStoredApplications();
+    const target = current.find((c) => c.id === id);
+    const updated = current.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
+    setStoredApplications(updated);
+    if (target) {
+      logActivity({
+        type: "application",
+        message: `Moved ${target.company} to ${newStatus}`,
+      });
+    }
     return;
   }
 
@@ -80,6 +95,8 @@ export async function updateApplicationStatus(
   if (error) {
     throw new Error(`Failed to update application status: ${error.message}`);
   }
+
+  dispatchCopilotUpdate("applications");
 }
 
 export async function addApplication(
@@ -88,11 +105,42 @@ export async function addApplication(
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
+    const current = getStoredApplications();
+    // Deduplicate: check if company and title match
+    const existingIndex = current.findIndex(
+      (c) =>
+        c.company.trim().toLowerCase() === card.company.trim().toLowerCase() &&
+        c.title.trim().toLowerCase() === card.title.trim().toLowerCase()
+    );
+
+    if (existingIndex >= 0) {
+      const existing = current[existingIndex];
+      const merged: KanbanCard = {
+        ...existing,
+        ...card,
+        id: existing.id,
+        notes: card.notes || existing.notes,
+        url: card.url || existing.url,
+      };
+      const updated = [...current];
+      updated[existingIndex] = merged;
+      setStoredApplications(updated);
+      logActivity({
+        type: "application",
+        message: `Updated tracked role: ${card.company} (${card.title})`,
+      });
+      return merged;
+    }
+
     const newCard: KanbanCard = {
       ...card,
       id: `k-${Date.now()}`,
     };
-    demoCards = [newCard, ...demoCards];
+    setStoredApplications([newCard, ...current]);
+    logActivity({
+      type: "application",
+      message: `Tracked new role: ${card.company} (${card.title}) in ${card.status}`,
+    });
     return newCard;
   }
 
@@ -133,6 +181,8 @@ export async function addApplication(
     throw new Error(`Failed to add application: ${error?.message || "Unknown error"}`);
   }
 
+  dispatchCopilotUpdate("applications");
+
   return {
     id: data.id,
     title: data.title,
@@ -148,7 +198,7 @@ export async function addApplication(
     url: data.application_url || undefined,
     sourceUrl: data.source_url || undefined,
     location: data.location || undefined,
-    source: data.job_source ? data.job_source as NonNullable<KanbanCard["source"]> : undefined,
+    source: data.job_source ? (data.job_source as NonNullable<KanbanCard["source"]>) : undefined,
     closingDate: data.closing_date || undefined,
     deadlineProvenance: data.deadline_provenance || "unknown",
   };
@@ -158,7 +208,16 @@ export async function deleteApplication(id: string): Promise<void> {
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    demoCards = demoCards.filter((c) => c.id !== id);
+    const current = getStoredApplications();
+    const target = current.find((c) => c.id === id);
+    const updated = current.filter((c) => c.id !== id);
+    setStoredApplications(updated);
+    if (target) {
+      logActivity({
+        type: "application",
+        message: `Removed ${target.company} application`,
+      });
+    }
     return;
   }
 
@@ -178,6 +237,8 @@ export async function deleteApplication(id: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to delete application: ${error.message}`);
   }
+
+  dispatchCopilotUpdate("applications");
 }
 
 export async function updateApplication(
@@ -187,7 +248,9 @@ export async function updateApplication(
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    demoCards = demoCards.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    const current = getStoredApplications();
+    const updated = current.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    setStoredApplications(updated);
     return;
   }
 
@@ -222,4 +285,6 @@ export async function updateApplication(
   if (error) {
     throw new Error(`Failed to update application: ${error.message}`);
   }
+
+  dispatchCopilotUpdate("applications");
 }

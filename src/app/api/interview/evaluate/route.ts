@@ -201,7 +201,15 @@ function computeDeterministicEvaluation(
   let followUpPrompt = "How did you monitor system health and handle edge-case failures during this rollout?";
   let followUpIntent = "Testing resilience engineering, telemetry, and fault-tolerance mindset.";
 
-  if (!resultPresent) {
+  if (req.githubRepoContext) {
+    followUpPrompt =
+      "Looking closely at your repository's design, what single point of failure (SPOF) exists in this component, and how would you redesign it for 10x traffic?";
+    followUpIntent = "Probing distributed systems resilience, fault isolation, and architectural trade-offs in candidate's project.";
+  } else if (req.customJdContext) {
+    followUpPrompt =
+      "How do your technical choices in this response directly address the performance and scale requirements outlined in the target job description?";
+    followUpIntent = "Validating practical fit for the specific engineering stack and high-throughput requirements of this role.";
+  } else if (!resultPresent) {
     followUpPrompt =
       "You walked through the implementation steps, but how exactly did you benchmark the performance improvement or business impact after shipping?";
     followUpIntent = "Verifying whether the candidate measures technical outcomes with real data.";
@@ -289,7 +297,9 @@ Candidate Delivery Telemetry:
 - Hesitation Pauses (>2.5s): ${req.telemetry?.hesitationGapsCount ?? 0}
 - Eye Contact: ${req.telemetry?.eyeContactPct >= 0 ? `${req.telemetry.eyeContactPct}%` : "Camera Disabled"}
 - Posture Stability: ${req.telemetry?.postureStabilityPct ?? 85}%
-${req.resumeContext ? `\nResume / Project Context:\n${req.resumeContext}` : ""}`;
+${req.resumeContext ? `\nResume / Project Context:\n${req.resumeContext}` : ""}
+${req.githubRepoContext ? `\nGitHub Repository Architecture Context:\n${req.githubRepoContext}` : ""}
+${req.customJdContext ? `\nTarget Job Description Requirements:\n${req.customJdContext}` : ""}`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -401,6 +411,9 @@ Telemetry:
 - Fillers: ${req.telemetry?.totalFillerCount ?? 0}
 - Silence gaps (>2.5s): ${req.telemetry?.hesitationGapsCount ?? 0}
 - Eye Contact: ${req.telemetry?.eyeContactPct >= 0 ? `${req.telemetry.eyeContactPct}%` : "Camera Off"}
+${req.resumeContext ? `\nResume Context:\n${req.resumeContext}` : ""}
+${req.githubRepoContext ? `\nGitHub Repository Architecture Context:\n${req.githubRepoContext}` : ""}
+${req.customJdContext ? `\nTarget Job Description Requirements:\n${req.customJdContext}` : ""}
 
 Respond ONLY with valid JSON:
 {

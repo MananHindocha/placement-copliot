@@ -217,17 +217,53 @@ export type InterviewCategory =
   | "technical"
   | "situational"
   | "culture"
-  | "resume-grill";
+  | "resume-grill"
+  | "core-technical"
+  | "system-design"
+  | "dsa"
+  | "debugging"
+  | "custom-jd";
 
 export type InterviewQuestion = {
   id: string;
+  role?: string;
   category: InterviewCategory;
   difficulty: "easy" | "medium" | "hard";
   question: string;
   hint: string;
-  sampleAnswer: string;
-  followUps: string[];
+  sampleAnswer?: string;
+  idealAnswer?: string;
+  followUps?: string[];
+  keyConceptsToCover?: string[];
+  referencedFiles?: string[];
 };
+
+export interface GitHubGrillQuestion {
+  id: string;
+  category: "Architecture" | "Code Implementation" | "Scalability & Edge Cases" | "Trade-offs & Debugging" | "Security & Deployment";
+  difficulty: "Medium" | "Hard";
+  question: string;
+  referencedFiles: string[];
+  whatInterviewerLooksFor: string;
+  hint: string;
+}
+
+export interface GitHubGrillAnalysis {
+  repoName: string;
+  owner: string;
+  summary: string;
+  detectedStack: string[];
+  keyFilesAnalyzed: string[];
+  architectureStrengths: string[];
+  potentialWeaknessesOrRisks: string[];
+  grillQuestions: GitHubGrillQuestion[];
+}
+
+export interface CustomJdRequest {
+  targetCompany: string;
+  jobTitle: string;
+  jobDescription: string;
+}
 
 export interface StarComponent {
   score: number;
@@ -261,6 +297,7 @@ export interface InterviewEvaluationResponse {
   followUpQuestion: {
     prompt: string;
     intent: string;
+    keyConcepts?: string[];
   };
   evaluationSource: "ai" | "heuristic";
 }
@@ -284,6 +321,8 @@ export interface InterviewEvaluationRequest {
   durationSeconds: number;
   telemetry: InterviewTelemetry;
   resumeContext?: string;
+  githubRepoContext?: string;
+  customJdContext?: string;
 }
 
 export interface InterviewTurn {

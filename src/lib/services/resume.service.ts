@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
 import { RESUME_ANALYSIS } from "@/lib/mock-data";
+import { logActivity, dispatchCopilotUpdate } from "@/lib/storage-sync";
 import type { ParsedResumeDocument, ResumeAnalysis } from "@/types";
 
 const WORKSPACE_KEY = "copilot_latest_resume_analysis";
@@ -152,6 +153,11 @@ export async function saveResumeWorkspace(
   if (mode === "demo") {
     demoAnalysis = savedAnalysis;
     if (!storedLocally) throw new Error("Browser storage is full; this resume could not be saved for reloads.");
+    logActivity({
+      type: "resume",
+      message: `Analyzed resume${savedAnalysis.jobTitle ? ` for ${savedAnalysis.jobTitle}` : ""} — ${savedAnalysis.matchScore}% Match (${savedAnalysis.atsScore}% ATS)`,
+    });
+    dispatchCopilotUpdate("resume");
     return;
   }
 
@@ -175,6 +181,7 @@ export async function saveResumeWorkspace(
     ? await supabase.from("resume_analyses").update(payload).eq("id", existing.id).eq("user_id", userId)
     : await supabase.from("resume_analyses").insert({ ...payload, user_id: userId });
   if (result.error) throw new Error(`Failed to save resume workspace: ${result.error.message}`);
+  dispatchCopilotUpdate("resume");
 }
 
 export async function analyzeResumeFile(

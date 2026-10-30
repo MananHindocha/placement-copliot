@@ -1,16 +1,21 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
-import { INTERVIEW_QUESTIONS, INTERVIEW_SESSIONS } from "@/lib/mock-data";
+import {
+  getStoredInterviewSessions,
+  setStoredInterviewSessions,
+  logActivity,
+  dispatchCopilotUpdate,
+} from "@/lib/storage-sync";
+import { CURATED_INTERVIEW_QUESTIONS, getRoleInterviewQuestions } from "@/lib/interview-questions";
 import type {
   InterviewQuestion,
   InterviewSession,
   InterviewTurn,
+  InterviewCategory,
   InterviewEvaluationRequest,
   InterviewEvaluationResponse,
 } from "@/types";
 import type { InterviewSessionRow } from "./types";
-
-let demoSessions: InterviewSession[] = [...INTERVIEW_SESSIONS];
 
 export async function evaluateInterviewAnswer(
   payload: InterviewEvaluationRequest
@@ -31,16 +36,21 @@ export async function evaluateInterviewAnswer(
   return response.json();
 }
 
-export async function getInterviewQuestions(): Promise<InterviewQuestion[]> {
-  // Questions bank provides standard practice questions across behavioral, technical, situational
-  return [...INTERVIEW_QUESTIONS];
+export async function getInterviewQuestions(
+  role?: string,
+  category: "all" | InterviewCategory = "all"
+): Promise<InterviewQuestion[]> {
+  if (role) {
+    return getRoleInterviewQuestions(role, category);
+  }
+  return [...CURATED_INTERVIEW_QUESTIONS];
 }
 
 export async function getPastInterviewSessions(): Promise<InterviewSession[]> {
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    return [...demoSessions];
+    return getStoredInterviewSessions();
   }
 
   const supabase = createClient();
@@ -105,6 +115,7 @@ export async function recordInterviewSession(
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
+    const current = getStoredInterviewSessions();
     const newSession: InterviewSession = {
       ...session,
       id: `is-${Date.now()}`,
@@ -118,7 +129,11 @@ export async function recordInterviewSession(
         turnOrder: idx + 1,
       })),
     };
-    demoSessions = [newSession, ...demoSessions];
+    setStoredInterviewSessions([newSession, ...current]);
+    logActivity({
+      type: "interview",
+      message: `Completed ${session.role} mock interview — Scored ${session.score}/100`,
+    });
     return newSession;
   }
 
@@ -131,52 +146,48 @@ export async function recordInterviewSession(
 
   // 1. Insert parent session adhering strictly to existing Supabase schema
   const durationMin = parseInt(session.duration, 10) || 15;
-  const firstTurnCategory = turns && turns[0] ? turns[0].category : "behavioral";
-  const { data: sessionData, error: sessionError } = await supabase
+  const { data: insertedSession, error: sessionError } = await supabase
     .from("interview_sessions")
     .insert({
       user_id: user.id,
       role: session.role,
-      category: firstTurnCategory || "behavioral",
       score: session.score,
       questions_answered: session.questionsAnswered,
       duration_seconds: durationMin * 60,
       feedback: session.feedback,
-      completed: true,
     })
     .select()
     .single();
 
-  if (sessionError || !sessionData) {
-    throw new Error(`Failed to save interview session: ${sessionError?.message || "Unknown error"}`);
+  if (sessionError || !insertedSession) {
+    throw new Error(`Failed to record interview session: ${sessionError?.message || "Unknown database error"}`);
   }
 
-  // 2. Insert child turns if provided (enforcing parent-ownership RLS)
+  // 2. Insert child turns if provided
   if (turns && turns.length > 0) {
-    const turnsToInsert = turns.map((t, index) => ({
-      session_id: sessionData.id,
-      question_id: "questionId" in t ? t.questionId || null : null,
+    const turnPayloads = turns.map((t, idx) => ({
+      session_id: insertedSession.id,
       question_text: t.questionText,
       category: t.category || null,
-      user_answer: ("userAnswer" in t ? t.userAnswer : (t as { answerText?: string }).answerText) || null,
-      ai_feedback: ("aiFeedback" in t ? t.aiFeedback : (t as { feedback?: string }).feedback) || null,
+      user_answer: "userAnswer" in t ? t.userAnswer : (t as { answerText?: string }).answerText || null,
+      ai_feedback: "aiFeedback" in t ? t.aiFeedback : (t as { feedback?: string }).feedback || null,
       score: t.score ?? null,
-      turn_order: index + 1,
+      turn_order: idx + 1,
     }));
 
-    const { error: turnsError } = await supabase
+    const { error: turnError } = await supabase
       .from("interview_turns")
-      .insert(turnsToInsert);
+      .insert(turnPayloads);
 
-    if (turnsError) {
-      await supabase.from("interview_sessions").delete().eq("id", sessionData.id);
-      throw new Error(`Failed to save interview turns: ${turnsError.message}`);
+    if (turnError) {
+      console.warn("Child turns could not be persisted:", turnError.message);
     }
   }
 
+  dispatchCopilotUpdate("interviews");
+
   return {
     ...session,
-    id: sessionData.id,
-    date: new Date(sessionData.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    id: insertedSession.id,
   };
 }
