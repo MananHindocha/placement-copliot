@@ -42,16 +42,23 @@ export async function POST(req: NextRequest) {
       : "webm";
     const fileName = `recording.${extension}`;
 
+    const questionContext = String(formData.get("questionContext") || "").trim();
+    const role = String(formData.get("role") || "").trim();
+
     // Prepare native File instance for standard fetch FormData
     const arrayBuffer = await audioFile.arrayBuffer();
     const file = new File([arrayBuffer], fileName, { type: fileType });
+
+    // Technical Jargon Vocabulary Prompt (prevents phonetic STT misspellings like 'use action state' or 'post gres')
+    const technicalGlossary = `Technical terms: Next.js, React 19, useActionState, useOptimistic, Server Components, TypeScript, Node.js, FastAPI, PostgreSQL, Supabase, Redis, Kafka, Docker, Kubernetes, REST API, GraphQL, WebSockets, JWT, OAuth, idempotency, p95 latency, Big-O, O(n log n), microservices, CI/CD. Role: ${role || "Software Engineer"}. Context: ${questionContext.slice(0, 350)}`;
 
     const groqForm = new FormData();
     groqForm.append("file", file);
     groqForm.append("model", "whisper-large-v3-turbo");
     groqForm.append("language", "en");
     groqForm.append("response_format", "json");
-    groqForm.append("temperature", "0.0");
+    groqForm.append("temperature", "0");
+    groqForm.append("prompt", technicalGlossary);
 
     const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",

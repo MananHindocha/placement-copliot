@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -55,6 +55,9 @@ import {
   FileCode,
   Search,
   Plus,
+  Target,
+  Trophy,
+  X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { VisualTelemetryAnalyzer, type VisualPostureState } from "@/lib/visual-telemetry";
@@ -146,6 +149,68 @@ interface RawResumeExperience {
   bullets?: Array<string | { text?: string }>;
 }
 
+function getQuestionExpectedConcepts(question?: StudioQuestion): string[] {
+  if (!question) return [];
+  if (Array.isArray(question.keyConceptsToCover) && question.keyConceptsToCover.length > 0) {
+    return question.keyConceptsToCover;
+  }
+  if (question.hint) {
+    const hintClean = question.hint.replace(/^Interviewer Expectations?:\s*/i, "");
+    const parts = hintClean
+      .split(/[,;•|]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 2 && s.length < 35);
+    if (parts.length >= 2) return parts.slice(0, 5);
+  }
+  const words = question.question
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 4);
+  return Array.from(new Set(words)).slice(0, 4);
+}
+
+function isConceptCovered(concept: string, text: string, code: string): boolean {
+  if (!concept) return false;
+  const combined = `${text} ${code}`.toLowerCase().replace(/[^a-z0-9]/g, " ");
+  const normalizedConcept = concept
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalizedConcept && combined.includes(normalizedConcept)) return true;
+
+  const tokens = concept
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[\s\-_/]+/)
+    .filter((t) => t.length > 2);
+  if (tokens.length === 0) return false;
+
+  const significant = tokens.filter(
+    (t) =>
+      ![
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "using",
+        "state",
+        "pattern",
+        "handling",
+        "model",
+        "approach",
+        "strategy",
+      ].includes(t)
+  );
+  const toCheck = significant.length > 0 ? significant : tokens;
+
+  return toCheck.some((token) => {
+    const stem = token.length > 5 ? token.slice(0, token.length - 2) : token;
+    return combined.includes(token) || combined.includes(stem);
+  });
+}
+
 export default function InterviewPage() {
   // ─── Core Data State ────────────────────────────────────────────────────────
   const [questions, setQuestions] = useState<StudioQuestion[]>([]);
@@ -177,6 +242,9 @@ export default function InterviewPage() {
 
   // ─── Active Turn & Response State ───────────────────────────────────────────
   const [response, setResponse] = useState("");
+  const [codeSnippet, setCodeSnippet] = useState("");
+  const [showScratchpad, setShowScratchpad] = useState(false);
+  const [showScorecardModal, setShowScorecardModal] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribingWithWhisper, setIsTranscribingWithWhisper] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -256,6 +324,7 @@ export default function InterviewPage() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isRecordingRef = useRef<boolean>(false);
+  const maxAudioRmsRef = useRef<number>(0);
   const lastSpokenTimestampRef = useRef<number>(0);
   const eyeSamplesRef = useRef<{ center: number; total: number }>({ center: 0, total: 0 });
   const recentDistancesRef = useRef<number[]>([]);
@@ -410,6 +479,138 @@ export default function InterviewPage() {
 
   const activeQuestion: StudioQuestion | undefined =
     availableQuestions[currentIdx] || availableQuestions[0] || questions[0];
+
+  const activeExpectedConcepts = useMemo<string[]>(() => {
+    return getQuestionExpectedConcepts(activeQuestion);
+  }, [activeQuestion]);
+
+  const coveredConceptsCount = useMemo(() => {
+    return activeExpectedConcepts.filter((c: string) => isConceptCovered(c, response, codeSnippet)).length;
+  }, [activeExpectedConcepts, response, codeSnippet]);
+
+  const allRoundTurns: InterviewTurn[] = useMemo(() => {
+    const list: InterviewTurn[] = [...sessionTurns];
+    if (evalResult && activeQuestion) {
+      const alreadyPresent = list.some((t) => t.questionText === activeQuestion.question);
+      if (!alreadyPresent) {
+        list.push({
+          id: `eval-current-${activeQuestion.id || "turn"}`,
+          questionText: activeQuestion.question,
+          category: activeQuestion.category,
+          userAnswer: response,
+          aiFeedback: evalResult.deliveryCritique.pacingAdvice,
+          score: evalResult.overallScore,
+          contentScore: evalResult.contentScore,
+          deliveryScore: evalResult.deliveryScore,
+          avgWpm: liveWpm,
+          fillerWordCount: Object.values(fillerCounts).reduce((a, b) => a + b, 0),
+          eyeContactScore: liveEyeContact >= 0 ? liveEyeContact : undefined,
+          starBreakdown: evalResult.starBreakdown,
+          rewrittenAnswer: evalResult.rewrittenIdealAnswer,
+          followUpQuestion: evalResult.followUpQuestion.prompt,
+          turnOrder: currentTurnOrder,
+          coveredConcepts: evalResult.coveredConcepts,
+          missedConcepts: evalResult.missedConcepts,
+          codeSnippet: codeSnippet.trim() || undefined,
+        });
+      }
+    }
+    return list;
+  }, [
+    sessionTurns,
+    evalResult,
+    activeQuestion,
+    response,
+    liveWpm,
+    fillerCounts,
+    liveEyeContact,
+    currentTurnOrder,
+    codeSnippet,
+  ]);
+
+  const scorecardStats = useMemo(() => {
+    const turnsCount = allRoundTurns.length;
+    if (turnsCount === 0) {
+      return {
+        turnsCount: 0,
+        avgScore: 0,
+        avgContent: 0,
+        avgDelivery: 0,
+        avgWpm: 0,
+        totalFillers: 0,
+        avgEyeContact: -1,
+        verdict: "Needs Practice",
+        verdictVariant: "rose" as const,
+        verdictDescription: "Start answering questions to generate your round performance scorecard.",
+        missedConcepts: [] as string[],
+      };
+    }
+
+    const avgScore = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.score || 0), 0) / turnsCount
+    );
+    const avgContent = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.contentScore || 0), 0) / turnsCount
+    );
+    const avgDelivery = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.deliveryScore || 0), 0) / turnsCount
+    );
+    const avgWpm = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.avgWpm || 120), 0) / turnsCount
+    );
+    const totalFillers = allRoundTurns.reduce((acc, t) => acc + (t.fillerWordCount || 0), 0);
+    const validEye = allRoundTurns.filter(
+      (t) => typeof t.eyeContactScore === "number" && t.eyeContactScore >= 0
+    );
+    const avgEyeContact =
+      validEye.length > 0
+        ? Math.round(validEye.reduce((acc, t) => acc + (t.eyeContactScore || 0), 0) / validEye.length)
+        : -1;
+
+    let verdict: string;
+    let verdictVariant: "emerald" | "blue" | "amber" | "rose";
+    let verdictDescription: string;
+
+    if (avgScore >= 85) {
+      verdict = "Strong Hire";
+      verdictVariant = "emerald";
+      verdictDescription =
+        "Exceptional technical depth, structured STAR articulation, and commanding executive delivery. Strong candidate recommendation for L4/L5 engineering loops.";
+    } else if (avgScore >= 72) {
+      verdict = "Hire";
+      verdictVariant = "blue";
+      verdictDescription =
+        "Solid production engineering intuition, clean communication, and reliable problem-solving. Meets the bar for production software engineering.";
+    } else if (avgScore >= 60) {
+      verdict = "Leaning Hire";
+      verdictVariant = "amber";
+      verdictDescription =
+        "Shows foundational domain grasp, but lacked quantified impact metrics in STAR results or missed critical edge-case architecture nuances.";
+    } else {
+      verdict = "Needs Practice";
+      verdictVariant = "rose";
+      verdictDescription =
+        "Responses were either too brief or missed core architectural concepts. Review the missed concept checklist below before real interview loops.";
+    }
+
+    const missed = Array.from(
+      new Set(allRoundTurns.flatMap((t) => t.missedConcepts || []))
+    );
+
+    return {
+      turnsCount,
+      avgScore,
+      avgContent,
+      avgDelivery,
+      avgWpm,
+      totalFillers,
+      avgEyeContact,
+      verdict,
+      verdictVariant,
+      verdictDescription,
+      missedConcepts: missed,
+    };
+  }, [allRoundTurns]);
 
   // Auto-speak question when question changes if TTS is active
   useEffect(() => {
@@ -711,6 +912,7 @@ export default function InterviewPage() {
     setIsHesitating(false);
     setHesitationGaps(0);
     audioChunksRef.current = [];
+    maxAudioRmsRef.current = 0;
 
     // 1. Acquire Single Clean Microphone Audio Stream
     let audioStream: MediaStream;
@@ -740,7 +942,10 @@ export default function InterviewPage() {
           ? "audio/webm"
           : "audio/mp4";
 
-        const recorder = new MediaRecorder(audioStream, { mimeType });
+        const recorder = new MediaRecorder(audioStream, {
+          mimeType,
+          audioBitsPerSecond: 32000,
+        });
         mediaRecorderRef.current = recorder;
         audioChunksRef.current = [];
 
@@ -781,11 +986,14 @@ export default function InterviewPage() {
             if (!isRecordingRef.current) return;
             analyser.getByteFrequencyData(dataArray);
 
-            // Compute live average volume for meter
+            // Compute live average volume for meter and peak volume
             let sum = 0;
             for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
             const avg = sum / (bufferLength || 1);
             setMicActiveLevel(Math.min(100, Math.round((avg / 128) * 100)));
+            if (avg > maxAudioRmsRef.current) {
+              maxAudioRmsRef.current = avg;
+            }
 
             if (canvas) {
               const ctx = canvas.getContext("2d");
@@ -953,34 +1161,49 @@ export default function InterviewPage() {
 
     let currentTranscript = response.trim();
 
-    // Send audio blob to Groq Whisper if available
+    // Send audio blob to Groq Whisper if available and vocal energy detected (Silence Guard)
+    const detectedVoice = maxAudioRmsRef.current > 2.0;
+
     if (audioBlob && audioBlob.size > 0) {
-      setIsTranscribingWithWhisper(true);
-      try {
-        const formData = new FormData();
-        const ext = audioBlob.type.includes("mp4") ? "mp4" : "webm";
-        formData.append("audio", audioBlob, `recording.${ext}`);
+      if (!detectedVoice && !currentTranscript) {
+        setError("No vocal audio detected. Please check your microphone volume and speak clearly.");
+      } else {
+        setIsTranscribingWithWhisper(true);
+        try {
+          const formData = new FormData();
+          const ext = audioBlob.type.includes("mp4") ? "mp4" : "webm";
+          formData.append("audio", audioBlob, `recording.${ext}`);
+          formData.append("role", selectedRole);
+          const questionContext = [
+            activeQuestion?.question || "",
+            activeQuestion?.hint || "",
+            (activeQuestion?.keyConceptsToCover || []).join(", "),
+          ]
+            .filter(Boolean)
+            .join(" ");
+          formData.append("questionContext", questionContext);
 
-        const res = await fetch("/api/interview/transcribe", {
-          method: "POST",
-          body: formData,
-        });
+          const res = await fetch("/api/interview/transcribe", {
+            method: "POST",
+            body: formData,
+          });
 
-        if (res.ok) {
-          const data = (await res.json()) as { ok?: boolean; text?: string; wordsPerMinute?: number };
-          if (data.ok && data.text && data.text.trim()) {
-            currentTranscript = data.text.trim();
-            setResponse(currentTranscript);
-            countFillers(currentTranscript);
-            if (data.wordsPerMinute) {
-              setLiveWpm(data.wordsPerMinute);
+          if (res.ok) {
+            const data = (await res.json()) as { ok?: boolean; text?: string; wordsPerMinute?: number };
+            if (data.ok && data.text && data.text.trim()) {
+              currentTranscript = data.text.trim();
+              setResponse(currentTranscript);
+              countFillers(currentTranscript);
+              if (data.wordsPerMinute) {
+                setLiveWpm(data.wordsPerMinute);
+              }
             }
           }
+        } catch (whisperErr) {
+          console.warn("[Groq Whisper Transcription error]:", whisperErr);
+        } finally {
+          setIsTranscribingWithWhisper(false);
         }
-      } catch (whisperErr) {
-        console.warn("[Groq Whisper Transcription error]:", whisperErr);
-      } finally {
-        setIsTranscribingWithWhisper(false);
       }
     }
 
@@ -1039,6 +1262,8 @@ export default function InterviewPage() {
         role: selectedRole,
         userTranscript: textToEvaluate,
         durationSeconds: Math.max(10, durationSeconds),
+        codeSnippet: codeSnippet.trim() || undefined,
+        keyConceptsToCover: activeExpectedConcepts.length > 0 ? activeExpectedConcepts : undefined,
         telemetry: {
           avgWpm: liveWpm || calculatedWpm,
           wpmTimeSeries: wpmHistory.length > 0 ? wpmHistory : [calculatedWpm],
@@ -1081,8 +1306,10 @@ export default function InterviewPage() {
 
       if (ttsEnabled && evaluation.followUpQuestion?.prompt) {
         setTimeout(() => {
-          speakText(`Follow-up probe: ${evaluation.followUpQuestion.prompt}`);
-        }, 1200);
+          speakText(
+            `Evaluation complete. Score: ${evaluation.overallScore} out of 100. Follow-up cross question: ${evaluation.followUpQuestion.prompt}`
+          );
+        }, 1000);
       }
     } catch (err: unknown) {
       setIsEvaluating(false);
@@ -1110,24 +1337,29 @@ export default function InterviewPage() {
       rewrittenAnswer: evalResult.rewrittenIdealAnswer,
       followUpQuestion: evalResult.followUpQuestion.prompt,
       turnOrder: currentTurnOrder,
+      coveredConcepts: evalResult.coveredConcepts,
+      missedConcepts: evalResult.missedConcepts,
+      codeSnippet: codeSnippet.trim() || undefined,
     };
 
     setSessionTurns((prev) => [...prev, completedTurn]);
     setCurrentTurnOrder((prev) => prev + 1);
 
-    const followUpQuestionObj: InterviewQuestion = {
+    const followUpQuestionObj: StudioQuestion = {
       id: `iq-followup-${Date.now()}`,
       category: activeQuestion.category,
       difficulty: "hard",
       question: evalResult.followUpQuestion.prompt,
       hint: `Interviewer Cross-Question Intent: ${evalResult.followUpQuestion.intent}`,
       sampleAnswer: evalResult.rewrittenIdealAnswer,
+      keyConceptsToCover: evalResult.followUpQuestion.keyConcepts || activeExpectedConcepts.slice(0, 3),
       followUps: [],
     };
 
     setQuestions((prev) => [followUpQuestionObj, ...prev]);
     setCurrentIdx(0);
     setResponse("");
+    setCodeSnippet("");
     setEvalResult(null);
     setDurationSeconds(0);
     setLiveWpm(0);
@@ -1261,6 +1493,13 @@ export default function InterviewPage() {
   const handleSaveSession = async () => {
     if (!evalResult || !activeQuestion) return;
     try {
+      const allMissed = Array.from(
+        new Set([
+          ...sessionTurns.flatMap((t) => t.missedConcepts || []),
+          ...(evalResult.missedConcepts || []),
+        ])
+      );
+
       await recordInterviewSession({
         date: new Date().toISOString().split("T")[0],
         role: selectedRole,
@@ -1273,6 +1512,7 @@ export default function InterviewPage() {
         feedback: evalResult.deliveryCritique.pacingAdvice,
         questionsAnswered: sessionTurns.length + 1,
         duration: `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`,
+        missedConcepts: allMissed.length > 0 ? allMissed : undefined,
         turns: [
           ...sessionTurns,
           {
@@ -1291,6 +1531,9 @@ export default function InterviewPage() {
             rewrittenAnswer: evalResult.rewrittenIdealAnswer,
             followUpQuestion: evalResult.followUpQuestion.prompt,
             turnOrder: currentTurnOrder,
+            coveredConcepts: evalResult.coveredConcepts,
+            missedConcepts: evalResult.missedConcepts,
+            codeSnippet: codeSnippet.trim() || undefined,
           },
         ],
       });
@@ -1356,6 +1599,15 @@ export default function InterviewPage() {
           >
             <Clock className="w-3.5 h-3.5" />
             Session History ({sessions.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowScorecardModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all shadow-sm"
+            title="View Round Scorecard and Hiring Verdict"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span>Scorecard ({allRoundTurns.length})</span>
           </button>
         </div>
       </div>
@@ -2512,8 +2764,50 @@ export default function InterviewPage() {
                   )}
                 </div>
 
+                {/* Live "Expected Concepts" Checklist Pills */}
+                {activeExpectedConcepts.length > 0 && (
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-white/8 mb-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-300">
+                        <Target className="w-3.5 h-3.5 text-indigo-400" />
+                        <span className="uppercase tracking-wider text-[11px]">Key Rubric Concepts</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          ({coveredConceptsCount} of {activeExpectedConcepts.length} covered live)
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-medium">
+                        Lights up green as you speak
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeExpectedConcepts.map((concept: string, idx: number) => {
+                        const covered = isConceptCovered(concept, response, codeSnippet);
+                        return (
+                          <span
+                            key={idx}
+                            className={clsx(
+                              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all duration-200",
+                              covered
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold shadow-sm shadow-emerald-500/10"
+                                : "bg-black/30 text-slate-400 border border-white/6 hover:border-white/12"
+                            )}
+                          >
+                            {covered ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+                            )}
+                            <span>{concept}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Dual Input Textarea: Real-time STT + Manual Edit */}
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2 mb-3">
                   <div className="flex items-center justify-between text-xs">
                     <label className="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">
                       Your Live Spoken Response
@@ -2533,6 +2827,47 @@ export default function InterviewPage() {
                     placeholder="Click 'Start Speaking' below to transcribe live, or type your response here..."
                     className="w-full p-3.5 text-sm bg-black/40 border border-white/8 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none transition-all leading-relaxed font-sans"
                   />
+                </div>
+
+                {/* Collapsible Technical Code / Architecture Scratchpad */}
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowScratchpad((prev) => !prev)}
+                    className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/4 hover:bg-white/8 border border-white/8 transition-all"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>
+                      {showScratchpad
+                        ? "Hide Technical Scratchpad"
+                        : "💻 Open Technical Scratchpad (Code / Schema / SQL)"}
+                    </span>
+                    {codeSnippet.trim() && (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
+                        {codeSnippet.trim().split("\n").length} lines attached
+                      </span>
+                    )}
+                  </button>
+
+                  {showScratchpad && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-black/70 border border-indigo-500/30 space-y-2 animate-fadeIn">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="font-semibold text-slate-300">
+                          Code / Pseudocode / SQL Schema / Big-O Analysis
+                        </span>
+                        <span className="text-[10px] text-indigo-400">
+                          Evaluated concurrently with your verbal response
+                        </span>
+                      </div>
+                      <textarea
+                        rows={5}
+                        value={codeSnippet}
+                        onChange={(e) => setCodeSnippet(e.target.value)}
+                        placeholder={`// Write technical code, schema, SQL, or complexity analysis here...\nfunction handleOptimisticUpdate(state, action) {\n  // Instant state update with rollback fallback\n}`}
+                        className="w-full p-3 text-xs font-mono bg-black/90 border border-white/10 rounded-lg text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-y leading-relaxed"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons: Voice Record & Evaluation */}
@@ -2585,7 +2920,11 @@ export default function InterviewPage() {
                         )
                       }
                       onClick={handleEvaluate}
-                      disabled={(!response.trim() && !isRecording) || isEvaluating || isTranscribingWithWhisper}
+                      disabled={
+                        (!response.trim() && !codeSnippet.trim() && !isRecording) ||
+                        isEvaluating ||
+                        isTranscribingWithWhisper
+                      }
                       className="bg-indigo-600 hover:bg-indigo-500 w-full sm:w-auto"
                     >
                       {isEvaluating
@@ -2761,6 +3100,77 @@ export default function InterviewPage() {
                 </div>
               </Card>
 
+              {/* Rubric Concept Coverage Audit */}
+              {((evalResult.coveredConcepts && evalResult.coveredConcepts.length > 0) ||
+                (evalResult.missedConcepts && evalResult.missedConcepts.length > 0)) && (
+                <Card className="p-5 bg-[#0e1424] border-white/6">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-indigo-400" />
+                    Rubric Concept Coverage Audit
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/25">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Covered Concepts ({evalResult.coveredConcepts?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {evalResult.coveredConcepts && evalResult.coveredConcepts.length > 0 ? (
+                          evalResult.coveredConcepts.map((concept, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-200 border border-emerald-500/30 text-[11px] font-medium"
+                            >
+                              ✓ {concept}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">
+                            No rubric concepts fully matched in transcript.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/25">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300 mb-2">
+                        <AlertCircle className="w-4 h-4 text-rose-400" />
+                        <span>Missed Concepts ({evalResult.missedConcepts?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {evalResult.missedConcepts && evalResult.missedConcepts.length > 0 ? (
+                          evalResult.missedConcepts.map((concept, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-200 border border-rose-500/30 text-[11px] font-medium"
+                            >
+                              ✕ {concept}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-emerald-400 italic">
+                            Flawless! All key rubric concepts were addressed.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Technical Scratchpad & Code Review Critique */}
+              {evalResult.codeReviewCritique && (
+                <Card className="p-5 bg-[#0a1220] border-indigo-500/30">
+                  <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-indigo-400" />
+                    Technical Scratchpad &amp; Code Review Critique
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                    {evalResult.codeReviewCritique}
+                  </p>
+                </Card>
+              )}
+
               {/* Side-by-Side Comparison: Spoken vs Rewritten Ideal Answer */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-5 bg-[#0e1424] border-rose-500/20">
@@ -2860,6 +3270,16 @@ export default function InterviewPage() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      icon={<Trophy className="w-3.5 h-3.5 text-amber-400" />}
+                      onClick={() => setShowScorecardModal(true)}
+                      className="whitespace-nowrap border-amber-500/30 hover:border-amber-500/50 text-amber-200"
+                    >
+                      Round Scorecard ({allRoundTurns.length})
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       icon={<RotateCcw className="w-3.5 h-3.5" />}
                       onClick={handleSaveSession}
                       className="whitespace-nowrap"
@@ -2871,6 +3291,263 @@ export default function InterviewPage() {
               </Card>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── ROUND SCORECARD & HIRING VERDICT MODAL ───────────────────────── */}
+      {showScorecardModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-[#0c101d] via-[#101528] to-[#0c101d] border border-indigo-500/30 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-white/8">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-6 h-6 text-amber-400" />
+                  <h2 className="text-xl font-bold text-white">
+                    Round Composite Scorecard &amp; Hiring Verdict
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Aggregated performance across {scorecardStats.turnsCount}{" "}
+                  {scorecardStats.turnsCount === 1 ? "question" : "questions"} for{" "}
+                  <span className="text-indigo-300 font-semibold">{selectedRole}</span>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowScorecardModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Hiring Verdict Banner */}
+            <div
+              className={clsx(
+                "p-5 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4",
+                scorecardStats.verdictVariant === "emerald"
+                  ? "bg-emerald-950/30 border-emerald-500/40"
+                  : scorecardStats.verdictVariant === "blue"
+                  ? "bg-blue-950/30 border-blue-500/40"
+                  : scorecardStats.verdictVariant === "amber"
+                  ? "bg-amber-950/30 border-amber-500/40"
+                  : "bg-rose-950/30 border-rose-500/40"
+              )}
+            >
+              <div className="space-y-1.5 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">
+                    Composite Hiring Verdict:
+                  </span>
+                  <span
+                    className={clsx(
+                      "px-3 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wide border",
+                      scorecardStats.verdictVariant === "emerald"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                        : scorecardStats.verdictVariant === "blue"
+                        ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                        : scorecardStats.verdictVariant === "amber"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                        : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                    )}
+                  >
+                    {scorecardStats.verdict}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                  {scorecardStats.verdictDescription}
+                </p>
+              </div>
+
+              <div className="text-center px-4 py-2 rounded-xl bg-black/40 border border-white/8 shrink-0">
+                <span className="text-3xl font-extrabold text-white block">
+                  {scorecardStats.avgScore}
+                  <span className="text-base font-normal text-slate-400">/100</span>
+                </span>
+                <span className="text-[11px] text-slate-400">Round Average</span>
+              </div>
+            </div>
+
+            {/* 4-Axis Competency Breakdown */}
+            <div>
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
+                4-Axis Competency Breakdown
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Technical Depth</span>
+                    <span className="font-bold text-indigo-300">{scorecardStats.avgContent}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-indigo-500 h-full rounded-full"
+                      style={{ width: `${scorecardStats.avgContent}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">STAR Content &amp; Precision</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Delivery &amp; Flow</span>
+                    <span className="font-bold text-emerald-300">{scorecardStats.avgDelivery}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full rounded-full"
+                      style={{ width: `${scorecardStats.avgDelivery}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">Vocal presence &amp; poise</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Vocal Pace</span>
+                    <span className="font-bold text-white">{scorecardStats.avgWpm} WPM</span>
+                  </div>
+                  <span className="text-[11px] text-slate-300 block">
+                    {scorecardStats.totalFillers} fillers total
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    {scorecardStats.avgWpm >= 115 && scorecardStats.avgWpm <= 165
+                      ? "Optimal cadence"
+                      : "Adjust conversational pace"}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Eye Contact</span>
+                    <span className="font-bold text-amber-300">
+                      {scorecardStats.avgEyeContact >= 0 ? `${scorecardStats.avgEyeContact}%` : "Audio"}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-300 block">
+                    {scorecardStats.avgEyeContact >= 70
+                      ? "Direct camera presence"
+                      : scorecardStats.avgEyeContact >= 0
+                      ? "Room for more gaze"
+                      : "Audio-only practice"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">Facial visual telemetry</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Aggregated Missed Concepts Checklist */}
+            <div className="p-4 rounded-2xl bg-[#0a1220] border border-white/8 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Target className="w-4 h-4 text-rose-400" />
+                  <span>Actionable Missed Concepts Checklist</span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {scorecardStats.missedConcepts.length} concepts to review
+                </span>
+              </div>
+
+              {scorecardStats.missedConcepts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {scorecardStats.missedConcepts.map((concept: string, idx: number) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-start gap-2"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                      <span className="text-xs text-rose-200 font-medium leading-tight">
+                        {concept}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 text-xs text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>
+                    Impressive! You addressed all expected technical concepts across every question in this round.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Turn-by-Turn Questions History */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Turn-by-Turn Questions in this Round ({allRoundTurns.length})
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {allRoundTurns.map((turn, idx) => (
+                  <div
+                    key={turn.id || idx}
+                    className="p-3 rounded-xl bg-black/40 border border-white/6 flex items-start justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-white/6 text-slate-300 text-[10px] font-bold">
+                          Q{idx + 1}
+                        </span>
+                        {turn.category && (
+                          <span className="text-[10px] text-indigo-400 uppercase font-semibold">
+                            {turn.category}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-200 font-medium leading-snug">
+                        {turn.questionText}
+                      </p>
+                      {turn.userAnswer && (
+                        <p className="text-[11px] text-slate-400 line-clamp-1 italic">
+                          &quot;{turn.userAnswer}&quot;
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={clsx(
+                          "px-2.5 py-1 rounded-lg text-xs font-extrabold inline-block",
+                          (turn.score || 0) >= 80
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : (turn.score || 0) >= 65
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        )}
+                      >
+                        {turn.score || 0}/100
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-white/8">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RotateCcw className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  handleSaveSession();
+                  setShowScorecardModal(false);
+                }}
+              >
+                Save Round to History
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowScorecardModal(false)}
+                className="bg-indigo-600 hover:bg-indigo-500"
+              >
+                Close Scorecard
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

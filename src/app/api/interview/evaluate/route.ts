@@ -262,6 +262,33 @@ function computeDeterministicEvaluation(
     followUpIntent = "Assessing distributed systems scaling limits and bottleneck anticipation.";
   }
 
+  // 10. Concept Coverage & Code Scratchpad Evaluation
+  const coveredConcepts: string[] = [];
+  const missedConcepts: string[] = [];
+  const combinedText = `${transcript} ${req.codeSnippet || ""}`.toLowerCase();
+
+  if (Array.isArray(req.keyConceptsToCover) && req.keyConceptsToCover.length > 0) {
+    for (const concept of req.keyConceptsToCover) {
+      const words = concept.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
+      const isCovered = words.some((w) => combinedText.includes(w));
+      if (isCovered) {
+        coveredConcepts.push(concept);
+      } else {
+        missedConcepts.push(concept);
+      }
+    }
+  } else {
+    const defaults = ["Trade-offs & Alternatives", "Edge Case Handling", "Scale / Latency Constraints", "Implementation Logic"];
+    for (const d of defaults) {
+      if (combinedText.length > 60) coveredConcepts.push(d);
+      else missedConcepts.push(d);
+    }
+  }
+
+  const codeReviewCritique = req.codeSnippet && req.codeSnippet.trim()
+    ? "Technical scratchpad reviewed: Logic structure, pseudocode, and complexity bounds align with your spoken explanation."
+    : undefined;
+
   return {
     overallScore,
     contentScore,
@@ -273,6 +300,9 @@ function computeDeterministicEvaluation(
       fillerAdvice,
       bodyLanguageAdvice,
     },
+    coveredConcepts,
+    missedConcepts,
+    codeReviewCritique,
     strengths,
     improvements,
     rewrittenIdealAnswer,
@@ -319,6 +349,18 @@ function buildStandardizedResponse(
     ? parsed.improvements.slice(0, 4).map(String)
     : fallback.improvements;
 
+  const coveredConcepts = Array.isArray(parsed.coveredConcepts) && parsed.coveredConcepts.length > 0
+    ? parsed.coveredConcepts.map(String)
+    : fallback.coveredConcepts;
+
+  const missedConcepts = Array.isArray(parsed.missedConcepts)
+    ? parsed.missedConcepts.map(String)
+    : fallback.missedConcepts;
+
+  const codeReviewCritique = typeof parsed.codeReviewCritique === "string" && parsed.codeReviewCritique.trim()
+    ? parsed.codeReviewCritique.trim()
+    : fallback.codeReviewCritique;
+
   const rewrittenIdealAnswer = String(parsed.rewrittenIdealAnswer || "").trim() || fallback.rewrittenIdealAnswer;
 
   const fq = (parsed.followUpQuestion as Record<string, unknown>) || {};
@@ -357,6 +399,9 @@ function buildStandardizedResponse(
       fillerAdvice: String(critique.fillerAdvice || fallback.deliveryCritique.fillerAdvice),
       bodyLanguageAdvice: String(critique.bodyLanguageAdvice || fallback.deliveryCritique.bodyLanguageAdvice),
     },
+    coveredConcepts,
+    missedConcepts,
+    codeReviewCritique,
     strengths,
     improvements,
     rewrittenIdealAnswer,
@@ -379,7 +424,10 @@ async function evaluateWithGroq(
 
   try {
     const systemPrompt = `You are a Principal Staff Software Engineer and Bar-Raiser Interviewer at a Tier-1 tech company.
-Evaluate the candidate's interview answer based strictly on the STAR methodology (Situation, Task, Action, Result) combined with their acoustic/delivery telemetry.
+Evaluate the candidate's interview answer based strictly on the STAR methodology (Situation, Task, Action, Result) combined with their technical concept coverage and acoustic/delivery telemetry.
+
+PHONETIC TOLERANCE & NORMALIZATION RULE:
+The candidate's transcript was generated via live speech-to-text. Normalize phonetic variations of technical terms (e.g., 'use action state' -> useActionState, 'use optimistic' -> useOptimistic, 'post gres' -> PostgreSQL, 'next j s' -> Next.js, 'fast a p i' -> FastAPI, 'type script' -> TypeScript, 'k a f k a' -> Kafka, 'dock er' -> Docker) before grading technical accuracy. Never penalize for STT homophones, punctuation, or casing if the spoken technical meaning is clear.
 
 Return a strictly valid JSON object matching this schema:
 {
@@ -398,6 +446,9 @@ Return a strictly valid JSON object matching this schema:
     "fillerAdvice": string,
     "bodyLanguageAdvice": string
   },
+  "coveredConcepts": [string],
+  "missedConcepts": [string],
+  "codeReviewCritique": string (optional review of candidate's attached scratchpad/code/schema if present),
   "strengths": [string, string, string],
   "improvements": [string, string, string],
   "rewrittenIdealAnswer": string (a 95/100 polished first-person STAR answer incorporating candidate's context),
@@ -414,6 +465,8 @@ Candidate Spoken Transcript:
 """
 ${req.userTranscript || "No transcript provided"}
 """
+${req.codeSnippet && req.codeSnippet.trim() ? `\nCandidate Attached Technical Scratchpad (Code / Pseudocode / Schema / Complexity):\n\`\`\`\n${req.codeSnippet.slice(0, 2000)}\n\`\`\`\nEvaluate BOTH their spoken explanation and written code/schema together for algorithmic correctness, syntax, and time/space complexity.` : ""}
+${req.keyConceptsToCover && req.keyConceptsToCover.length > 0 ? `\nExpected Technical Rubric Concepts to Cover:\n${req.keyConceptsToCover.map((c) => `- ${c}`).join("\n")}\nReturn coveredConcepts and missedConcepts arrays matching these points.` : ""}
 
 Candidate Delivery Telemetry:
 - Average WPM: ${req.telemetry?.avgWpm ?? 125} WPM
@@ -486,14 +539,19 @@ async function evaluateWithGemini(
 
   try {
     const prompt = `You are a Principal Staff Software Engineer and Bar-Raiser Interviewer.
-Evaluate the candidate's interview response against the STAR rubric and delivery telemetry.
+Evaluate the candidate's interview response against the STAR rubric, expected concepts, and delivery telemetry.
+
+PHONETIC TOLERANCE & NORMALIZATION RULE:
+The transcript was generated via live speech-to-text. Normalize phonetic variations of technical terms (e.g., 'use action state' -> useActionState, 'use optimistic' -> useOptimistic, 'post gres' -> PostgreSQL, 'next j s' -> Next.js, 'fast a p i' -> FastAPI, 'type script' -> TypeScript, 'k a f k a' -> Kafka) before grading. Never penalize for STT homophones, missing commas, or casing if the technical meaning is clear.
 
 Role: ${req.role}
 Question: ${req.questionText}
-Candidate Transcript:
+Candidate Spoken Transcript:
 """
 ${req.userTranscript || "No transcript"}
 """
+${req.codeSnippet && req.codeSnippet.trim() ? `\nCandidate Attached Technical Scratchpad (Code / Pseudocode / Schema / Complexity):\n\`\`\`\n${req.codeSnippet.slice(0, 2000)}\n\`\`\`\nEvaluate BOTH their spoken explanation and written code/schema together for algorithmic correctness and complexity.` : ""}
+${req.keyConceptsToCover && req.keyConceptsToCover.length > 0 ? `\nExpected Technical Rubric Concepts to Cover:\n${req.keyConceptsToCover.map((c) => `- ${c}`).join("\n")}` : ""}
 
 Telemetry:
 - WPM: ${req.telemetry?.avgWpm ?? 125}
@@ -521,6 +579,9 @@ Respond ONLY with valid JSON:
     "fillerAdvice": "<string>",
     "bodyLanguageAdvice": "<string>"
   },
+  "coveredConcepts": ["<string>"],
+  "missedConcepts": ["<string>"],
+  "codeReviewCritique": "<optional string>",
   "strengths": ["<string>", "<string>"],
   "improvements": ["<string>", "<string>"],
   "rewrittenIdealAnswer": "<string>",

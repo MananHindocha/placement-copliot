@@ -300,6 +300,9 @@ export interface InterviewEvaluationResponse {
     keyConcepts?: string[];
   };
   evaluationSource: "ai" | "heuristic";
+  coveredConcepts?: string[];
+  missedConcepts?: string[];
+  codeReviewCritique?: string;
 }
 
 export interface InterviewTelemetry {
@@ -323,6 +326,8 @@ export interface InterviewEvaluationRequest {
   resumeContext?: string;
   githubRepoContext?: string;
   customJdContext?: string;
+  codeSnippet?: string;
+  keyConceptsToCover?: string[];
 }
 
 export interface InterviewTurn {
@@ -344,6 +349,9 @@ export interface InterviewTurn {
   followUpQuestion?: string;
   turnOrder: number;
   createdAt?: string;
+  coveredConcepts?: string[];
+  missedConcepts?: string[];
+  codeSnippet?: string;
 }
 
 export type InterviewSession = {
@@ -363,6 +371,7 @@ export type InterviewSession = {
   rewrittenAnswer?: string;
   followUpQuestion?: string;
   turns?: InterviewTurn[];
+  missedConcepts?: string[];
 };
 
 // ─── Readiness ───────────────────────────────────────────────────────────────
