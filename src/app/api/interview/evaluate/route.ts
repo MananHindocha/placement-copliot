@@ -6,10 +6,38 @@ import type {
   DeliveryCritique,
 } from "@/types";
 
-// ─── Helper: Clamp Numbers ───────────────────────────────────────────────────
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function clamp(val: number, min = 0, max = 100): number {
-  return Math.min(max, Math.max(min, Math.round(val)));
+  return Math.min(max, Math.max(min, Math.round(Number(val) || 0)));
+}
+
+function sanitizeKey(key: string | undefined): string {
+  if (!key) return "";
+  return key.trim().replace(/^["']|["']$/g, "").trim();
+}
+
+function extractJsonObject(text: string): Record<string, unknown> | null {
+  if (!text) return null;
+  const cleaned = text
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
+  const jsonCandidate = cleaned.slice(firstBrace, lastBrace + 1);
+  try {
+    const parsed = JSON.parse(jsonCandidate);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Deterministic Heuristic Fallback Engine ─────────────────────────────────
@@ -116,88 +144,99 @@ function computeDeterministicEvaluation(
   // Camera Eye-Contact Factor
   if (eyeContactPct >= 0) {
     if (eyeContactPct >= 75) {
-      deliveryScore += 5; // Bonus for strong executive eye presence
+      deliveryScore += 5;
     } else if (eyeContactPct < 60) {
       deliveryScore -= 10;
     }
   }
 
-  deliveryScore = clamp(deliveryScore, 42, 98);
+  // Posture Factor
+  if (postureStabilityPct < 70) {
+    deliveryScore -= 8;
+  }
 
-  // 3. Content Score Calculation (Weighted STAR Rubric)
+  deliveryScore = clamp(deliveryScore, 30, 98);
+
+  // 3. Technical Content Score Calculation (STAR Weighting)
   const contentScore = clamp(
-    Math.round(
-      starBreakdown.situation.score * 0.2 +
-        starBreakdown.task.score * 0.2 +
-        starBreakdown.action.score * 0.35 +
-        starBreakdown.result.score * 0.25
-    ),
-    40,
+    situationScore * 0.2 + taskScore * 0.2 + actionScore * 0.35 + resultScore * 0.25,
+    35,
     98
   );
 
   // 4. Overall Composite (70% Content + 30% Delivery)
-  const overallScore = clamp(Math.round(contentScore * 0.7 + deliveryScore * 0.3));
+  const overallScore = clamp(contentScore * 0.7 + deliveryScore * 0.3);
 
-  // 5. Pacing Verdict & Critique
+  // 5. Pacing Verdict & Actionable Critiques
   let pacingVerdict: DeliveryCritique["pacingVerdict"] = "Optimal (115-155 WPM)";
-  let pacingAdvice = "Your pacing is well-modulated and easy for interviewers to follow.";
+  let pacingAdvice = "Your pacing was steady and well-controlled for technical explanations.";
 
-  if (avgWpm < 100) {
+  if (avgWpm < 105) {
     pacingVerdict = "Too Slow (<100 WPM)";
-    pacingAdvice = `Average pacing was ${avgWpm} WPM. Pick up momentum slightly to maintain interviewer engagement.`;
+    pacingAdvice = `Your pace was ${avgWpm} WPM. Increase cadence slightly to 120-140 WPM to project confidence and maintain interviewer momentum.`;
   } else if (avgWpm > 160) {
     pacingVerdict = "Rushed (>160 WPM)";
-    pacingAdvice = `Average pacing was ${avgWpm} WPM. Slow down slightly and pause after key milestones to emphasize technical decisions.`;
+    pacingAdvice = `Your pace was ${avgWpm} WPM. Slow down slightly on complex system architecture points so the panel can absorb your points.`;
   }
 
-  // Filler Advice
-  const topFillers = Object.entries(fillerWords)
-    .sort((a, b) => b[1] - a[1])
-    .map(([w, c]) => `"${w}" (${c}x)`)
-    .join(", ");
+  let fillerAdvice = "Excellent verbal economy with virtually zero vocal tics.";
+  if (totalFillerCount > 4) {
+    const topFillers = Object.entries(fillerWords)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([w, c]) => `"${w}" (${c}x)`)
+      .join(", ");
+    fillerAdvice = `Detected ${totalFillerCount} filler words (${topFillers}). Replace filler sounds with deliberate 1-second pauses.`;
+  } else if (totalFillerCount > 0) {
+    fillerAdvice = `Low filler count (${totalFillerCount}). Good discipline maintaining clear vocal flow.`;
+  }
 
-  const fillerAdvice =
-    totalFillerCount > 0
-      ? `Detected ${totalFillerCount} filler occurrences (${topFillers || "um/like"}). Embrace brief silent pauses instead of reflexively filling silence.`
-      : "Exceptional verbal economy — zero distracting filler words detected.";
-
-  // Body Language Advice
-  let bodyLanguageAdvice =
-    "Camera was inactive. We recommend practicing with the camera enabled to calibrate your eye-contact ratio.";
+  let bodyLanguageAdvice = "Camera telemetry was disabled or audio-only mode was used.";
   if (eyeContactPct >= 0) {
     if (eyeContactPct >= 75) {
-      bodyLanguageAdvice = `Outstanding direct eye contact (${eyeContactPct}%). Posture stability is well centered (${postureStabilityPct}%).`;
+      bodyLanguageAdvice = `Exceptional visual connection (${eyeContactPct}% camera alignment) and upright posture (${postureStabilityPct}% stability).`;
+    } else if (eyeContactPct >= 60) {
+      bodyLanguageAdvice = `Adequate eye presence (${eyeContactPct}%). Practice looking directly into the lens when concluding major technical points.`;
     } else {
-      bodyLanguageAdvice = `Eye contact was ${eyeContactPct}%. Try looking directly at the camera lens rather than looking down or at the screen corners.`;
+      bodyLanguageAdvice = `Low direct camera focus (${eyeContactPct}%). Position your window higher so looking at the question aligns with the lens.`;
     }
   }
 
-  // 6. Strengths & Improvements
+  // 6. Actionable Strengths
   const strengths: string[] = [];
-  if (actionHits >= 2) strengths.push("Articulated concrete engineering choices and execution steps.");
-  if (totalFillerCount <= 2) strengths.push("Maintained clear verbal articulation with minimal vocal disfluency.");
-  if (avgWpm >= 115 && avgWpm <= 155) strengths.push(`Optimal vocal pacing maintained at ${avgWpm} WPM.`);
-  if (resultHits > 0) strengths.push("Highlighted business or system outcomes rather than just responsibilities.");
-  if (strengths.length < 2) strengths.push("Demonstrated direct answers aligned with the interviewer prompt.");
+  if (actionHits >= 2) strengths.push("Strong articulation of technical engineering actions and tooling choices.");
+  if (situationHits >= 1) strengths.push("Established clear initial project context and problem stakes.");
+  if (resultHits >= 1) strengths.push("Highlighted business or latency metrics to demonstrate concrete outcome.");
+  if (totalFillerCount <= 2 && avgWpm >= 110 && avgWpm <= 155) {
+    strengths.push("Controlled verbal cadence with low reliance on filler words.");
+  }
+  if (strengths.length < 2) {
+    strengths.push("Directly addressed the core question prompt without going off-topic.");
+    strengths.push("Maintained logical progression through the explanation.");
+  }
 
+  // 7. Targeted Technical Improvements
   const improvements: string[] = [];
-  if (!resultPresent) improvements.push("Quantify your end results using exact metrics (latency, percentage gains, user adoption).");
-  if (totalFillerCount > 3) improvements.push(`Reduce filler density (used ${totalFillerCount} filler words). Practice pausing in silence.`);
-  if (hesitationGapsCount >= 2) improvements.push(`Detected ${hesitationGapsCount} prolonged hesitation pauses (>2.5s). Structure answers faster with STAR.`);
-  if (!taskPresent) improvements.push("State the technical problem constraint explicitly before jumping into the code implementation.");
-  if (improvements.length < 2) improvements.push("Deepen your explanation of technical trade-offs between competing architectural options.");
+  if (!resultPresent) {
+    improvements.push("Quantify your results: Include concrete metrics (e.g., '% throughput increase', 'ms latency saved').");
+  }
+  if (!taskPresent) {
+    improvements.push("Clarify the core engineering constraints: Explain why this problem was non-trivial.");
+  }
+  if (actionHits < 2) {
+    improvements.push("Deepen technical specifics: Explicitly name database engines, caching layers, or design patterns.");
+  }
+  if (totalFillerCount > 3) {
+    improvements.push("Reduce filler occurrences by pausing comfortably when thinking between sentences.");
+  }
+  if (improvements.length < 2) {
+    improvements.push("Address trade-offs: Mention an alternative design you considered and why you rejected it.");
+  }
 
-  // 7. Rewritten Ideal Answer (95/100 Polished First-Person STAR Answer)
-  const roleName = req.role || "Software Engineer";
-  const userSummary = transcript.length > 50 ? transcript.slice(0, 180) : "working on our core application architecture";
-  const rewrittenIdealAnswer =
-    `"In my previous project as a ${roleName}, I encountered a critical challenge: ${userSummary.replace(/"/g, "")}... ` +
-    `To resolve the root bottleneck, I architected a robust pipeline using modern design patterns, structured logging, and automated integration tests. ` +
-    `Specifically, I decoupled the heavy computational tasks into asynchronous background jobs and introduced Redis caching for hot paths. ` +
-    `As a direct outcome, we cut p99 response latency by 42%, reduced infrastructure costs by 18%, and maintained zero regression incidents across 50,000+ daily active users."`;
+  // 8. 95/100 STAR Answer Rewrite
+  const rewrittenIdealAnswer = `In my previous engineering project, our core production service was experiencing severe throughput degradation during traffic surges. As the lead developer, I was tasked with identifying the root cause and restoring p99 latency to under 80ms under a strict 48-hour deadline. I profiled the bottleneck using distributed tracing, identified lock contention on the primary relational database, and implemented an in-memory Redis caching tier with a write-through strategy. This architectural shift offloaded 84% of read queries, reduced p99 response times from 450ms down to 38ms, and ensured zero downtime across 50,000 concurrent daily active users.`;
 
-  // 8. Contextual Follow-Up Probe (Dynamic Cross-Question)
+  // 9. Contextual Follow-Up Probe
   let followUpPrompt = "How did you monitor system health and handle edge-case failures during this rollout?";
   let followUpIntent = "Testing resilience engineering, telemetry, and fault-tolerance mindset.";
 
@@ -245,13 +284,98 @@ function computeDeterministicEvaluation(
   };
 }
 
-// ─── Groq Llama 3.3 70B AI Evaluator ─────────────────────────────────────────
+// ─── Normalizer for LLM JSON Response ────────────────────────────────────────
+
+function buildStandardizedResponse(
+  parsed: Record<string, unknown>,
+  fallback: InterviewEvaluationResponse
+): InterviewEvaluationResponse {
+  const overall = typeof parsed.overallScore === "number" ? clamp(parsed.overallScore) : fallback.overallScore;
+  const content = typeof parsed.contentScore === "number" ? clamp(parsed.contentScore) : overall;
+  const delivery = typeof parsed.deliveryScore === "number" ? clamp(parsed.deliveryScore) : fallback.deliveryScore;
+
+  const starObj = (parsed.starBreakdown as Record<string, unknown>) || {};
+  const situation = (starObj.situation as Record<string, unknown>) || {};
+  const task = (starObj.task as Record<string, unknown>) || {};
+  const action = (starObj.action as Record<string, unknown>) || {};
+  const result = (starObj.result as Record<string, unknown>) || {};
+
+  const critique = (parsed.deliveryCritique as Record<string, unknown>) || {};
+
+  const validVerdicts: DeliveryCritique["pacingVerdict"][] = [
+    "Too Slow (<100 WPM)",
+    "Optimal (115-155 WPM)",
+    "Rushed (>160 WPM)",
+  ];
+  const pacingVerdict = validVerdicts.includes(critique.pacingVerdict as DeliveryCritique["pacingVerdict"])
+    ? (critique.pacingVerdict as DeliveryCritique["pacingVerdict"])
+    : fallback.deliveryCritique.pacingVerdict;
+
+  const strengths = Array.isArray(parsed.strengths) && parsed.strengths.length > 0
+    ? parsed.strengths.slice(0, 4).map(String)
+    : fallback.strengths;
+
+  const improvements = Array.isArray(parsed.improvements) && parsed.improvements.length > 0
+    ? parsed.improvements.slice(0, 4).map(String)
+    : fallback.improvements;
+
+  const rewrittenIdealAnswer = String(parsed.rewrittenIdealAnswer || "").trim() || fallback.rewrittenIdealAnswer;
+
+  const fq = (parsed.followUpQuestion as Record<string, unknown>) || {};
+  const followUpPrompt = String(fq.prompt || "").trim() || fallback.followUpQuestion.prompt;
+  const followUpIntent = String(fq.intent || "").trim() || fallback.followUpQuestion.intent;
+
+  return {
+    overallScore: overall,
+    contentScore: content,
+    deliveryScore: delivery,
+    starBreakdown: {
+      situation: {
+        score: clamp(typeof situation.score === "number" ? situation.score : fallback.starBreakdown.situation.score),
+        feedback: String(situation.feedback || fallback.starBreakdown.situation.feedback),
+        present: typeof situation.present === "boolean" ? situation.present : fallback.starBreakdown.situation.present,
+      },
+      task: {
+        score: clamp(typeof task.score === "number" ? task.score : fallback.starBreakdown.task.score),
+        feedback: String(task.feedback || fallback.starBreakdown.task.feedback),
+        present: typeof task.present === "boolean" ? task.present : fallback.starBreakdown.task.present,
+      },
+      action: {
+        score: clamp(typeof action.score === "number" ? action.score : fallback.starBreakdown.action.score),
+        feedback: String(action.feedback || fallback.starBreakdown.action.feedback),
+        present: typeof action.present === "boolean" ? action.present : fallback.starBreakdown.action.present,
+      },
+      result: {
+        score: clamp(typeof result.score === "number" ? result.score : fallback.starBreakdown.result.score),
+        feedback: String(result.feedback || fallback.starBreakdown.result.feedback),
+        present: typeof result.present === "boolean" ? result.present : fallback.starBreakdown.result.present,
+      },
+    },
+    deliveryCritique: {
+      pacingVerdict,
+      pacingAdvice: String(critique.pacingAdvice || fallback.deliveryCritique.pacingAdvice),
+      fillerAdvice: String(critique.fillerAdvice || fallback.deliveryCritique.fillerAdvice),
+      bodyLanguageAdvice: String(critique.bodyLanguageAdvice || fallback.deliveryCritique.bodyLanguageAdvice),
+    },
+    strengths,
+    improvements,
+    rewrittenIdealAnswer,
+    followUpQuestion: {
+      prompt: followUpPrompt,
+      intent: followUpIntent,
+    },
+    evaluationSource: "ai",
+  };
+}
+
+// ─── Engine 1: Groq Llama 3.3 70B AI Evaluator ───────────────────────────────
 
 async function evaluateWithGroq(
-  req: InterviewEvaluationRequest
+  req: InterviewEvaluationRequest,
+  fallback: InterviewEvaluationResponse
 ): Promise<InterviewEvaluationResponse | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.includes("your_groq")) return null;
+  const apiKey = sanitizeKey(process.env.GROQ_API_KEY);
+  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_")) return null;
 
   try {
     const systemPrompt = `You are a Principal Staff Software Engineer and Bar-Raiser Interviewer at a Tier-1 tech company.
@@ -293,107 +417,72 @@ ${req.userTranscript || "No transcript provided"}
 
 Candidate Delivery Telemetry:
 - Average WPM: ${req.telemetry?.avgWpm ?? 125} WPM
-- Total Filler Words: ${req.telemetry?.totalFillerCount ?? 0} (Breakdown: ${JSON.stringify(req.telemetry?.fillerWords || {})})
+- Total Filler Words: ${req.telemetry?.totalFillerCount ?? 0}
 - Hesitation Pauses (>2.5s): ${req.telemetry?.hesitationGapsCount ?? 0}
-- Eye Contact: ${req.telemetry?.eyeContactPct >= 0 ? `${req.telemetry.eyeContactPct}%` : "Camera Disabled"}
+- Eye Contact: ${req.telemetry?.eyeContactPct !== undefined && req.telemetry.eyeContactPct >= 0 ? `${req.telemetry.eyeContactPct}%` : "Camera Disabled"}
 - Posture Stability: ${req.telemetry?.postureStabilityPct ?? 85}%
 ${req.resumeContext ? `\nResume / Project Context:\n${req.resumeContext}` : ""}
 ${req.githubRepoContext ? `\nGitHub Repository Architecture Context:\n${req.githubRepoContext}` : ""}
 ${req.customJdContext ? `\nTarget Job Description Requirements:\n${req.customJdContext}` : ""}`;
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      signal: AbortSignal.timeout(9000),
-    });
+    const candidateModels = [
+      "llama-3.3-70b-versatile",
+      "openai/gpt-oss-120b",
+      "qwen/qwen3.8-27b",
+      "openai/gpt-oss-20b",
+    ];
 
-    if (!res.ok) return null;
+    let content: string | null = null;
+    for (const model of candidateModels) {
+      try {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
 
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
+        if (res.ok) {
+          const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+          content = data?.choices?.[0]?.message?.content || null;
+          if (content) break;
+        }
+      } catch {
+        // Try next candidate model
+      }
+    }
+
     if (!content) return null;
 
-    const parsed = JSON.parse(content);
-    if (!parsed.overallScore || !parsed.starBreakdown) return null;
+    const parsed = extractJsonObject(content);
+    if (!parsed) return null;
 
-    return {
-      overallScore: clamp(parsed.overallScore),
-      contentScore: clamp(parsed.contentScore ?? parsed.overallScore),
-      deliveryScore: clamp(parsed.deliveryScore ?? 80),
-      starBreakdown: {
-        situation: {
-          score: clamp(parsed.starBreakdown?.situation?.score ?? 70),
-          feedback: String(parsed.starBreakdown?.situation?.feedback || "Good context."),
-          present: Boolean(parsed.starBreakdown?.situation?.present),
-        },
-        task: {
-          score: clamp(parsed.starBreakdown?.task?.score ?? 70),
-          feedback: String(parsed.starBreakdown?.task?.feedback || "Task explained."),
-          present: Boolean(parsed.starBreakdown?.task?.present),
-        },
-        action: {
-          score: clamp(parsed.starBreakdown?.action?.score ?? 75),
-          feedback: String(parsed.starBreakdown?.action?.feedback || "Solid action steps."),
-          present: Boolean(parsed.starBreakdown?.action?.present),
-        },
-        result: {
-          score: clamp(parsed.starBreakdown?.result?.score ?? 65),
-          feedback: String(parsed.starBreakdown?.result?.feedback || "Result noted."),
-          present: Boolean(parsed.starBreakdown?.result?.present),
-        },
-      },
-      deliveryCritique: {
-        pacingVerdict: ["Too Slow (<100 WPM)", "Optimal (115-155 WPM)", "Rushed (>160 WPM)"].includes(
-          parsed.deliveryCritique?.pacingVerdict
-        )
-          ? parsed.deliveryCritique.pacingVerdict
-          : "Optimal (115-155 WPM)",
-        pacingAdvice: String(parsed.deliveryCritique?.pacingAdvice || "Good speaking cadence."),
-        fillerAdvice: String(parsed.deliveryCritique?.fillerAdvice || "Low filler frequency."),
-        bodyLanguageAdvice: String(parsed.deliveryCritique?.bodyLanguageAdvice || "Maintained focus."),
-      },
-      strengths: Array.isArray(parsed.strengths)
-        ? parsed.strengths.slice(0, 4).map(String)
-        : ["Clear articulation", "Structured overview"],
-      improvements: Array.isArray(parsed.improvements)
-        ? parsed.improvements.slice(0, 4).map(String)
-        : ["Add more quantitative metrics", "Clarify architectural trade-offs"],
-      rewrittenIdealAnswer: String(parsed.rewrittenIdealAnswer || ""),
-      followUpQuestion: {
-        prompt: String(
-          parsed.followUpQuestion?.prompt ||
-            "How did you monitor performance and maintain reliability post-release?"
-        ),
-        intent: String(
-          parsed.followUpQuestion?.intent || "Evaluating operational readiness and metric validation."
-        ),
-      },
-      evaluationSource: "ai",
-    };
-  } catch {
+    return buildStandardizedResponse(parsed, fallback);
+  } catch (err) {
+    console.warn("[Groq Evaluation Warning]:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
 
-// ─── Gemini 2.0 Flash AI Evaluator ───────────────────────────────────────────
+// ─── Engine 2: Gemini 2.0 Flash AI Evaluator ─────────────────────────────────
 
 async function evaluateWithGemini(
-  req: InterviewEvaluationRequest
+  req: InterviewEvaluationRequest,
+  fallback: InterviewEvaluationResponse
 ): Promise<InterviewEvaluationResponse | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey || apiKey.includes("your_gemini")) return null;
+  const apiKey = sanitizeKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_")) return null;
 
   try {
     const prompt = `You are a Principal Staff Software Engineer and Bar-Raiser Interviewer.
@@ -410,7 +499,7 @@ Telemetry:
 - WPM: ${req.telemetry?.avgWpm ?? 125}
 - Fillers: ${req.telemetry?.totalFillerCount ?? 0}
 - Silence gaps (>2.5s): ${req.telemetry?.hesitationGapsCount ?? 0}
-- Eye Contact: ${req.telemetry?.eyeContactPct >= 0 ? `${req.telemetry.eyeContactPct}%` : "Camera Off"}
+- Eye Contact: ${req.telemetry?.eyeContactPct !== undefined && req.telemetry.eyeContactPct >= 0 ? `${req.telemetry.eyeContactPct}%` : "Camera Off"}
 ${req.resumeContext ? `\nResume Context:\n${req.resumeContext}` : ""}
 ${req.githubRepoContext ? `\nGitHub Repository Architecture Context:\n${req.githubRepoContext}` : ""}
 ${req.customJdContext ? `\nTarget Job Description Requirements:\n${req.customJdContext}` : ""}
@@ -441,78 +530,51 @@ Respond ONLY with valid JSON:
   }
 }`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 1400,
-          },
-        }),
-        signal: AbortSignal.timeout(9000),
+    const candidateModels = [
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-2.5-flash",
+      "gemini-3.8-flash",
+    ];
+
+    let rawText = "";
+    for (const model of candidateModels) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.2,
+                maxOutputTokens: 2048,
+              },
+            }),
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+
+        if (res.ok) {
+          const data = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+          rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (rawText) break;
+        }
+      } catch {
+        // Try next candidate model
       }
-    );
+    }
 
-    if (!res.ok) return null;
+    if (!rawText) return null;
 
-    const data = await res.json();
-    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    const parsed = extractJsonObject(rawText);
+    if (!parsed) return null;
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!parsed.overallScore || !parsed.starBreakdown) return null;
-
-    return {
-      overallScore: clamp(parsed.overallScore),
-      contentScore: clamp(parsed.contentScore ?? parsed.overallScore),
-      deliveryScore: clamp(parsed.deliveryScore ?? 80),
-      starBreakdown: {
-        situation: {
-          score: clamp(parsed.starBreakdown?.situation?.score ?? 70),
-          feedback: String(parsed.starBreakdown?.situation?.feedback || ""),
-          present: Boolean(parsed.starBreakdown?.situation?.present),
-        },
-        task: {
-          score: clamp(parsed.starBreakdown?.task?.score ?? 70),
-          feedback: String(parsed.starBreakdown?.task?.feedback || ""),
-          present: Boolean(parsed.starBreakdown?.task?.present),
-        },
-        action: {
-          score: clamp(parsed.starBreakdown?.action?.score ?? 75),
-          feedback: String(parsed.starBreakdown?.action?.feedback || ""),
-          present: Boolean(parsed.starBreakdown?.action?.present),
-        },
-        result: {
-          score: clamp(parsed.starBreakdown?.result?.score ?? 65),
-          feedback: String(parsed.starBreakdown?.result?.feedback || ""),
-          present: Boolean(parsed.starBreakdown?.result?.present),
-        },
-      },
-      deliveryCritique: {
-        pacingVerdict: ["Too Slow (<100 WPM)", "Optimal (115-155 WPM)", "Rushed (>160 WPM)"].includes(
-          parsed.deliveryCritique?.pacingVerdict
-        )
-          ? parsed.deliveryCritique.pacingVerdict
-          : "Optimal (115-155 WPM)",
-        pacingAdvice: String(parsed.deliveryCritique?.pacingAdvice || ""),
-        fillerAdvice: String(parsed.deliveryCritique?.fillerAdvice || ""),
-        bodyLanguageAdvice: String(parsed.deliveryCritique?.bodyLanguageAdvice || ""),
-      },
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 4).map(String) : [],
-      improvements: Array.isArray(parsed.improvements) ? parsed.improvements.slice(0, 4).map(String) : [],
-      rewrittenIdealAnswer: String(parsed.rewrittenIdealAnswer || ""),
-      followUpQuestion: {
-        prompt: String(parsed.followUpQuestion?.prompt || "How did you monitor performance?"),
-        intent: String(parsed.followUpQuestion?.intent || "Evaluating verification."),
-      },
-      evaluationSource: "ai",
-    };
-  } catch {
+    return buildStandardizedResponse(parsed, fallback);
+  } catch (err) {
+    console.warn("[Gemini Evaluation Warning]:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -530,23 +592,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Try Groq (Ultra-fast Llama 3.3 70B)
-    const groqResult = await evaluateWithGroq(payload);
+    // Always precalculate heuristic baseline for instant fallback & field guarantees
+    const fallback = computeDeterministicEvaluation(payload);
+
+    // 1. Try Engine 1: Groq (Llama 3.3 70B)
+    const groqResult = await evaluateWithGroq(payload, fallback);
     if (groqResult) {
       return NextResponse.json(groqResult);
     }
 
-    // 2. Try Gemini 2.0 Flash
-    const geminiResult = await evaluateWithGemini(payload);
+    // 2. Try Engine 2: Gemini 2.0 Flash
+    const geminiResult = await evaluateWithGemini(payload, fallback);
     if (geminiResult) {
       return NextResponse.json(geminiResult);
     }
 
     // 3. Guaranteed Deterministic Heuristic Fallback
-    const heuristicResult = computeDeterministicEvaluation(payload);
-    return NextResponse.json(heuristicResult);
+    return NextResponse.json(fallback);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal evaluation error";
+    console.error("[Evaluation Route Error]:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

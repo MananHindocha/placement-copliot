@@ -6,6 +6,8 @@ export const INTERVIEW_ROLES = [
   "Backend Engineer",
   "ML/Data Engineer",
   "DevOps & Cloud Engineer",
+  "Cloud / SRE",
+  "Data Analyst",
   "Mobile App Developer",
   "Cybersecurity & Systems Engineer",
 ] as const;
@@ -2767,6 +2769,2365 @@ export const CURATED_INTERVIEW_QUESTIONS: InterviewQuestion[] = [
       "Birthday Paradox",
       "Differential Cryptanalysis",
       "SHA-256 vs SHA-1"
+    ]
+  }
+,
+  {
+    "id": "full-stack-sde-system-design-baop5",
+    "role": "Full-Stack SDE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design a scalable notification service that delivers push notifications, SMS, and emails with prioritization and rate limiting.",
+    "hint": "Discuss message broker partitioning (Kafka/RabbitMQ), worker pools, dead-letter queues, and tenant rate limiting with Redis.",
+    "sampleAnswer": "I would architect the service with an API gateway feeding an Apache Kafka ingestion pipeline partitioned by user_id to ensure FIFO delivery per recipient. Notification workers pull from prioritized queues (Critical alerts > Transactional OTP > Marketing). Redis token buckets enforce carrier rate limits. Delivery state transitions (Queued, Sent, Delivered, Bounced) are streamed via WebSockets to users and persisted in PostgreSQL.",
+    "idealAnswer": "I would architect the service with an API gateway feeding an Apache Kafka ingestion pipeline partitioned by user_id to ensure FIFO delivery per recipient. Notification workers pull from prioritized queues (Critical alerts > Transactional OTP > Marketing). Redis token buckets enforce carrier rate limits. Delivery state transitions (Queued, Sent, Delivered, Bounced) are streamed via WebSockets to users and persisted in PostgreSQL.",
+    "keyConceptsToCover": [
+      "Kafka Partitioning",
+      "Priority Queues",
+      "Redis Rate Limiting",
+      "Dead Letter Queues",
+      "Idempotent Delivery"
+    ],
+    "followUps": [
+      "How do you prevent duplicate push notifications if a worker crashes before committing offset?",
+      "How do you handle downstream third-party provider outages (e.g. Twilio)?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-core-technical-f3ux4",
+    "role": "Full-Stack SDE",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How does Server-Sent Events (SSE) compare with WebSockets and Long Polling for real-time dashboard updates?",
+    "hint": "Consider protocol overhead, unidirectional vs bidirectional needs, HTTP/2 multiplexing, and automatic browser reconnection.",
+    "sampleAnswer": "SSE is a lightweight, unidirectional text stream operating over standard HTTP with native browser reconnection and HTTP/2 multiplexing support, making it ideal for live dashboards, logs, and AI token streaming. WebSockets provide full-duplex binary communication over a persistent TCP socket, which is necessary for low-latency two-way interactions like games or collaborative editors, but requires custom heartbeat and connection management.",
+    "idealAnswer": "SSE is a lightweight, unidirectional text stream operating over standard HTTP with native browser reconnection and HTTP/2 multiplexing support, making it ideal for live dashboards, logs, and AI token streaming. WebSockets provide full-duplex binary communication over a persistent TCP socket, which is necessary for low-latency two-way interactions like games or collaborative editors, but requires custom heartbeat and connection management.",
+    "keyConceptsToCover": [
+      "SSE vs WebSockets",
+      "HTTP/2 Multiplexing",
+      "Unidirectional Streaming",
+      "Connection Keep-Alive"
+    ],
+    "followUps": [
+      "Why does HTTP/1.1 limit SSE to 6 concurrent connections per domain?",
+      "How do you scale WebSocket servers across multiple load-balanced instances?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-debugging-1x2u0",
+    "role": "Full-Stack SDE",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "A client-side bundle size increased from 180KB to 1.8MB after a release, causing Core Web Vitals (LCP) to plummet. How do you triage and fix it?",
+    "hint": "Use @next/bundle-analyzer or webpack-bundle-analyzer to find rogue imports, tree-shaking failures (e.g. lodash, lucide-react, moment), and route code-splitting.",
+    "sampleAnswer": "I run @next/bundle-analyzer to generate an interactive treemap of chunk dependencies. Common culprits are barrel file re-exports preventing tree shaking, heavy un-optimized libraries (like importing entire lodash or moment instead of date-fns/es), or importing server utilities on the client. I enforce dynamic imports (React.lazy / next/dynamic) for heavy subcomponents (like Monaco editor or chart.js), alias heavy libraries to lightweight alternatives, and add bundle size CI limits.",
+    "idealAnswer": "I run @next/bundle-analyzer to generate an interactive treemap of chunk dependencies. Common culprits are barrel file re-exports preventing tree shaking, heavy un-optimized libraries (like importing entire lodash or moment instead of date-fns/es), or importing server utilities on the client. I enforce dynamic imports (React.lazy / next/dynamic) for heavy subcomponents (like Monaco editor or chart.js), alias heavy libraries to lightweight alternatives, and add bundle size CI limits.",
+    "keyConceptsToCover": [
+      "Bundle Analyzer",
+      "Tree Shaking",
+      "Dynamic Imports",
+      "LCP Optimization",
+      "Barrel File Optimization"
+    ],
+    "followUps": [
+      "How do barrel files (index.ts) defeat modern bundler tree-shaking algorithms?",
+      "How does React Suspense work with dynamic imports to avoid layout shift?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-dsa-yh79m",
+    "role": "Full-Stack SDE",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an autocomplete search trie with top-k search frequency suggestions in sub-10ms.",
+    "hint": "Trie node containing children pointers and a bounded Max-Heap / Top-K list at each prefix node for O(1) query lookup.",
+    "sampleAnswer": "I implement a Trie where each node stores a hash map of child characters and a precomputed Top-K list of the most frequent complete words passing through that prefix. During ingestion/updating, we update the frequency map and maintain the top-k list using a min-heap of size K. When the user queries prefix P, we traverse down the trie in O(|P|) time and return the cached top-K array in O(1) without DFS traversal.",
+    "idealAnswer": "I implement a Trie where each node stores a hash map of child characters and a precomputed Top-K list of the most frequent complete words passing through that prefix. During ingestion/updating, we update the frequency map and maintain the top-k list using a min-heap of size K. When the user queries prefix P, we traverse down the trie in O(|P|) time and return the cached top-K array in O(1) without DFS traversal.",
+    "keyConceptsToCover": [
+      "Prefix Trie",
+      "Precomputed Top-K",
+      "Min-Heap Maintenance",
+      "O(L) Query Latency"
+    ],
+    "followUps": [
+      "What is the memory trade-off of caching top-K suggestions at every trie node?",
+      "How do you handle real-time search frequency decay for trending terms?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-behavioral-2nr0y",
+    "role": "Full-Stack SDE",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Tell me about a time you had to deliver a high-stakes MVP under an impossible deadline with ambiguous requirements.",
+    "hint": "STAR format: ruthlessly scoped non-critical features, established continuous user feedback loops, and prioritized zero-regression core user flows.",
+    "sampleAnswer": "During our team's hackathon product launch, we had 72 hours to build a multi-tenant applicant tracker. Requirements were broad and constantly shifting. I led the technical scoping by defining the critical user journey (resume upload -> instant parsing -> interview invite) and pushed non-essential settings and custom themes to v2. We deployed automated end-to-end tests for the core funnel, launched on schedule, and onboarded 400 candidates with zero production downtime.",
+    "idealAnswer": "During our team's hackathon product launch, we had 72 hours to build a multi-tenant applicant tracker. Requirements were broad and constantly shifting. I led the technical scoping by defining the critical user journey (resume upload -> instant parsing -> interview invite) and pushed non-essential settings and custom themes to v2. We deployed automated end-to-end tests for the core funnel, launched on schedule, and onboarded 400 candidates with zero production downtime.",
+    "keyConceptsToCover": [
+      "Ruthless Scoping",
+      "MVP Delivery",
+      "Risk Management",
+      "Iterative Feedback"
+    ],
+    "followUps": [
+      "How did you push back against stakeholders requesting last-minute feature additions?",
+      "What technical debt did you incur to meet the deadline, and how did you pay it down?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-culture-ifghv",
+    "role": "Full-Stack SDE",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "How do you establish engineering standards and conduct constructive code reviews without blocking team velocity?",
+    "hint": "Automate linting/formatting via CI, focus code reviews on architecture, edge cases, and maintainability, and differentiate blockers from nits.",
+    "sampleAnswer": "I believe tooling should enforce syntax and style automatically through Prettier, ESLint, and Husky pre-commit hooks, freeing reviewers to focus on architectural soundness, security vulnerabilities, edge-case resilience, and test coverage. During reviews, I categorize comments into 'Blocking' (bugs/security), 'Consider' (performance/design), and 'Nit' (non-blocking style preferences), ensuring feedback is actionable and authors maintain autonomy.",
+    "idealAnswer": "I believe tooling should enforce syntax and style automatically through Prettier, ESLint, and Husky pre-commit hooks, freeing reviewers to focus on architectural soundness, security vulnerabilities, edge-case resilience, and test coverage. During reviews, I categorize comments into 'Blocking' (bugs/security), 'Consider' (performance/design), and 'Nit' (non-blocking style preferences), ensuring feedback is actionable and authors maintain autonomy.",
+    "keyConceptsToCover": [
+      "Automated CI Linting",
+      "Architectural Review",
+      "Constructive Feedback",
+      "PR Velocity"
+    ],
+    "followUps": [
+      "How do you resolve deadlocked code review opinions between senior engineers?",
+      "What is an acceptable SLA for PR review turnaround time on an agile team?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-custom-jd-2vo7n",
+    "role": "Full-Stack SDE",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "Our platform handles multi-region active-active deployments. How do you handle distributed session management and database write conflicts?",
+    "hint": "Compare sticky sessions vs shared Redis cluster with replication, CRDTs for conflicting writes, and CockroachDB/Spanner global consistency.",
+    "sampleAnswer": "For multi-region deployments, I avoid sticky sessions by using stateless JWTs paired with an edge key-value cache (Cloudflare Workers KV or globally replicated Redis) for revocation checks. For database writes, I partition data by tenant region whenever possible to keep writes local. For cross-region transactional data, we use Spanner/CockroachDB with TrueTime consensus or event-sourcing with conflict-free replication (CRDTs) to reconcile out-of-order writes without catastrophic locking.",
+    "idealAnswer": "For multi-region deployments, I avoid sticky sessions by using stateless JWTs paired with an edge key-value cache (Cloudflare Workers KV or globally replicated Redis) for revocation checks. For database writes, I partition data by tenant region whenever possible to keep writes local. For cross-region transactional data, we use Spanner/CockroachDB with TrueTime consensus or event-sourcing with conflict-free replication (CRDTs) to reconcile out-of-order writes without catastrophic locking.",
+    "keyConceptsToCover": [
+      "Active-Active Multi-Region",
+      "Stateless Edge Sessions",
+      "CRDT Write Reconciliation",
+      "Global Consensus"
+    ],
+    "followUps": [
+      "What is the difference between active-active and active-passive multi-region failover?",
+      "How does network partition (CAP theorem) affect user sessions during trans-oceanic cable cuts?"
+    ]
+  },
+  {
+    "id": "full-stack-sde-core-technical-pcesq",
+    "role": "Full-Stack SDE",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "How do React 19 Actions and the `useActionState` hook simplify asynchronous form submissions compared to legacy `useEffect` state syncing?",
+    "hint": "Discuss pending states, optimistic UI updates via useOptimistic, progressive enhancement, and automated error rollbacks.",
+    "sampleAnswer": "React 19 Actions treat async transitions as first-class primitives. Instead of manually coordinating `isLoading`, `error`, and `data` state through `useEffect`, `useActionState` accepts an async server or client action and automatically manages pending transitions. Combined with `useOptimistic`, the UI can immediately render the anticipated state while the background network mutation completes, automatically reverting if the action rejects without complex rollback boilerplate.",
+    "idealAnswer": "React 19 Actions treat async transitions as first-class primitives. Instead of manually coordinating `isLoading`, `error`, and `data` state through `useEffect`, `useActionState` accepts an async server or client action and automatically manages pending transitions. Combined with `useOptimistic`, the UI can immediately render the anticipated state while the background network mutation completes, automatically reverting if the action rejects without complex rollback boilerplate.",
+    "keyConceptsToCover": [
+      "React 19 Actions",
+      "useActionState",
+      "useOptimistic",
+      "Progressive Enhancement"
+    ],
+    "followUps": [
+      "How does progressive enhancement work when JavaScript is still loading in React 19?",
+      "How do Server Actions maintain CSRF protection in Next.js?"
+    ]
+  },
+  {
+    "id": "frontend-developer-core-technical-14q02",
+    "role": "Frontend Developer",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain how the browser rendering pipeline works (DOM, CSSOM, Render Tree, Layout, Paint, Composite) and how to avoid forced synchronous layout (layout thrashing).",
+    "hint": "Discuss reading geometry properties (offsetWidth, scrollHeight) immediately after mutating the DOM, requestAnimationFrame, and will-change CSS.",
+    "sampleAnswer": "The browser parses HTML to construct the DOM and CSS to construct the CSSOM, combining them into the Render Tree. It then calculates geometric dimensions (Layout/Reflow), converts vector graphics into pixels (Paint), and composites layers onto the GPU. Forced synchronous layout occurs when JavaScript reads geometry properties (e.g. element.offsetHeight) immediately after modifying styles, forcing the browser to recalculate layout prematurely in the middle of a frame. To prevent this, batch all DOM reads before writes or use requestAnimationFrame.",
+    "idealAnswer": "The browser parses HTML to construct the DOM and CSS to construct the CSSOM, combining them into the Render Tree. It then calculates geometric dimensions (Layout/Reflow), converts vector graphics into pixels (Paint), and composites layers onto the GPU. Forced synchronous layout occurs when JavaScript reads geometry properties (e.g. element.offsetHeight) immediately after modifying styles, forcing the browser to recalculate layout prematurely in the middle of a frame. To prevent this, batch all DOM reads before writes or use requestAnimationFrame.",
+    "keyConceptsToCover": [
+      "Browser Render Pipeline",
+      "Render Tree",
+      "Layout Thrashing",
+      "GPU Compositing",
+      "requestAnimationFrame"
+    ],
+    "followUps": [
+      "Why does animating `transform` and `opacity` bypass the Paint and Layout phases?",
+      "What is the performance cost of overusing `will-change: transform`?"
+    ]
+  },
+  {
+    "id": "frontend-developer-system-design-efqta",
+    "role": "Frontend Developer",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design a high-performance virtualized list (like react-window) that renders 100,000 items with variable heights at 60 FPS.",
+    "hint": "Calculate viewport window, binary search for dynamic offset calculation, absolute positioning, and DOM recycling.",
+    "sampleAnswer": "A virtual list only mounts elements currently visible in the scroll viewport plus a small buffer of overscan items. For variable heights, we maintain an item height cache and prefix sum array of cumulative heights. Using binary search on the prefix sums, we determine the start and end indices in O(log n) time based on scrollTop. Visible items are positioned absolutely inside an outer container whose height matches total list height. When items render, ResizeObserver measures true heights and updates the prefix sums.",
+    "idealAnswer": "A virtual list only mounts elements currently visible in the scroll viewport plus a small buffer of overscan items. For variable heights, we maintain an item height cache and prefix sum array of cumulative heights. Using binary search on the prefix sums, we determine the start and end indices in O(log n) time based on scrollTop. Visible items are positioned absolutely inside an outer container whose height matches total list height. When items render, ResizeObserver measures true heights and updates the prefix sums.",
+    "keyConceptsToCover": [
+      "Virtualization",
+      "Prefix Sum Binary Search",
+      "ResizeObserver",
+      "DOM Recycling",
+      "60 FPS Scrolling"
+    ],
+    "followUps": [
+      "How do you prevent scroll jumping when items above the current viewport dynamically change height?",
+      "How does overscan prevent blank white gaps during rapid flick-scrolling?"
+    ]
+  },
+  {
+    "id": "frontend-developer-debugging-04rb8",
+    "role": "Frontend Developer",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "A React application experiences sluggish typing input in a large search form. How do you identify whether the bottleneck is re-renders or JS execution, and fix it?",
+    "hint": "Use React Profiler to inspect 'Why did this render?', useDeferredValue vs useTransition, and memoization of subtrees.",
+    "sampleAnswer": "I open React DevTools Profiler and record a typing interaction. If many sibling components highlight yellow/red with 'Parent rendered', unnecessary re-renders are the culprit. I isolate the input state locally, wrap heavy filtered child components in React.memo with stable callbacks (useCallback). If filtering the 10,000-item array is computationally expensive, I use `useDeferredValue` to keep typing high-priority while deferring the search results list, or delegate sorting to a Web Worker.",
+    "idealAnswer": "I open React DevTools Profiler and record a typing interaction. If many sibling components highlight yellow/red with 'Parent rendered', unnecessary re-renders are the culprit. I isolate the input state locally, wrap heavy filtered child components in React.memo with stable callbacks (useCallback). If filtering the 10,000-item array is computationally expensive, I use `useDeferredValue` to keep typing high-priority while deferring the search results list, or delegate sorting to a Web Worker.",
+    "keyConceptsToCover": [
+      "React Profiler",
+      "useDeferredValue",
+      "useTransition",
+      "React.memo",
+      "Web Workers"
+    ],
+    "followUps": [
+      "What is the fundamental difference between debouncing and useDeferredValue?",
+      "When does using useMemo actually degrade performance instead of improving it?"
+    ]
+  },
+  {
+    "id": "frontend-developer-dsa-3acuh",
+    "role": "Frontend Developer",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an event emitter (pub-sub) in TypeScript with subscribe, unsubscribe, emit, and once methods.",
+    "hint": "Hash map of event names to arrays of callback functions with unique subscription tokens or splice removal.",
+    "sampleAnswer": "I maintain a `Map<string, Set<Function>>` for constant-time subscriber management. The `subscribe(event, cb)` method returns an unsubscribe cleanup function. The `emit(event, ...args)` iterates through the Set and executes all listeners safely. The `once(event, cb)` wraps the callback in a self-deregistering function that calls `unsubscribe()` before executing `cb()`, ensuring exact one-time invocation.",
+    "idealAnswer": "I maintain a `Map<string, Set<Function>>` for constant-time subscriber management. The `subscribe(event, cb)` method returns an unsubscribe cleanup function. The `emit(event, ...args)` iterates through the Set and executes all listeners safely. The `once(event, cb)` wraps the callback in a self-deregistering function that calls `unsubscribe()` before executing `cb()`, ensuring exact one-time invocation.",
+    "keyConceptsToCover": [
+      "Pub-Sub Pattern",
+      "Event Emitter",
+      "Set-based Storage",
+      "Once Wrapper"
+    ],
+    "followUps": [
+      "How do you catch unhandled exceptions inside one subscriber without preventing subsequent subscribers from running?",
+      "How do you detect memory leaks from forgotten subscriptions in single-page apps?"
+    ]
+  },
+  {
+    "id": "frontend-developer-behavioral-ke17v",
+    "role": "Frontend Developer",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Describe a project where you had to collaborate closely with product design (UI/UX) to implement a complex, highly interactive design with tight technical constraints.",
+    "hint": "STAR format: proactive component architecture, bridging design tokens with Tailwind/CSS variables, and negotiating progressive enhancement for mobile.",
+    "sampleAnswer": "When building a data visualization workspace, design proposed interactive canvas nodes with complex bezier connectors. On mobile, touch drag created severe stuttering. I scheduled a working session with our designer, demonstrated the frame-rate profiling data, and proposed an adapted mobile card view with swipeable drawer inspectors. The designer approved the compromise, and our mobile conversion rose 24% due to responsive fluidity.",
+    "idealAnswer": "When building a data visualization workspace, design proposed interactive canvas nodes with complex bezier connectors. On mobile, touch drag created severe stuttering. I scheduled a working session with our designer, demonstrated the frame-rate profiling data, and proposed an adapted mobile card view with swipeable drawer inspectors. The designer approved the compromise, and our mobile conversion rose 24% due to responsive fluidity.",
+    "keyConceptsToCover": [
+      "Design Systems",
+      "Progressive Enhancement",
+      "Frame-Rate Profiling",
+      "Cross-Functional Collaboration"
+    ],
+    "followUps": [
+      "How do you maintain a single source of truth for design tokens between Figma and code?",
+      "What accessibility (WCAG) checks do you run before approving custom UI components?"
+    ]
+  },
+  {
+    "id": "frontend-developer-culture-lcruc",
+    "role": "Frontend Developer",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "What is your approach to Web Accessibility (a11y) and ensuring compliance with WCAG 2.1 AA standards?",
+    "hint": "Semantic HTML first, proper ARIA roles and labels, keyboard focus management, color contrast ratios, and automated axe-core testing.",
+    "sampleAnswer": "Accessibility starts with semantic HTML elements (button, nav, main, dialog) which have built-in keyboard navigation and screen-reader semantics. For custom complex widgets (like comboboxes or tabs), I implement WAI-ARIA authoring practices, managing aria-expanded, aria-selected, and keyboard arrow navigation. I integrate axe-core into our CI pipeline to catch missing alt texts and contrast issues, and manually test tab indices and screen reader announcements (VoiceOver/NVDA).",
+    "idealAnswer": "Accessibility starts with semantic HTML elements (button, nav, main, dialog) which have built-in keyboard navigation and screen-reader semantics. For custom complex widgets (like comboboxes or tabs), I implement WAI-ARIA authoring practices, managing aria-expanded, aria-selected, and keyboard arrow navigation. I integrate axe-core into our CI pipeline to catch missing alt texts and contrast issues, and manually test tab indices and screen reader announcements (VoiceOver/NVDA).",
+    "keyConceptsToCover": [
+      "WCAG 2.1 AA",
+      "Semantic HTML",
+      "WAI-ARIA Patterns",
+      "Keyboard Focus Trap",
+      "axe-core"
+    ],
+    "followUps": [
+      "How do you trap keyboard focus inside a modal dialog and restore it upon closing?",
+      "What is the difference between `aria-hidden='true'` and CSS `display: none` for assistive tech?"
+    ]
+  },
+  {
+    "id": "frontend-developer-custom-jd-66wzo",
+    "role": "Frontend Developer",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "How do you implement micro-frontend architecture using Webpack Module Federation or Vite, and how do you handle shared dependencies and style isolation?",
+    "hint": "Module Federation host/remote containers, shared singletons (React, ReactDOM), CSS modules / Shadow DOM for styling encapsulation.",
+    "sampleAnswer": "Module Federation exposes remotes that a host shell loads dynamically at runtime. In the Webpack configuration, we mark core shared libraries (React, React-DOM, UI theme) as singletons with strict version matching to prevent multiple React instances in memory. For style isolation, we use CSS Modules or Tailwind scoped prefixing, or Shadow DOM encapsulation for third-party embeds to prevent CSS leaking across micro-apps.",
+    "idealAnswer": "Module Federation exposes remotes that a host shell loads dynamically at runtime. In the Webpack configuration, we mark core shared libraries (React, React-DOM, UI theme) as singletons with strict version matching to prevent multiple React instances in memory. For style isolation, we use CSS Modules or Tailwind scoped prefixing, or Shadow DOM encapsulation for third-party embeds to prevent CSS leaking across micro-apps.",
+    "keyConceptsToCover": [
+      "Module Federation",
+      "Micro-Frontends",
+      "Shared Singletons",
+      "Style Encapsulation",
+      "Runtime Remotes"
+    ],
+    "followUps": [
+      "How do you handle a micro-frontend remote failing to load gracefully in the host shell?",
+      "How does cross-micro-frontend routing and authentication token sharing work?"
+    ]
+  },
+  {
+    "id": "frontend-developer-core-technical-6f07d",
+    "role": "Frontend Developer",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How do modern CSS container queries differ from media queries, and how do they enable truly modular component design systems?",
+    "hint": "Container queries evaluate styles based on the parent container's dimensions rather than viewport width, enabling reusable cards in sidebars vs main content.",
+    "sampleAnswer": "Media queries look at the global viewport width, which breaks component modularity when the same card component is placed inside a narrow sidebar or a wide main content grid. Container queries (`container-type: inline-size`) allow a component to inspect its immediate parent container's width. This allows a single card component to automatically switch from a vertical stack to a horizontal layout based strictly on its allocated space.",
+    "idealAnswer": "Media queries look at the global viewport width, which breaks component modularity when the same card component is placed inside a narrow sidebar or a wide main content grid. Container queries (`container-type: inline-size`) allow a component to inspect its immediate parent container's width. This allows a single card component to automatically switch from a vertical stack to a horizontal layout based strictly on its allocated space.",
+    "keyConceptsToCover": [
+      "CSS Container Queries",
+      "inline-size",
+      "Component Modularity",
+      "Media Queries vs Container Queries"
+    ],
+    "followUps": [
+      "What is container query naming (`container-name`), and when is it required?",
+      "How do container queries affect browser layout performance compared to standard classes?"
+    ]
+  },
+  {
+    "id": "backend-engineer-system-design-tidmg",
+    "role": "Backend Engineer",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design an idempotent payment processing system that interfaces with Stripe/Razorpay and guarantees zero double-charging under network retries.",
+    "hint": "Discuss client-generated idempotency keys, atomic database locks, two-phase commit or transactional outbox, and webhook reconciliation.",
+    "sampleAnswer": "I generate a client UUID idempotency key for every checkout attempt. When the request hits the payment gateway API, we open a database transaction and attempt to insert the idempotency key into a payments_requests table with a UNIQUE constraint. If already present, we return the cached previous response. If new, we mark status PENDING, invoke Stripe with the idempotency key, record the external transaction ID, and update status to COMPLETED within an atomic transaction. A webhook consumer reconciles dropped socket connections.",
+    "idealAnswer": "I generate a client UUID idempotency key for every checkout attempt. When the request hits the payment gateway API, we open a database transaction and attempt to insert the idempotency key into a payments_requests table with a UNIQUE constraint. If already present, we return the cached previous response. If new, we mark status PENDING, invoke Stripe with the idempotency key, record the external transaction ID, and update status to COMPLETED within an atomic transaction. A webhook consumer reconciles dropped socket connections.",
+    "keyConceptsToCover": [
+      "Idempotency Keys",
+      "Unique Constraint Locking",
+      "Transactional Outbox",
+      "Webhook Reconciliation",
+      "At-Most-Once Execution"
+    ],
+    "followUps": [
+      "How do you handle the race condition where a duplicate request arrives while the first request is still awaiting third-party HTTP response?",
+      "How do you expire old idempotency keys safely in PostgreSQL?"
+    ]
+  },
+  {
+    "id": "backend-engineer-core-technical-nho40",
+    "role": "Backend Engineer",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain Database Isolation Levels (Read Uncommitted, Read Committed, Repeatable Read, Serializable) and the anomalies they prevent (Dirty Read, Non-repeatable Read, Phantom Read, Write Skew).",
+    "hint": "Contrast MVCC implementation in PostgreSQL vs 2PL (Two-Phase Locking). Explain how write skew occurs in Repeatable Read and how SSI prevents it.",
+    "sampleAnswer": "PostgreSQL implements MVCC (Multi-Version Concurrency Control). Read Committed takes a snapshot at the start of each query, preventing Dirty Reads. Repeatable Read takes a snapshot at the start of the transaction, preventing Non-Repeatable Reads and Phantom Reads. However, Repeatable Read is still vulnerable to Write Skew (where concurrent transactions read non-overlapping rows to enforce a cross-row constraint). Serializable uses Serializable Snapshot Isolation (SSI) to track rw-antidependencies and abort conflicting transactions with serialization failures (error 40001).",
+    "idealAnswer": "PostgreSQL implements MVCC (Multi-Version Concurrency Control). Read Committed takes a snapshot at the start of each query, preventing Dirty Reads. Repeatable Read takes a snapshot at the start of the transaction, preventing Non-Repeatable Reads and Phantom Reads. However, Repeatable Read is still vulnerable to Write Skew (where concurrent transactions read non-overlapping rows to enforce a cross-row constraint). Serializable uses Serializable Snapshot Isolation (SSI) to track rw-antidependencies and abort conflicting transactions with serialization failures (error 40001).",
+    "keyConceptsToCover": [
+      "ACID Isolation Levels",
+      "MVCC",
+      "Write Skew",
+      "Serializable Snapshot Isolation (SSI)",
+      "Dirty Reads"
+    ],
+    "followUps": [
+      "Why does PostgreSQL default to Read Committed instead of Serializable?",
+      "How does an application gracefully handle serialization failure retries in production?"
+    ]
+  },
+  {
+    "id": "backend-engineer-dsa-b19yj",
+    "role": "Backend Engineer",
+    "category": "dsa",
+    "difficulty": "hard",
+    "question": "Design and implement a Distributed Rate Limiter with Leaky Bucket and Token Bucket algorithms supporting multi-datacenter consistency.",
+    "hint": "Redis Lua script atomic decrement, token bucket replenishment formula, sliding log vs sliding window counter.",
+    "sampleAnswer": "I implement the Token Bucket algorithm using Redis and a Lua script for atomic execution. The Redis hash stores `last_refill_timestamp` and `current_tokens`. On each request, the Lua script computes elapsed time since last refill, adds newly accrued tokens based on rate, clamps to bucket capacity, and checks if tokens >= 1. If so, it decrements tokens and returns 1; otherwise 0. Because the calculation is derived from timestamps inside the script, no background timer thread is required.",
+    "idealAnswer": "I implement the Token Bucket algorithm using Redis and a Lua script for atomic execution. The Redis hash stores `last_refill_timestamp` and `current_tokens`. On each request, the Lua script computes elapsed time since last refill, adds newly accrued tokens based on rate, clamps to bucket capacity, and checks if tokens >= 1. If so, it decrements tokens and returns 1; otherwise 0. Because the calculation is derived from timestamps inside the script, no background timer thread is required.",
+    "keyConceptsToCover": [
+      "Token Bucket Algorithm",
+      "Redis Atomic Lua Scripts",
+      "Rate Limiter Capacity",
+      "Burst Handling"
+    ],
+    "followUps": [
+      "How do you synchronize rate limit counters across distinct geographic AWS regions without latency penalty?",
+      "How does the Leaky Bucket algorithm smooth traffic differently than Token Bucket?"
+    ]
+  },
+  {
+    "id": "backend-engineer-debugging-cydyv",
+    "role": "Backend Engineer",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "Your PostgreSQL database CPU hits 100% and queries begin queuing up with 'remaining connection slots reserved for non-replication superuser connections'. Walk through emergency mitigation.",
+    "hint": "Identify rogue queries with pg_stat_activity, kill long-running queries with pg_terminate_backend, scale PgBouncer connection pool, and analyze EXPLAIN plans.",
+    "sampleAnswer": "First, I run an emergency query on `pg_stat_activity` to find long-running transactions waiting on locks (`state = 'active'`). I identify unindexed runaway queries and terminate the top offending process IDs using `pg_terminate_backend(pid)`. To prevent connection flooding, I route traffic through PgBouncer in transaction pooling mode, which multiplexes thousands of application threads into a controlled pool of 50-100 real Postgres connections. Next, I inspect slow query logs with `EXPLAIN (ANALYZE, BUFFERS)` to add missing composite indexes.",
+    "idealAnswer": "First, I run an emergency query on `pg_stat_activity` to find long-running transactions waiting on locks (`state = 'active'`). I identify unindexed runaway queries and terminate the top offending process IDs using `pg_terminate_backend(pid)`. To prevent connection flooding, I route traffic through PgBouncer in transaction pooling mode, which multiplexes thousands of application threads into a controlled pool of 50-100 real Postgres connections. Next, I inspect slow query logs with `EXPLAIN (ANALYZE, BUFFERS)` to add missing composite indexes.",
+    "keyConceptsToCover": [
+      "pg_stat_activity",
+      "pg_terminate_backend",
+      "PgBouncer Transaction Pooling",
+      "EXPLAIN ANALYZE BUFFERS",
+      "Connection Starvation"
+    ],
+    "followUps": [
+      "What is the difference between `pg_cancel_backend` and `pg_terminate_backend`?",
+      "Why does increasing max_connections in postgresql.conf often decrease overall database throughput?"
+    ]
+  },
+  {
+    "id": "backend-engineer-behavioral-nmidy",
+    "role": "Backend Engineer",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Tell me about a major production outage you caused or triaged. How did you handle communications and post-mortem root cause analysis (RCA)?",
+    "hint": "Blameless post-mortem, immediate mitigation before root-cause analysis, clear stakeholder status page updates, and preventive systemic safeguards.",
+    "sampleAnswer": "During a database migration, an unindexed foreign-key constraint locked an active orders table, causing API timeouts for 18 minutes. I immediately ordered a migration rollback to restore traffic, drafted an incident update on our internal status page, and led a blameless post-mortem. We identified that our staging database lacked production-scale row volume, which masked table locks. As a systemic fix, we added automated CI checks for `ADD CONSTRAINT ... NOT VALID` with concurrent validation and mandatory migration dry-runs.",
+    "idealAnswer": "During a database migration, an unindexed foreign-key constraint locked an active orders table, causing API timeouts for 18 minutes. I immediately ordered a migration rollback to restore traffic, drafted an incident update on our internal status page, and led a blameless post-mortem. We identified that our staging database lacked production-scale row volume, which masked table locks. As a systemic fix, we added automated CI checks for `ADD CONSTRAINT ... NOT VALID` with concurrent validation and mandatory migration dry-runs.",
+    "keyConceptsToCover": [
+      "Blameless Post-Mortem",
+      "Incident Commander",
+      "Zero-Downtime Migrations",
+      "Systemic Guardrails"
+    ],
+    "followUps": [
+      "What metrics do you track during post-mortem reviews (MTTD, MTTR)?",
+      "How do you communicate complex technical outages to non-technical executive stakeholders?"
+    ]
+  },
+  {
+    "id": "backend-engineer-culture-xx7ta",
+    "role": "Backend Engineer",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "How do you design RESTful and gRPC APIs for backwards compatibility without breaking existing mobile and third-party consumers?",
+    "hint": "Semantic versioning, additive schema changes, protobuf tag stability, deprecation headers, and deprecation sunset cycles.",
+    "sampleAnswer": "I follow strict additive-only schema evolution. In REST, we never delete or rename existing JSON fields or change data types; new fields are optional. When a fundamental contract change is necessary, we introduce versioned routes (/v2/) or accept version headers. In gRPC/Protobuf, field numbers must never be modified or reused (using the `reserved` keyword for deleted tags). We provide deprecation warnings using HTTP `Sunset` and `Deprecation` headers with 6-month consumer notification windows.",
+    "idealAnswer": "I follow strict additive-only schema evolution. In REST, we never delete or rename existing JSON fields or change data types; new fields are optional. When a fundamental contract change is necessary, we introduce versioned routes (/v2/) or accept version headers. In gRPC/Protobuf, field numbers must never be modified or reused (using the `reserved` keyword for deleted tags). We provide deprecation warnings using HTTP `Sunset` and `Deprecation` headers with 6-month consumer notification windows.",
+    "keyConceptsToCover": [
+      "API Backward Compatibility",
+      "Protobuf Reserved Tags",
+      "Additive Schema Evolution",
+      "Sunset Headers"
+    ],
+    "followUps": [
+      "Why is Protobuf serialization faster and more compact than JSON over HTTP/2?",
+      "How do you safely deprecate an API endpoint when third-party SDKs cannot be force-updated?"
+    ]
+  },
+  {
+    "id": "backend-engineer-custom-jd-v9fad",
+    "role": "Backend Engineer",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "How would you architect a distributed caching layer with Redis Cluster, handling cache penetration, cache breakdown (thundering herd), and cache avalanche?",
+    "hint": "Cache Penetration: Bloom Filters. Cache Breakdown: Mutex locking / single-flight. Cache Avalanche: Jittered TTLs.",
+    "sampleAnswer": "To solve Cache Avalanche (where thousands of keys expire simultaneously), I add random jitter to all expiration TTLs (e.g. 1 hour +/- 10 minutes). For Cache Breakdown / Thundering Herd (a hot key expires and 10,000 concurrent requests hammer the DB), I use a distributed mutex lock (Redlock) or Go's singleflight pattern so only 1 request queries the DB while others wait. For Cache Penetration (queries for non-existent IDs), I place a Bloom Filter in front of the cache and cache null values with short TTLs.",
+    "idealAnswer": "To solve Cache Avalanche (where thousands of keys expire simultaneously), I add random jitter to all expiration TTLs (e.g. 1 hour +/- 10 minutes). For Cache Breakdown / Thundering Herd (a hot key expires and 10,000 concurrent requests hammer the DB), I use a distributed mutex lock (Redlock) or Go's singleflight pattern so only 1 request queries the DB while others wait. For Cache Penetration (queries for non-existent IDs), I place a Bloom Filter in front of the cache and cache null values with short TTLs.",
+    "keyConceptsToCover": [
+      "Cache Avalanche (TTL Jitter)",
+      "Thundering Herd (Mutex/Singleflight)",
+      "Cache Penetration (Bloom Filters)",
+      "Redis Cluster"
+    ],
+    "followUps": [
+      "What are the trade-offs of Cache-Aside versus Write-Through and Write-Behind caching strategies?",
+      "How does Redis handle memory eviction when maxmemory is reached (allkeys-lru vs volatile-lfu)?"
+    ]
+  },
+  {
+    "id": "backend-engineer-core-technical-xpsye",
+    "role": "Backend Engineer",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "What is the difference between TCP and UDP, and why does HTTP/3 switch from TCP to UDP with the QUIC protocol?",
+    "hint": "TCP head-of-line blocking, 3-way handshake latency, QUIC connection migration, independent stream multiplexing over UDP.",
+    "sampleAnswer": "TCP provides reliable, ordered byte streams via acknowledgments and retransmissions, requiring a 3-way handshake (plus TLS handshake). In HTTP/2 over TCP, if a single packet is dropped, the entire connection stalls waiting for retransmission (Head-of-Line blocking). HTTP/3 replaces TCP with QUIC over UDP. QUIC moves stream multiplexing into the transport layer, so a dropped packet in Stream A never stalls Stream B. Additionally, QUIC supports 0-RTT handshakes and seamless connection migration across IP/Wi-Fi switches.",
+    "idealAnswer": "TCP provides reliable, ordered byte streams via acknowledgments and retransmissions, requiring a 3-way handshake (plus TLS handshake). In HTTP/2 over TCP, if a single packet is dropped, the entire connection stalls waiting for retransmission (Head-of-Line blocking). HTTP/3 replaces TCP with QUIC over UDP. QUIC moves stream multiplexing into the transport layer, so a dropped packet in Stream A never stalls Stream B. Additionally, QUIC supports 0-RTT handshakes and seamless connection migration across IP/Wi-Fi switches.",
+    "keyConceptsToCover": [
+      "TCP vs UDP",
+      "HTTP/3 & QUIC",
+      "Head-of-Line Blocking",
+      "0-RTT Handshakes",
+      "Connection Migration"
+    ],
+    "followUps": [
+      "How does QUIC achieve connection migration when a mobile phone switches from Wi-Fi to cellular data?",
+      "What are the security implications of 0-RTT replay attacks in QUIC?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-system-design-6jcwu",
+    "role": "ML/Data Engineer",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design a real-time feature store and inference pipeline for a fraud detection system processing 10,000 transactions per second under 50ms SLA.",
+    "hint": "Dual storage (Redis for low-latency online inference + S3/Parquet for offline training), Feast feature store, streaming Kafka + Flink.",
+    "sampleAnswer": "I would architecture the pipeline around a feature store (like Feast). Real-time events stream into Apache Kafka, where Apache Flink computes rolling window aggregates (e.g. user transaction count in last 10 minutes) and pushes features to Redis for sub-5ms online key-value retrieval. During inference, the API fetches entity features from Redis, combines them with transaction metadata, and passes the vector to an ONNX runtime model container. Asynchronously, features are written to Delta Lake on S3 for batch model retraining.",
+    "idealAnswer": "I would architecture the pipeline around a feature store (like Feast). Real-time events stream into Apache Kafka, where Apache Flink computes rolling window aggregates (e.g. user transaction count in last 10 minutes) and pushes features to Redis for sub-5ms online key-value retrieval. During inference, the API fetches entity features from Redis, combines them with transaction metadata, and passes the vector to an ONNX runtime model container. Asynchronously, features are written to Delta Lake on S3 for batch model retraining.",
+    "keyConceptsToCover": [
+      "Feature Store (Feast)",
+      "Apache Flink Streaming",
+      "Redis Online Inference",
+      "ONNX Model Runtime",
+      "Feature Drift"
+    ],
+    "followUps": [
+      "How do you prevent train-serve skew between offline training data and online inference features?",
+      "How do you handle feature store schema evolution when new ML features are deployed?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-core-technical-2drvj",
+    "role": "ML/Data Engineer",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain the internal mechanisms of Self-Attention and Multi-Head Attention in Transformer models ($Q, K, V$ matrices and scaled dot-product).",
+    "hint": "Derive Attention(Q,K,V) = softmax(QK^T / sqrt(d_k))V. Explain why scaling factor sqrt(d_k) prevents vanishing gradients in softmax.",
+    "sampleAnswer": "Self-attention maps input embeddings into Queries (Q), Keys (K), and Values (V) via learned weight projections. We calculate similarity scores via dot product: QK^T. As dimension d_k grows large, dot products grow large in magnitude, pushing the softmax function into regions with near-zero gradients. Therefore, we scale by 1/sqrt(d_k). Multiplying softmax scores by V gives the weighted representation. Multi-Head Attention runs this across h independent subspaces, allowing the model to jointly attend to semantic, positional, and syntactic relationships.",
+    "idealAnswer": "Self-attention maps input embeddings into Queries (Q), Keys (K), and Values (V) via learned weight projections. We calculate similarity scores via dot product: QK^T. As dimension d_k grows large, dot products grow large in magnitude, pushing the softmax function into regions with near-zero gradients. Therefore, we scale by 1/sqrt(d_k). Multiplying softmax scores by V gives the weighted representation. Multi-Head Attention runs this across h independent subspaces, allowing the model to jointly attend to semantic, positional, and syntactic relationships.",
+    "keyConceptsToCover": [
+      "Scaled Dot-Product Attention",
+      "Query-Key-Value Projections",
+      "Vanishing Gradients in Softmax",
+      "Multi-Head Subspaces"
+    ],
+    "followUps": [
+      "What is the computational complexity of standard self-attention relative to sequence length L, and how does FlashAttention optimize it?",
+      "How do Rotary Position Embeddings (RoPE) encode relative token distances?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-debugging-6mr9t",
+    "role": "ML/Data Engineer",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "Your model training loss decreases steadily, but validation loss diverges after epoch 4, and production accuracy is 20% lower than validation accuracy. Triage and fix.",
+    "hint": "Overfitting, data leakage between train/test splits, covariate shift / concept drift, regularization (Dropout, L2, data augmentation).",
+    "sampleAnswer": "When training loss drops while validation loss rises, the model is overfitting. I introduce regularization: dropout layers (0.2–0.5), L2 weight decay, and data augmentation. If production accuracy is further degraded below validation, data leakage or covariate shift has occurred. I verify that feature scalers (StandardScaler) were fitted strictly on the training fold, check for future target leakage in timestamped data, and compare input distributions using Kolmogorov-Smirnov statistical tests.",
+    "idealAnswer": "When training loss drops while validation loss rises, the model is overfitting. I introduce regularization: dropout layers (0.2–0.5), L2 weight decay, and data augmentation. If production accuracy is further degraded below validation, data leakage or covariate shift has occurred. I verify that feature scalers (StandardScaler) were fitted strictly on the training fold, check for future target leakage in timestamped data, and compare input distributions using Kolmogorov-Smirnov statistical tests.",
+    "keyConceptsToCover": [
+      "Overfitting",
+      "Data Leakage",
+      "Covariate Shift",
+      "Dropout & Weight Decay",
+      "Distribution Drift"
+    ],
+    "followUps": [
+      "What is the difference between Covariate Shift and Concept Drift?",
+      "How do you detect feature drift in production without ground truth labels?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-dsa-ccg8c",
+    "role": "ML/Data Engineer",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an approximate nearest neighbors (ANN) vector search index using Cosine Similarity and K-Means clustering.",
+    "hint": "Inverted file index (IVF), vector quantization, dot product normalization, centroid distance ranking.",
+    "sampleAnswer": "For Cosine Similarity, all embedding vectors are first normalized to unit length so dot product equals cosine similarity. To achieve sub-linear retrieval without brute-force O(N) scanning, I implement an Inverted File Index (IVF). During indexing, K-Means clusters vectors into C centroids. At query time, we find the top-P closest centroids to the query vector and only perform exact dot-product comparisons against vectors assigned to those Voronoi cells, reducing search complexity from O(N) to O(C + N/C).",
+    "idealAnswer": "For Cosine Similarity, all embedding vectors are first normalized to unit length so dot product equals cosine similarity. To achieve sub-linear retrieval without brute-force O(N) scanning, I implement an Inverted File Index (IVF). During indexing, K-Means clusters vectors into C centroids. At query time, we find the top-P closest centroids to the query vector and only perform exact dot-product comparisons against vectors assigned to those Voronoi cells, reducing search complexity from O(N) to O(C + N/C).",
+    "keyConceptsToCover": [
+      "Vector Similarity Search",
+      "Inverted File Index (IVF)",
+      "Voronoi Cells",
+      "Cosine Similarity Normalization"
+    ],
+    "followUps": [
+      "How does Hierarchical Navigable Small World (HNSW) graphs outperform IVF in high-recall vector search?",
+      "What is Scalar Quantization (SQ8) and how does it reduce vector database memory usage?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-behavioral-tqvbn",
+    "role": "ML/Data Engineer",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Tell me about a time you had to explain a complex ML model's predictions (or failure modes) to non-technical business stakeholders.",
+    "hint": "STAR format: used SHAP / LIME feature importance values, created visual counterfactual explanations, and tied predictions to business ROI.",
+    "sampleAnswer": "In our churn prediction project, customer success managers were skeptical of an XGBoost model flagging key enterprise accounts as high churn risk. Rather than quoting ROC-AUC metrics, I utilized SHAP (SHapley Additive exPlanations) values to build an interactive dashboard showing exact contributing factors (e.g. 40% decline in weekly API usage over 14 days). This gave account executives actionable reasons to intervene, resulting in retaining 12 at-risk accounts worth $180,000 ARR.",
+    "idealAnswer": "In our churn prediction project, customer success managers were skeptical of an XGBoost model flagging key enterprise accounts as high churn risk. Rather than quoting ROC-AUC metrics, I utilized SHAP (SHapley Additive exPlanations) values to build an interactive dashboard showing exact contributing factors (e.g. 40% decline in weekly API usage over 14 days). This gave account executives actionable reasons to intervene, resulting in retaining 12 at-risk accounts worth $180,000 ARR.",
+    "keyConceptsToCover": [
+      "SHAP / LIME Interpretability",
+      "Stakeholder Communication",
+      "Actionable ML Insights",
+      "Quantified Business ROI"
+    ],
+    "followUps": [
+      "How do you explain the trade-off between model accuracy and model interpretability to leadership?",
+      "What ethical or bias audit steps do you perform before deploying user-facing ML models?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-culture-2acjh",
+    "role": "ML/Data Engineer",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "What are your best practices for MLOps, CI/CD for machine learning, and automated model governance?",
+    "hint": "Data versioning (DVC), experiment tracking (MLflow/Weights & Biases), automated shadow/canary deployments, and model registry approval gates.",
+    "sampleAnswer": "MLOps requires versioning code, data, and model artifacts simultaneously. I use DVC (Data Version Control) with Git to track dataset hashes and MLflow to log hyperparameters, loss curves, and artifact weights. In CI/CD, pull requests trigger automated model evaluation against regression benchmark suites. In production, new models deploy in shadow mode (mirroring production traffic without serving user responses) to verify latency and drift before canary rollout.",
+    "idealAnswer": "MLOps requires versioning code, data, and model artifacts simultaneously. I use DVC (Data Version Control) with Git to track dataset hashes and MLflow to log hyperparameters, loss curves, and artifact weights. In CI/CD, pull requests trigger automated model evaluation against regression benchmark suites. In production, new models deploy in shadow mode (mirroring production traffic without serving user responses) to verify latency and drift before canary rollout.",
+    "keyConceptsToCover": [
+      "MLOps Pipelines",
+      "DVC Data Versioning",
+      "MLflow Model Registry",
+      "Shadow Deployments",
+      "Canary Rollout"
+    ],
+    "followUps": [
+      "What are the key differences between traditional DevOps CI/CD and MLOps CI/CD/CT (Continuous Training)?",
+      "How do you automate rollback when production model inference error rate spikes?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-custom-jd-5aj7o",
+    "role": "ML/Data Engineer",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "Design a Retrieval-Augmented Generation (RAG) system with hybrid vector + keyword search, re-ranking, and hallucination guardrails.",
+    "hint": "Chunking strategies, dense retrieval (Embeddings) + sparse retrieval (BM25) via Reciprocal Rank Fusion (RRF), Cross-Encoder re-ranker, LangChain / LlamaIndex.",
+    "sampleAnswer": "I implement an enterprise RAG pipeline with semantic chunking (400-token chunks with 50-token overlap). Retrieval uses a hybrid approach: BM25 for precise keyword/acronym matching combined with dense vector embeddings (OpenAI/BGE) in a vector DB, merged via Reciprocal Rank Fusion (RRF). The top 25 candidates pass through a Cross-Encoder re-ranker (Cohere / BGE-Reranker) to extract the top 4 most relevant passages. A guardrail model validates that generated claims cite retrieved chunks to eliminate hallucinations.",
+    "idealAnswer": "I implement an enterprise RAG pipeline with semantic chunking (400-token chunks with 50-token overlap). Retrieval uses a hybrid approach: BM25 for precise keyword/acronym matching combined with dense vector embeddings (OpenAI/BGE) in a vector DB, merged via Reciprocal Rank Fusion (RRF). The top 25 candidates pass through a Cross-Encoder re-ranker (Cohere / BGE-Reranker) to extract the top 4 most relevant passages. A guardrail model validates that generated claims cite retrieved chunks to eliminate hallucinations.",
+    "keyConceptsToCover": [
+      "Hybrid Search (BM25 + Dense Vectors)",
+      "Reciprocal Rank Fusion",
+      "Cross-Encoder Re-Ranking",
+      "Hallucination Guardrails"
+    ],
+    "followUps": [
+      "Why is Cross-Encoder re-ranking too computationally expensive for first-stage retrieval?",
+      "How do you evaluate RAG quality using the Ragas framework (Faithfulness, Answer Relevance, Context Recall)?"
+    ]
+  },
+  {
+    "id": "ml-data-engineer-core-technical-nucze",
+    "role": "ML/Data Engineer",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How does distributed training work with PyTorch DDP (Distributed Data Parallel) versus FSDP (Fully Sharded Data Parallel) and DeepSpeed ZeRO?",
+    "hint": "All-Reduce gradient synchronization, gradient sharding, model weight partitioning across GPUs, communication overhead.",
+    "sampleAnswer": "In standard DDP, every GPU holds a complete replica of model parameters and optimizer states; GPUs compute forward/backward passes on unique batches and synchronize gradients via Ring All-Reduce. However, for models exceeding single-GPU VRAM (e.g. 70B LLMs), FSDP (Fully Sharded Data Parallel / ZeRO-3) shards model parameters, gradients, and optimizer states across all GPUs. Parameters are gathered all-to-all just-in-time for forward/backward computation and immediately freed, allowing massive models to fit in memory.",
+    "idealAnswer": "In standard DDP, every GPU holds a complete replica of model parameters and optimizer states; GPUs compute forward/backward passes on unique batches and synchronize gradients via Ring All-Reduce. However, for models exceeding single-GPU VRAM (e.g. 70B LLMs), FSDP (Fully Sharded Data Parallel / ZeRO-3) shards model parameters, gradients, and optimizer states across all GPUs. Parameters are gathered all-to-all just-in-time for forward/backward computation and immediately freed, allowing massive models to fit in memory.",
+    "keyConceptsToCover": [
+      "PyTorch DDP",
+      "FSDP (Fully Sharded Data Parallel)",
+      "ZeRO-1/2/3 Sharding",
+      "Ring All-Reduce"
+    ],
+    "followUps": [
+      "What is the communication bottleneck in FSDP compared to standard DDP?",
+      "How does mixed-precision training (FP16 / BF16) reduce VRAM requirements without causing numerical instability?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-system-design-kdzi3",
+    "role": "DevOps & Cloud Engineer",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design a multi-region zero-downtime Kubernetes deployment pipeline using GitOps, ArgoCD, and Istio service mesh for progressive canary rollouts.",
+    "hint": "GitOps source of truth repository, ArgoCD sync, Argo Rollouts with Istio traffic split percentage (5% -> 20% -> 100%), automated Prometheus metric analysis.",
+    "sampleAnswer": "I implement GitOps where the Git repository is the absolute desired state. ArgoCD monitors the cluster state and syncs manifests. For zero-downtime deployments, we use Argo Rollouts integrated with Istio. When a new image is pushed, Argo Rollouts launches a canary pod and Istio shifts 5% of ingress traffic to it. Prometheus continuously evaluates error rate and p99 latency SLAs. If error rates remain < 0.1% over 10 minutes, traffic ramps to 20%, 50%, and 100%. Any SLA breach triggers instant automated rollback.",
+    "idealAnswer": "I implement GitOps where the Git repository is the absolute desired state. ArgoCD monitors the cluster state and syncs manifests. For zero-downtime deployments, we use Argo Rollouts integrated with Istio. When a new image is pushed, Argo Rollouts launches a canary pod and Istio shifts 5% of ingress traffic to it. Prometheus continuously evaluates error rate and p99 latency SLAs. If error rates remain < 0.1% over 10 minutes, traffic ramps to 20%, 50%, and 100%. Any SLA breach triggers instant automated rollback.",
+    "keyConceptsToCover": [
+      "GitOps & ArgoCD",
+      "Canary Deployment",
+      "Argo Rollouts",
+      "Istio Traffic Shifting",
+      "Automated Rollback"
+    ],
+    "followUps": [
+      "What is the difference between Blue-Green deployments and Progressive Canary releases?",
+      "How do you handle database schema migrations in a progressive canary rollout?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-core-technical-vuwb8",
+    "role": "DevOps & Cloud Engineer",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain how Kubernetes CNI (Container Network Interface) plugins like Cilium or Calico route packet traffic between pods across distinct worker nodes.",
+    "hint": "eBPF vs iptables/IPVS, VXLAN overlay encapsulation vs BGP direct routing, kube-proxy replacement.",
+    "sampleAnswer": "Kubernetes assigns each Pod a unique IP address. Traditional CNI plugins (like Calico/Flannel) use VXLAN overlay networks where inter-node pod packets are encapsulated inside UDP packets and routed via node Linux bridges and IP tables. Modern CNIs like Cilium replace kube-proxy and iptables entirely with eBPF (extended Berkeley Packet Filter). eBPF programs attached to Linux socket layers route packets directly in the kernel without traversing network stack layers, reducing latency and supporting high-throughput microservices.",
+    "idealAnswer": "Kubernetes assigns each Pod a unique IP address. Traditional CNI plugins (like Calico/Flannel) use VXLAN overlay networks where inter-node pod packets are encapsulated inside UDP packets and routed via node Linux bridges and IP tables. Modern CNIs like Cilium replace kube-proxy and iptables entirely with eBPF (extended Berkeley Packet Filter). eBPF programs attached to Linux socket layers route packets directly in the kernel without traversing network stack layers, reducing latency and supporting high-throughput microservices.",
+    "keyConceptsToCover": [
+      "Kubernetes CNI",
+      "Cilium eBPF",
+      "VXLAN Overlay",
+      "BGP Routing",
+      "iptables vs eBPF"
+    ],
+    "followUps": [
+      "Why does thousands of Kubernetes services degrade iptables performance, while eBPF scales with O(1) complexity?",
+      "What is the difference between a ClusterIP and a NodePort service at the network layer?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-debugging-qr95r",
+    "role": "DevOps & Cloud Engineer",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "A Kubernetes Pod is stuck in `CrashLoopBackOff` with exit code 137. How do you diagnose and permanently resolve it?",
+    "hint": "Exit code 137 indicates SIGKILL (128 + 9), caused by Linux OOM-killer exceeding pod memory limits. Inspect kubectl describe pod, memory limits, JVM heap flags.",
+    "sampleAnswer": "Exit code 137 is SIGKILL, almost universally caused by the Linux Out-Of-Memory (OOM) killer terminating a container that exceeded its defined resource limits (`resources.limits.memory`). I run `kubectl describe pod` to confirm 'OOMKilled: true' and inspect container exit reasons. I check Prometheus/Grafana metrics for memory trajectory leading up to the crash. Resolution involves fixing application memory leaks, tuning container runtime heaps (e.g. setting JVM `-XX:MaxRAMPercentage=75.0`), and right-sizing pod memory requests and limits.",
+    "idealAnswer": "Exit code 137 is SIGKILL, almost universally caused by the Linux Out-Of-Memory (OOM) killer terminating a container that exceeded its defined resource limits (`resources.limits.memory`). I run `kubectl describe pod` to confirm 'OOMKilled: true' and inspect container exit reasons. I check Prometheus/Grafana metrics for memory trajectory leading up to the crash. Resolution involves fixing application memory leaks, tuning container runtime heaps (e.g. setting JVM `-XX:MaxRAMPercentage=75.0`), and right-sizing pod memory requests and limits.",
+    "keyConceptsToCover": [
+      "CrashLoopBackOff",
+      "Exit Code 137",
+      "Linux OOM-Killer",
+      "Resource Limits & Requests",
+      "Memory Profiling"
+    ],
+    "followUps": [
+      "What is the difference between a Pod's memory 'request' and 'limit' regarding node scheduling and eviction?",
+      "How does Kubernetes Quality of Service (QoS) classes (Guaranteed, Burstable, BestEffort) affect pod eviction priority?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-dsa-gezha",
+    "role": "DevOps & Cloud Engineer",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an automated dependency topological sort for a DAG of infrastructure deployment modules in Terraform/Pulumi.",
+    "hint": "Kahn's algorithm using in-degree counts or DFS post-order traversal with cycle detection.",
+    "sampleAnswer": "I model infrastructure modules as directed acyclic graph (DAG) nodes where directed edges represent dependencies (e.g. VPC -> Subnet -> EKS Cluster -> Helm Chart). I implement Kahn's Algorithm: calculate the in-degree of all nodes, initialize a queue with zero in-degree nodes, and pop nodes while decrementing neighbor in-degrees. If the output count does not match total nodes, a circular dependency cycle exists and an error is thrown. The sorted output guarantees that prerequisite cloud resources are created before dependents.",
+    "idealAnswer": "I model infrastructure modules as directed acyclic graph (DAG) nodes where directed edges represent dependencies (e.g. VPC -> Subnet -> EKS Cluster -> Helm Chart). I implement Kahn's Algorithm: calculate the in-degree of all nodes, initialize a queue with zero in-degree nodes, and pop nodes while decrementing neighbor in-degrees. If the output count does not match total nodes, a circular dependency cycle exists and an error is thrown. The sorted output guarantees that prerequisite cloud resources are created before dependents.",
+    "keyConceptsToCover": [
+      "Topological Sort",
+      "Kahn's Algorithm",
+      "DAG Cycle Detection",
+      "Infrastructure as Code Dependencies"
+    ],
+    "followUps": [
+      "How does Terraform internally detect circular dependencies in resource declarations?",
+      "How do you parallelize the creation of non-dependent resources in a topological graph?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-behavioral-anpps",
+    "role": "DevOps & Cloud Engineer",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Tell me about a time you identified an insecure configuration or exposed credential in production and led the immediate incident response.",
+    "hint": "STAR format: revoked exposed credentials, rotated secrets via AWS Secrets Manager/Vault, conducted blast-radius analysis in CloudTrail, and added git pre-commit scanning.",
+    "sampleAnswer": "During an infrastructure audit, I discovered a developer had committed a long-lived AWS IAM access key to an internal repository. I immediately deactivated the access key in IAM to neutralize the vector, provisioned temporary credentials via AWS Secrets Manager, and queried AWS CloudTrail logs to confirm no unauthorized API calls had been made. To ensure systemic prevention, I added automated GitGuardian/TruffleHog pre-commit hooks and CI secret scanning.",
+    "idealAnswer": "During an infrastructure audit, I discovered a developer had committed a long-lived AWS IAM access key to an internal repository. I immediately deactivated the access key in IAM to neutralize the vector, provisioned temporary credentials via AWS Secrets Manager, and queried AWS CloudTrail logs to confirm no unauthorized API calls had been made. To ensure systemic prevention, I added automated GitGuardian/TruffleHog pre-commit hooks and CI secret scanning.",
+    "keyConceptsToCover": [
+      "Secret Rotation",
+      "CloudTrail Blast Radius",
+      "IAM Least Privilege",
+      "Automated Secret Scanning"
+    ],
+    "followUps": [
+      "How do you enforce short-lived credentials using AWS IAM Roles and OIDC instead of static keys?",
+      "What is the procedure for rotating root database passwords with zero downtime?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-culture-wi9uz",
+    "role": "DevOps & Cloud Engineer",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "How do you implement Infrastructure as Code (IaC) governance, state file locking, and multi-environment drift detection?",
+    "hint": "Terraform state in S3 with DynamoDB locking, Atlantis/Spacelift for automated PR plans, and scheduled drift detection cron jobs.",
+    "sampleAnswer": "I manage all cloud infrastructure through Terraform with remote state files stored in encrypted AWS S3 buckets paired with DynamoDB for state locking to prevent concurrent apply collisions. We implement Atlantis or Terraform Cloud to run `terraform plan` on GitHub pull requests, requiring peer approval before apply. For drift detection, scheduled cron pipelines run daily drift checks that alert Slack if manual console changes deviate from declared state.",
+    "idealAnswer": "I manage all cloud infrastructure through Terraform with remote state files stored in encrypted AWS S3 buckets paired with DynamoDB for state locking to prevent concurrent apply collisions. We implement Atlantis or Terraform Cloud to run `terraform plan` on GitHub pull requests, requiring peer approval before apply. For drift detection, scheduled cron pipelines run daily drift checks that alert Slack if manual console changes deviate from declared state.",
+    "keyConceptsToCover": [
+      "Terraform State Locking",
+      "DynamoDB State Locks",
+      "GitOps IaC PR Workflows",
+      "Drift Detection"
+    ],
+    "followUps": [
+      "What happens if a Terraform process is killed mid-apply and leaves the DynamoDB lock active?",
+      "How do you structure Terraform modules across dev, staging, and production environments (workspaces vs directory structure)?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-custom-jd-dzdrd",
+    "role": "DevOps & Cloud Engineer",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "How do you design a Disaster Recovery (DR) strategy with RTO < 15 minutes and RPO < 1 minute across AWS regions for a critical financial application?",
+    "hint": "Recovery Time Objective (RTO) vs Recovery Point Objective (RPO), Aurora Global Database replication, Route53 DNS failover, Terraform active-passive warm standby.",
+    "sampleAnswer": "To achieve RPO < 1 minute, I use Amazon Aurora Global Database with asynchronous storage-level replication providing typical lag under 1 second. Application stateless services are deployed in a warm-standby configuration in the secondary region with minimal pod replicas. To achieve RTO < 15 minutes, AWS Route 53 Application Recovery Controller monitors primary health. Upon primary region failure, automated runbooks trigger Route 53 DNS failover and scale secondary Kubernetes pods from 2 to 50 within 4 minutes.",
+    "idealAnswer": "To achieve RPO < 1 minute, I use Amazon Aurora Global Database with asynchronous storage-level replication providing typical lag under 1 second. Application stateless services are deployed in a warm-standby configuration in the secondary region with minimal pod replicas. To achieve RTO < 15 minutes, AWS Route 53 Application Recovery Controller monitors primary health. Upon primary region failure, automated runbooks trigger Route 53 DNS failover and scale secondary Kubernetes pods from 2 to 50 within 4 minutes.",
+    "keyConceptsToCover": [
+      "RTO & RPO",
+      "Aurora Global Database",
+      "Route 53 DNS Failover",
+      "Warm Standby DR",
+      "Cross-Region Replication"
+    ],
+    "followUps": [
+      "What is the difference between Hot Standby, Warm Standby, and Pilot Light DR strategies?",
+      "How do you test cross-region disaster recovery runbooks in production without causing customer downtime?"
+    ]
+  },
+  {
+    "id": "devops-cloud-engineer-core-technical-i0uln",
+    "role": "DevOps & Cloud Engineer",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How do Linux cgroups (control groups) and namespaces isolate CPU, memory, and networking in Docker containers?",
+    "hint": "Namespaces provide visibility isolation (PID, NET, MNT, IPC, UTS); cgroups enforce resource limitations (CPU shares/quotas, Memory hard/soft limits).",
+    "sampleAnswer": "Containers are not virtual machines; they are standard Linux processes isolated by kernel features. Namespaces partition what a process can SEE: PID namespace gives container PID 1, NET provides isolated network interfaces/ports, and MNT provides private root filesystems. Cgroups govern what a process can USE: cgroup memory limits trigger OOM-killers if exceeded, and CFS (Completely Fair Scheduler) cgroup quotas limit CPU shares. Docker is simply a wrapper orchestrating these kernel primitives.",
+    "idealAnswer": "Containers are not virtual machines; they are standard Linux processes isolated by kernel features. Namespaces partition what a process can SEE: PID namespace gives container PID 1, NET provides isolated network interfaces/ports, and MNT provides private root filesystems. Cgroups govern what a process can USE: cgroup memory limits trigger OOM-killers if exceeded, and CFS (Completely Fair Scheduler) cgroup quotas limit CPU shares. Docker is simply a wrapper orchestrating these kernel primitives.",
+    "keyConceptsToCover": [
+      "Linux Namespaces",
+      "cgroups (Control Groups)",
+      "CFS Quota",
+      "Container Isolation vs Virtual Machines"
+    ],
+    "followUps": [
+      "What happens when a container exceeds its memory limit versus when it exceeds its CPU quota?",
+      "How does cgroups v2 improve memory and I/O isolation over cgroups v1?"
+    ]
+  },
+  {
+    "id": "cloud-sre-core-technical-65v2g",
+    "role": "Cloud / SRE",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain the Google SRE principles of Error Budgets, Service Level Indicators (SLIs), and Service Level Objectives (SLOs). How do they guide feature velocity vs stability?",
+    "hint": "SLI: quantitative measure of service performance. SLO: target percentage (e.g. 99.9%). Error Budget = 100% - SLO. When exhausted, feature freezes occur.",
+    "sampleAnswer": "An SLI is a concrete metric (e.g. proportion of HTTP requests returning < 200ms with 2xx status). An SLO is the agreed reliability target (e.g. 99.9% over a rolling 30-day window). The Error Budget (0.1%) represents acceptable unreliability. If the service consumes its error budget due to outages, product feature deployments are halted, and engineering focus shifts entirely to resilience, testing, and automation until the budget replenishes.",
+    "idealAnswer": "An SLI is a concrete metric (e.g. proportion of HTTP requests returning < 200ms with 2xx status). An SLO is the agreed reliability target (e.g. 99.9% over a rolling 30-day window). The Error Budget (0.1%) represents acceptable unreliability. If the service consumes its error budget due to outages, product feature deployments are halted, and engineering focus shifts entirely to resilience, testing, and automation until the budget replenishes.",
+    "keyConceptsToCover": [
+      "SLI / SLO / SLA",
+      "Error Budgets",
+      "Reliability Engineering",
+      "Deployment Freezes"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-system-design-xyli6",
+    "role": "Cloud / SRE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design a centralized observability and telemetry architecture processing 500GB of logs, metrics, and traces daily with OpenTelemetry, Prometheus, and Grafana Tempo.",
+    "hint": "OpenTelemetry collectors, Prometheus for metrics, Loki for structured log streaming, Tempo/Jaeger for distributed tracing with head-based and tail-based sampling.",
+    "sampleAnswer": "I design an observability pipeline using OpenTelemetry Collectors running as DaemonSets on every Kubernetes node. Application runtimes emit OTLP traces, Prometheus metrics, and JSON logs. Collectors apply tail-based sampling (retaining 100% of error traces and 5% of healthy traces) and forward metrics to VictoriaMetrics/Prometheus, traces to Grafana Tempo backed by S3, and logs to Grafana Loki. Grafana dashboards correlate trace IDs directly into log streams.",
+    "idealAnswer": "I design an observability pipeline using OpenTelemetry Collectors running as DaemonSets on every Kubernetes node. Application runtimes emit OTLP traces, Prometheus metrics, and JSON logs. Collectors apply tail-based sampling (retaining 100% of error traces and 5% of healthy traces) and forward metrics to VictoriaMetrics/Prometheus, traces to Grafana Tempo backed by S3, and logs to Grafana Loki. Grafana dashboards correlate trace IDs directly into log streams.",
+    "keyConceptsToCover": [
+      "OpenTelemetry Collector",
+      "Tail-Based Sampling",
+      "Grafana Tempo Tracing",
+      "Loki Log Aggregation",
+      "VictoriaMetrics"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-debugging-j0flx",
+    "role": "Cloud / SRE",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "Production ingress error rate spikes to 15% with HTTP 502 Bad Gateway and 504 Gateway Timeout during a marketing surge. Triage step-by-step.",
+    "hint": "502 indicates proxy failed to connect to upstream pod. 504 indicates upstream took too long. Check ingress controller logs, pod readiness probes, connection pooling.",
+    "sampleAnswer": "502 means the Ingress (Nginx/Envoy) tried connecting to an upstream Pod IP that refused or dropped the connection (pod crashed or terminated). 504 means the upstream pod accepted the connection but exceeded the proxy read timeout (database lock or thread starvation). I check `kubectl get pods` for restarts and CPU saturation, verify if the pod readiness probe failed, and inspect Ingress connection pool saturation. If pods are healthy, I increase upstream backend timeouts and scale replicas.",
+    "idealAnswer": "502 means the Ingress (Nginx/Envoy) tried connecting to an upstream Pod IP that refused or dropped the connection (pod crashed or terminated). 504 means the upstream pod accepted the connection but exceeded the proxy read timeout (database lock or thread starvation). I check `kubectl get pods` for restarts and CPU saturation, verify if the pod readiness probe failed, and inspect Ingress connection pool saturation. If pods are healthy, I increase upstream backend timeouts and scale replicas.",
+    "keyConceptsToCover": [
+      "HTTP 502 vs 504",
+      "Ingress Nginx / Envoy",
+      "Readiness Probe Failures",
+      "Upstream Timeouts",
+      "Connection Pool Exhaustion"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-dsa-u14pu",
+    "role": "Cloud / SRE",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an automated sliding-window burn rate alert algorithm for SRE error budgets.",
+    "hint": "Multi-window, multi-burn-rate alerts (e.g. 14.4x burn rate over 1 hour, 6x burn rate over 6 hours) to alert on rapid vs slow budget exhaustion.",
+    "sampleAnswer": "Traditional single-threshold alerts trigger false alarms or fire too late. I implement Google's Multi-Window Multi-Burn-Rate alerting algorithm. A burn rate of 1 consumes the entire error budget in exactly 30 days. We define two coordinated alert windows: A fast-burn alert (14.4x burn rate over 1 hour consuming 2% of budget, backed by a 5-minute confirmation window) triggers an immediate P1 pager. A slow-burn alert (6x burn rate over 6 hours consuming 5% of budget) sends a non-urgent ticket.",
+    "idealAnswer": "Traditional single-threshold alerts trigger false alarms or fire too late. I implement Google's Multi-Window Multi-Burn-Rate alerting algorithm. A burn rate of 1 consumes the entire error budget in exactly 30 days. We define two coordinated alert windows: A fast-burn alert (14.4x burn rate over 1 hour consuming 2% of budget, backed by a 5-minute confirmation window) triggers an immediate P1 pager. A slow-burn alert (6x burn rate over 6 hours consuming 5% of budget) sends a non-urgent ticket.",
+    "keyConceptsToCover": [
+      "Error Budget Burn Rate",
+      "Multi-Window Multi-Burn-Rate",
+      "Alert Paging vs Tickets",
+      "Sliding Window Analysis"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-behavioral-rlgx3",
+    "role": "Cloud / SRE",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Walk me through a high-severity incident where you acted as Incident Commander (IC). How did you coordinate engineering response under extreme pressure?",
+    "hint": "STAR format: established single communication channel, delegated roles (Operations Lead, Communications Lead), maintained running timeline, and prevented executive interference.",
+    "sampleAnswer": "During an outage affecting our primary payment gateway, I stepped in as Incident Commander. I opened a dedicated incident bridge, assigned one engineer as Ops Lead to test fixes and another as Comms Lead to update customer status pages every 15 minutes. When executives joined requesting root-cause explanations, I shielded the technical team by scheduling a separate briefing, allowing the engineers to isolate the firewall rule and restore services in 19 minutes.",
+    "idealAnswer": "During an outage affecting our primary payment gateway, I stepped in as Incident Commander. I opened a dedicated incident bridge, assigned one engineer as Ops Lead to test fixes and another as Comms Lead to update customer status pages every 15 minutes. When executives joined requesting root-cause explanations, I shielded the technical team by scheduling a separate briefing, allowing the engineers to isolate the firewall rule and restore services in 19 minutes.",
+    "keyConceptsToCover": [
+      "Incident Commander Role",
+      "Bridge Facilitation",
+      "Executive Shielding",
+      "Cadenced Status Updates"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-culture-zaepk",
+    "role": "Cloud / SRE",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "What is Chaos Engineering, and how do you implement controlled failure injection using tools like Chaos Mesh or LitmusChaos in staging and production?",
+    "hint": "Principles of Chaos Engineering, hypothesis testing, blast radius control, automated game days, network latency injection, pod kill experiments.",
+    "sampleAnswer": "Chaos engineering is the discipline of experimenting on a system to build confidence in its capability to withstand turbulent conditions. Using Chaos Mesh, we formulate steady-state hypotheses (e.g. '99.9% of user requests succeed even if 1 of 3 Redis nodes dies'). We inject controlled faults: random pod kills, packet loss, DNS latency, and disk pressure. If steady-state metrics drop beyond acceptable bounds, experiments halt automatically, and weaknesses are remediated.",
+    "idealAnswer": "Chaos engineering is the discipline of experimenting on a system to build confidence in its capability to withstand turbulent conditions. Using Chaos Mesh, we formulate steady-state hypotheses (e.g. '99.9% of user requests succeed even if 1 of 3 Redis nodes dies'). We inject controlled faults: random pod kills, packet loss, DNS latency, and disk pressure. If steady-state metrics drop beyond acceptable bounds, experiments halt automatically, and weaknesses are remediated.",
+    "keyConceptsToCover": [
+      "Chaos Engineering",
+      "Blast Radius Containment",
+      "Steady-State Hypothesis",
+      "Chaos Mesh / LitmusChaos",
+      "Fault Injection"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-core-technical-nczel",
+    "role": "Cloud / SRE",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How does Linux TCP SYN Flood attack work, and how do SYN Cookies and firewall connection tracking mitigate it?",
+    "hint": "TCP 3-way handshake, half-open connections filling backlog queue, SYN cookies encoding connection parameters in initial sequence number without allocating memory.",
+    "sampleAnswer": "In a SYN flood, an attacker sends thousands of TCP SYN packets with spoofed source IPs and never completes the handshake with an ACK. The server allocates TCB (Transmission Control Block) memory for each half-open connection until the SYN backlog queue overflows, rejecting legitimate users. SYN Cookies solve this by having the server encode connection state cryptographically into the 32-bit initial sequence number (ISN) of the SYN-ACK, allocating zero memory until the valid client ACK returns.",
+    "idealAnswer": "In a SYN flood, an attacker sends thousands of TCP SYN packets with spoofed source IPs and never completes the handshake with an ACK. The server allocates TCB (Transmission Control Block) memory for each half-open connection until the SYN backlog queue overflows, rejecting legitimate users. SYN Cookies solve this by having the server encode connection state cryptographically into the 32-bit initial sequence number (ISN) of the SYN-ACK, allocating zero memory until the valid client ACK returns.",
+    "keyConceptsToCover": [
+      "TCP SYN Flood",
+      "SYN Cookies",
+      "Backlog Queue",
+      "Half-Open Connections",
+      "Kernel Hardening"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-system-design-kvx8g",
+    "role": "Cloud / SRE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design a global automated SSL/TLS certificate lifecycle management system handling 100,000 custom domains using Let's Encrypt and cert-manager.",
+    "hint": "ACME protocol (HTTP-01 vs DNS-01 challenges), cert-manager on Kubernetes, automated renewal 30 days prior to expiry, rate limiting mitigation.",
+    "sampleAnswer": "I architect the certificate management system using cert-manager on Kubernetes. For 100,000 custom customer domains, we use HTTP-01 challenges routed through our global Envoy ingress cluster to an internal ACME solver pod. Cert-manager schedules automated renewals 30 days prior to expiry. To avoid Let's Encrypt production rate limits (50 certs per registered domain per week), we implement an internal queue with exponential backoff and store wildcard certificates in HashiCorp Vault.",
+    "idealAnswer": "I architect the certificate management system using cert-manager on Kubernetes. For 100,000 custom customer domains, we use HTTP-01 challenges routed through our global Envoy ingress cluster to an internal ACME solver pod. Cert-manager schedules automated renewals 30 days prior to expiry. To avoid Let's Encrypt production rate limits (50 certs per registered domain per week), we implement an internal queue with exponential backoff and store wildcard certificates in HashiCorp Vault.",
+    "keyConceptsToCover": [
+      "ACME Protocol",
+      "HTTP-01 vs DNS-01 Challenges",
+      "cert-manager",
+      "Let's Encrypt Rate Limits",
+      "HashiCorp Vault"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-s420j",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Write and explain an advanced SQL query using Window Functions (`ROW_NUMBER`, `DENSE_RANK`, `LEAD`, `LAG`) to calculate month-over-month user retention cohorts.",
+    "hint": "DATE_TRUNC, cohort grouping, MIN(order_date) as first_month, self-join or window function comparing activity month vs cohort month.",
+    "sampleAnswer": "To build a cohort retention matrix, I first identify each user's signup month using `DATE_TRUNC('month', MIN(event_date)) OVER (PARTITION BY user_id) AS cohort_month`. In the outer query, I calculate the elapsed months between active month and cohort month: `(EXTRACT(year FROM event_date) - EXTRACT(year FROM cohort_month)) * 12 + EXTRACT(month FROM event_date) - EXTRACT(month FROM cohort_month) AS period_index`. I group by cohort_month and period_index to output user counts and divide by initial cohort size to produce the retention percentage.",
+    "idealAnswer": "To build a cohort retention matrix, I first identify each user's signup month using `DATE_TRUNC('month', MIN(event_date)) OVER (PARTITION BY user_id) AS cohort_month`. In the outer query, I calculate the elapsed months between active month and cohort month: `(EXTRACT(year FROM event_date) - EXTRACT(year FROM cohort_month)) * 12 + EXTRACT(month FROM event_date) - EXTRACT(month FROM cohort_month) AS period_index`. I group by cohort_month and period_index to output user counts and divide by initial cohort size to produce the retention percentage.",
+    "keyConceptsToCover": [
+      "SQL Window Functions",
+      "Cohort Retention Analysis",
+      "DATE_TRUNC",
+      "Self-Join Aggregation",
+      "Retention Curves"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-system-design-14gae",
+    "role": "Data Analyst",
+    "category": "system-design",
+    "difficulty": "medium",
+    "question": "How do you design a Star Schema vs Snowflake Schema for an e-commerce analytics warehouse in Snowflake / BigQuery / Redshift?",
+    "hint": "Fact tables (Orders, Transactions) vs Dimension tables (Customers, Products, Dates). Star schema denormalizes dimensions for faster joins; Snowflake normalizes dimensions.",
+    "sampleAnswer": "In modern columnar data warehouses (Snowflake, BigQuery), I prefer a Star Schema. Fact tables store high-volume quantitative event metrics (e.g. `fact_orders` with order_id, customer_id, product_id, revenue, discount, timestamp). Dimension tables (`dim_customers`, `dim_products`, `dim_date`) store descriptive attributes denormalized. Modern columnar storage handles wide, denormalized tables with high compression and eliminates costly multi-table joins required by Snowflake schemas.",
+    "idealAnswer": "In modern columnar data warehouses (Snowflake, BigQuery), I prefer a Star Schema. Fact tables store high-volume quantitative event metrics (e.g. `fact_orders` with order_id, customer_id, product_id, revenue, discount, timestamp). Dimension tables (`dim_customers`, `dim_products`, `dim_date`) store descriptive attributes denormalized. Modern columnar storage handles wide, denormalized tables with high compression and eliminates costly multi-table joins required by Snowflake schemas.",
+    "keyConceptsToCover": [
+      "Star Schema",
+      "Snowflake Schema",
+      "Fact vs Dimension Tables",
+      "Columnar Storage Optimization",
+      "Denormalization"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-c0nyr",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "Explain the statistical difference between A/B Test P-value, Statistical Power (1 - Beta), and Minimum Detectable Effect (MDE). How do you determine required sample size?",
+    "hint": "Type I error (alpha, false positive), Type II error (beta, false negative, power = 80%), MDE calculation based on baseline conversion rate and sample size.",
+    "sampleAnswer": "A p-value measures the probability of observing results as extreme as the test data assuming the null hypothesis is true (typically alpha = 0.05). Statistical Power (typically 80%) is the probability of correctly detecting a true effect when one exists, preventing Type II errors (false negatives). The Minimum Detectable Effect (MDE) is the smallest lift the test can reliably detect. Required sample size per variant is inversely proportional to MDE squared: $N \\approx 16 \\sigma^2 / \\text{MDE}^2$.",
+    "idealAnswer": "A p-value measures the probability of observing results as extreme as the test data assuming the null hypothesis is true (typically alpha = 0.05). Statistical Power (typically 80%) is the probability of correctly detecting a true effect when one exists, preventing Type II errors (false negatives). The Minimum Detectable Effect (MDE) is the smallest lift the test can reliably detect. Required sample size per variant is inversely proportional to MDE squared: $N \\approx 16 \\sigma^2 / \\text{MDE}^2$.",
+    "keyConceptsToCover": [
+      "A/B Testing",
+      "P-value",
+      "Statistical Power (1 - Beta)",
+      "Minimum Detectable Effect (MDE)",
+      "Sample Size Sizing"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-debugging-6wpqm",
+    "role": "Data Analyst",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "During an executive dashboard review, the reported Net Revenue from the analytics warehouse differs by 8.4% from Stripe's financial billing report. How do you reconcile the discrepancy?",
+    "hint": "Triage time zone mismatches (UTC vs EST), refund/chargeback timing, currency conversion exchange rates, and deduplication of transaction webhooks.",
+    "sampleAnswer": "I follow a systematic financial reconciliation framework: 1) Verify time zone alignment: ensure the warehouse query uses UTC corresponding to Stripe's balance transaction cutoffs. 2) Accounting classification: verify whether the analytics definition includes gross volume while Stripe reports net of refunds, chargebacks, and gateway processing fees. 3) Currency conversion: inspect whether multi-currency transactions use transaction-day exchange rates vs month-end rates. 4) Data pipeline completeness: check for dropped webhook events or duplicate idempotency keys.",
+    "idealAnswer": "I follow a systematic financial reconciliation framework: 1) Verify time zone alignment: ensure the warehouse query uses UTC corresponding to Stripe's balance transaction cutoffs. 2) Accounting classification: verify whether the analytics definition includes gross volume while Stripe reports net of refunds, chargebacks, and gateway processing fees. 3) Currency conversion: inspect whether multi-currency transactions use transaction-day exchange rates vs month-end rates. 4) Data pipeline completeness: check for dropped webhook events or duplicate idempotency keys.",
+    "keyConceptsToCover": [
+      "Financial Reconciliation",
+      "Time Zone Normalization",
+      "Gross vs Net Revenue",
+      "Chargeback & Refund Timing",
+      "Data Lineage"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-dsa-215gt",
+    "role": "Data Analyst",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an automated anomaly detection algorithm in Python (Pandas/NumPy) using IQR (Interquartile Range) and Z-Score for daily active metric spikes/dips.",
+    "hint": "IQR = Q3 - Q1, bounds = [Q1 - 1.5*IQR, Q3 + 1.5*IQR]. Z-score = (x - mean)/std > 3. Handle seasonality using rolling 7-day median.",
+    "sampleAnswer": "For metrics with normal distributions, Z-score identifies anomalies where $|z| > 3$. However, real business metrics frequently exhibit skew and outliers, making the Interquartile Range (IQR) far more robust. I compute the 25th percentile (Q1) and 75th percentile (Q3). The IQR is Q3 - Q1, with lower bound $Q1 - 1.5 \\times IQR$ and upper bound $Q3 + 1.5 \\times IQR$. To account for day-of-week seasonality, I evaluate metrics relative to a 7-day rolling window rather than global averages.",
+    "idealAnswer": "For metrics with normal distributions, Z-score identifies anomalies where $|z| > 3$. However, real business metrics frequently exhibit skew and outliers, making the Interquartile Range (IQR) far more robust. I compute the 25th percentile (Q1) and 75th percentile (Q3). The IQR is Q3 - Q1, with lower bound $Q1 - 1.5 \\times IQR$ and upper bound $Q3 + 1.5 \\times IQR$. To account for day-of-week seasonality, I evaluate metrics relative to a 7-day rolling window rather than global averages.",
+    "keyConceptsToCover": [
+      "IQR Anomaly Detection",
+      "Z-Score",
+      "Robust Statistics",
+      "Day-of-Week Seasonality",
+      "Rolling Median"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-behavioral-eliim",
+    "role": "Data Analyst",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Tell me about a time your data analysis directly challenged a leadership team's pre-conceived hypothesis or product intuition.",
+    "hint": "STAR format: leadership believed a new onboarding flow was successful due to high signups; analysis proved 30-day retention and activation dropped 40%.",
+    "sampleAnswer": "Leadership was enthusiastic about a simplified 1-click onboarding flow because raw signup volume increased by 35%. However, when I tracked user cohort activation (defined as sending at least 3 messages in week 1), 30-day retention had plummeted by 42%. I presented a funnel analysis showing users lacked contextual setup to realize product value. Based on my data, leadership agreed to reinstate a guided 3-step setup wizard, which boosted 30-day customer lifetime value (LTV) by 28%.",
+    "idealAnswer": "Leadership was enthusiastic about a simplified 1-click onboarding flow because raw signup volume increased by 35%. However, when I tracked user cohort activation (defined as sending at least 3 messages in week 1), 30-day retention had plummeted by 42%. I presented a funnel analysis showing users lacked contextual setup to realize product value. Based on my data, leadership agreed to reinstate a guided 3-step setup wizard, which boosted 30-day customer lifetime value (LTV) by 28%.",
+    "keyConceptsToCover": [
+      "Data-Driven Influence",
+      "Funnel Conversion Analysis",
+      "Activation Metrics",
+      "Cohort Retention"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-culture-zcua9",
+    "role": "Data Analyst",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "How do you implement data governance, data dictionaries, and automated test assertions using tools like dbt (data build tool)?",
+    "hint": "dbt tests (unique, not_null, accepted_values, relationships), schema.yml documentation, data freshness assertions, CI/CD data pipelines.",
+    "sampleAnswer": "I implement dbt as our centralized transformation and modeling framework. Every transformation model includes a `schema.yml` file defining documentation, owner, and automated testing constraints (`unique`, `not_null`, foreign key `relationships`, and `accepted_values`). In our CI pipeline, pull requests test models on isolated database schemas before merging. For pipeline reliability, we schedule `dbt source freshness` checks that trigger alerts if source data ingest falls behind.",
+    "idealAnswer": "I implement dbt as our centralized transformation and modeling framework. Every transformation model includes a `schema.yml` file defining documentation, owner, and automated testing constraints (`unique`, `not_null`, foreign key `relationships`, and `accepted_values`). In our CI pipeline, pull requests test models on isolated database schemas before merging. For pipeline reliability, we schedule `dbt source freshness` checks that trigger alerts if source data ingest falls behind.",
+    "keyConceptsToCover": [
+      "dbt (data build tool)",
+      "Schema Assertions",
+      "Data Freshness",
+      "Data Lineage",
+      "Data Dictionaries"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-ttvgy",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "What is Simpson's Paradox in statistical analysis, and how can failing to recognize it lead to catastrophic product decisions?",
+    "hint": "A trend appears in several groups of data but disappears or reverses when the groups are combined due to an unaddressed confounding variable.",
+    "sampleAnswer": "Simpson's Paradox occurs when an observed trend within multiple subgroups reverses when the data is aggregated into a single pool. For example, Conversion Rate of Feature B looks higher than Feature A overall, but when broken down by device type, Feature A outperforms Feature B on both Mobile and Desktop! The paradox occurred because Feature B had a much higher proportion of Desktop traffic, which inherently converts higher. Failing to control for confounding variables causes teams to deploy inferior features.",
+    "idealAnswer": "Simpson's Paradox occurs when an observed trend within multiple subgroups reverses when the data is aggregated into a single pool. For example, Conversion Rate of Feature B looks higher than Feature A overall, but when broken down by device type, Feature A outperforms Feature B on both Mobile and Desktop! The paradox occurred because Feature B had a much higher proportion of Desktop traffic, which inherently converts higher. Failing to control for confounding variables causes teams to deploy inferior features.",
+    "keyConceptsToCover": [
+      "Simpson's Paradox",
+      "Confounding Variables",
+      "Subgroup Segmentation",
+      "A/B Testing Biases"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  }
+,
+  {
+    "id": "mobile-app-developer-core-technical-jcndx",
+    "role": "Mobile App Developer",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain the React Native / Flutter rendering engine (Bridge vs JSI/Fabric vs Flutter Impeller/Skia) and how memory and touch events are processed at 120Hz.",
+    "hint": "React Native legacy Bridge serialization vs JSI C++ direct invocation; Flutter C++ engine compiling directly to native GPU commands.",
+    "sampleAnswer": "Legacy React Native utilized an asynchronous JSON bridge across three threads (JS, Shadow, Native), which bottlenecked high-frequency gestures. The New Architecture replaces the bridge with JSI (JavaScript Interface), allowing JavaScript to hold direct C++ memory references to native host objects, enabling synchronous layout calculation with Fabric and TurboModules. In contrast, Flutter bypasses native OEM platform widgets entirely, compiling Dart to native ARM code and drawing every pixel directly onto the GPU canvas via Impeller/Skia at 120 FPS.",
+    "idealAnswer": "Legacy React Native utilized an asynchronous JSON bridge across three threads (JS, Shadow, Native), which bottlenecked high-frequency gestures. The New Architecture replaces the bridge with JSI (JavaScript Interface), allowing JavaScript to hold direct C++ memory references to native host objects, enabling synchronous layout calculation with Fabric and TurboModules. In contrast, Flutter bypasses native OEM platform widgets entirely, compiling Dart to native ARM code and drawing every pixel directly onto the GPU canvas via Impeller/Skia at 120 FPS.",
+    "keyConceptsToCover": [
+      "React Native JSI",
+      "Fabric Renderer",
+      "Flutter Impeller",
+      "Thread Marshaling",
+      "120Hz Gestures"
+    ],
+    "followUps": [
+      "Why did React Native move away from the asynchronous JSON bridge?",
+      "How does Flutter maintain consistent UI rendering across fragmented Android OEMs?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-system-design-qvvo0",
+    "role": "Mobile App Developer",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design an offline-first mobile sync architecture for a field inspection app with photo attachments and intermittent cellular connectivity.",
+    "hint": "Local SQLite/WatermelonDB/Realm, background sync queue (WorkManager / BGTaskScheduler), chunked S3 uploads with resumable protocols (Tus).",
+    "sampleAnswer": "I architect the app using an offline-first pattern with WatermelonDB (SQLite). All user form entries and mutations immediately write to local SQLite with a sync status 'pending'. Photo attachments are saved to local filesystem cache. A background worker (Android WorkManager and iOS BGTaskScheduler) executes opportunistic syncing when connectivity is detected. Photo uploads use the Tus resumable protocol to handle dropped network packets. If conflict arises, server timestamp vectors determine deterministic merge.",
+    "idealAnswer": "I architect the app using an offline-first pattern with WatermelonDB (SQLite). All user form entries and mutations immediately write to local SQLite with a sync status 'pending'. Photo attachments are saved to local filesystem cache. A background worker (Android WorkManager and iOS BGTaskScheduler) executes opportunistic syncing when connectivity is detected. Photo uploads use the Tus resumable protocol to handle dropped network packets. If conflict arises, server timestamp vectors determine deterministic merge.",
+    "keyConceptsToCover": [
+      "Offline-First Sync",
+      "WatermelonDB / SQLite",
+      "Resumable Uploads (Tus)",
+      "WorkManager / BGTaskScheduler",
+      "Conflict Resolution"
+    ],
+    "followUps": [
+      "How do you manage battery and thermal constraints during background photo synchronization?",
+      "How do you detect whether network connectivity is a captive portal with zero real internet?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-debugging-otj07",
+    "role": "Mobile App Developer",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "A production iOS/Android app crashes intermittently on launch (ANR / Crashlytics SIGSEGV) for 1% of users after an app store update. Triage and fix.",
+    "hint": "Symbolicate crash logs with dSYM / ProGuard mapping files, inspect Native vs JS exceptions, database schema migration failure in SQLite.",
+    "sampleAnswer": "I first download the crash stack trace from Firebase Crashlytics and symbolicate it using our CI's dSYM / ProGuard mapping file. If the crash occurs at app launch before JS bundle initialization, it is typically a native SQLite schema migration failure (e.g. missing column migration during app upgrade) or unhandled native library initialization (e.g. push notification SDK). I inspect device OS versions and reproduce by upgrading an older app build directly to the new version on a physical test device.",
+    "idealAnswer": "I first download the crash stack trace from Firebase Crashlytics and symbolicate it using our CI's dSYM / ProGuard mapping file. If the crash occurs at app launch before JS bundle initialization, it is typically a native SQLite schema migration failure (e.g. missing column migration during app upgrade) or unhandled native library initialization (e.g. push notification SDK). I inspect device OS versions and reproduce by upgrading an older app build directly to the new version on a physical test device.",
+    "keyConceptsToCover": [
+      "Symbolication (dSYM / ProGuard)",
+      "Crashlytics Triage",
+      "SQLite Schema Migrations",
+      "ANR (Application Not Responding)"
+    ],
+    "followUps": [
+      "What causes Application Not Responding (ANR) on Android, and how do you profile the main UI thread?",
+      "How do you roll out an emergency hotfix via CodePush without waiting for App Store review?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-dsa-d8mf5",
+    "role": "Mobile App Developer",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an in-memory LRU image cache for mobile devices with automatic memory-warning eviction.",
+    "hint": "Doubly linked list + Map with total byte size budget, listening to UIApplicationDidReceiveMemoryWarningNotification / onTrimMemory.",
+    "sampleAnswer": "I implement an LRU cache storing image bitmap byte buffers. In addition to a max entry count, the cache maintains an explicit byte capacity (e.g. 64MB). When put(key, bitmap) is called, it evicts tail nodes until memory fits. Crucially for mobile, the cache registers for OS memory pressure notifications (iOS `didReceiveMemoryWarningNotification` and Android `ComponentCallbacks2.onTrimMemory`). When low memory is signaled, the cache immediately purges all inactive cached bitmaps to prevent the OS from terminating the process.",
+    "idealAnswer": "I implement an LRU cache storing image bitmap byte buffers. In addition to a max entry count, the cache maintains an explicit byte capacity (e.g. 64MB). When put(key, bitmap) is called, it evicts tail nodes until memory fits. Crucially for mobile, the cache registers for OS memory pressure notifications (iOS `didReceiveMemoryWarningNotification` and Android `ComponentCallbacks2.onTrimMemory`). When low memory is signaled, the cache immediately purges all inactive cached bitmaps to prevent the OS from terminating the process.",
+    "keyConceptsToCover": [
+      "LRU Cache",
+      "Memory Pressure Eviction",
+      "onTrimMemory",
+      "Bitmap Recycling"
+    ],
+    "followUps": [
+      "Why is bitmap memory allocation particularly prone to out-of-memory (OOM) crashes on Android?",
+      "What is the difference between caching decoded Bitmaps vs raw compressed JPEG/PNG bytes?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-behavioral-3s2oa",
+    "role": "Mobile App Developer",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Tell me about a time you had to reject an App Store or Google Play Store policy guideline requirement, or resolve an unexpected app rejection.",
+    "hint": "STAR format: App Store guideline rejection (e.g. account deletion, in-app purchase 3.1.1, privacy permissions), clear mitigation, and fast re-submission.",
+    "sampleAnswer": "Apple rejected our app under Guideline 5.1.1 for requesting location permissions without sufficient justification in the modal dialog. I rewrote the `NSLocationWhenInUseUsageDescription` in Info.plist to clearly explain the user benefit ('Your location is used exclusively to show nearby pickup hubs') and added an upfront in-app educational screen before triggering the native permission dialog. We submitted an expedited review appeal with video documentation and were approved within 14 hours.",
+    "idealAnswer": "Apple rejected our app under Guideline 5.1.1 for requesting location permissions without sufficient justification in the modal dialog. I rewrote the `NSLocationWhenInUseUsageDescription` in Info.plist to clearly explain the user benefit ('Your location is used exclusively to show nearby pickup hubs') and added an upfront in-app educational screen before triggering the native permission dialog. We submitted an expedited review appeal with video documentation and were approved within 14 hours.",
+    "keyConceptsToCover": [
+      "App Store Review Guidelines",
+      "Permission Justification",
+      "Expedited Appeal",
+      "Policy Compliance"
+    ],
+    "followUps": [
+      "How do you structure in-app purchases (IAP) vs third-party payments under Apple Guideline 3.1.1?",
+      "What are the requirements for account deletion under recent Apple and Google privacy policies?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-culture-esoyw",
+    "role": "Mobile App Developer",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "How do you automate mobile CI/CD pipelines using Fastlane, GitHub Actions, and TestFlight / Play Console internal tracks?",
+    "hint": "Automated version code bumping, code signing certificates via Fastlane Match, headless UI testing, and automated release tracks.",
+    "sampleAnswer": "I manage mobile deployment via Fastlane scripts integrated into GitHub Actions. For iOS code signing, we use `fastlane match` which stores encrypted certificates and provisioning profiles in a private Git repository with AWS KMS. On every pull request, CI runs unit and snapshot tests. Upon merging to main, Fastlane automatically bumps build numbers, compiles signed IPA/AAB binaries, and pushes directly to TestFlight and Google Play Internal Testing tracks with automated changelogs.",
+    "idealAnswer": "I manage mobile deployment via Fastlane scripts integrated into GitHub Actions. For iOS code signing, we use `fastlane match` which stores encrypted certificates and provisioning profiles in a private Git repository with AWS KMS. On every pull request, CI runs unit and snapshot tests. Upon merging to main, Fastlane automatically bumps build numbers, compiles signed IPA/AAB binaries, and pushes directly to TestFlight and Google Play Internal Testing tracks with automated changelogs.",
+    "keyConceptsToCover": [
+      "Fastlane Match",
+      "Code Signing Certificates",
+      "TestFlight CI/CD",
+      "Automated Play Console Tracks"
+    ],
+    "followUps": [
+      "How does Fastlane Match eliminate code signing conflicts across a distributed engineering team?",
+      "What is the difference between Android App Bundles (AAB) and APKs for user download size?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-custom-jd-yqosg",
+    "role": "Mobile App Developer",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "How do you profile and optimize mobile battery consumption, background location telemetry, and thermal throttling in location-heavy apps?",
+    "hint": "Geofencing vs continuous GPS, Significant Motion API, fused location provider, batching network requests, Energy Organizer in Xcode Instruments.",
+    "sampleAnswer": "Continuous GPS radio polling is the fastest way to drain mobile battery and cause thermal throttling. I optimize location tracking by replacing continuous GPS with Geofencing APIs and Android's Fused Location Provider in balanced-power mode. When high accuracy is required (during active navigation), we use the Significant Motion API and accelerometer sensors to suspend GPS when the device is stationary. Location telemetry points are buffered locally and batched into single compressed HTTP requests.",
+    "idealAnswer": "Continuous GPS radio polling is the fastest way to drain mobile battery and cause thermal throttling. I optimize location tracking by replacing continuous GPS with Geofencing APIs and Android's Fused Location Provider in balanced-power mode. When high accuracy is required (during active navigation), we use the Significant Motion API and accelerometer sensors to suspend GPS when the device is stationary. Location telemetry points are buffered locally and batched into single compressed HTTP requests.",
+    "keyConceptsToCover": [
+      "Battery Optimization",
+      "Fused Location Provider",
+      "Significant Motion API",
+      "Thermal Throttling",
+      "Xcode Energy Profiler"
+    ],
+    "followUps": [
+      "How does Android Doze mode and App Standby Buckets affect background location tracking?",
+      "How do you detect when iOS suspends background execution using background task expiration handlers?"
+    ]
+  },
+  {
+    "id": "mobile-app-developer-core-technical-5d9vu",
+    "role": "Mobile App Developer",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How does Deep Linking work on mobile (Universal Links on iOS and App Links on Android) and how do you handle deferred deep linking for user onboarding?",
+    "hint": "apple-app-site-association (AASA) file, assetlinks.json on HTTPS domain, deferred deep linking via fingerprinting or clipboard attribution.",
+    "sampleAnswer": "Standard custom schemes (myapp://) are insecure and prompt warning dialogs. Universal Links (iOS) and App Links (Android) use two-way cryptographic verification: the mobile app declares the target domain, and the domain hosts a verified JSON file (`apple-app-site-association` and `assetlinks.json`). When a user taps a link, the OS opens the app directly without browser redirection. For users who don't have the app installed, Deferred Deep Linking uses Branch.io or device fingerprinting to route them to the App Store and restore context after installation.",
+    "idealAnswer": "Standard custom schemes (myapp://) are insecure and prompt warning dialogs. Universal Links (iOS) and App Links (Android) use two-way cryptographic verification: the mobile app declares the target domain, and the domain hosts a verified JSON file (`apple-app-site-association` and `assetlinks.json`). When a user taps a link, the OS opens the app directly without browser redirection. For users who don't have the app installed, Deferred Deep Linking uses Branch.io or device fingerprinting to route them to the App Store and restore context after installation.",
+    "keyConceptsToCover": [
+      "Universal Links (iOS)",
+      "App Links (Android)",
+      "AASA Verification",
+      "Deferred Deep Linking"
+    ],
+    "followUps": [
+      "What causes Universal Links to silently break and fallback to Safari?",
+      "How does deferred deep linking preserve the user's intended destination post-install?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-system-design-ag8jh",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "Design an enterprise Zero-Trust Network Access (ZTNA) and identity-aware proxy architecture replacing legacy corporate VPNs.",
+    "hint": "BeyondCorp model, identity provider (IdP) OIDC/SAML, device posture evaluation (MDM/EDR), mTLS micro-segmentation, continuous authorization.",
+    "sampleAnswer": "I architect the ZTNA solution around Google's BeyondCorp model. Corporate applications are never exposed directly to the public internet or flat local subnets; they sit behind an Identity-Aware Proxy (IAP/Envoy). Every incoming request requires: 1) Strong user authentication via IdP with FIDO2 WebAuthn MFA. 2) Device health attestation: the device must present a client certificate issued by corporate MDM verifying disk encryption and active EDR. 3) Continuous authorization: if device posture degrades during a session, access is revoked immediately.",
+    "idealAnswer": "I architect the ZTNA solution around Google's BeyondCorp model. Corporate applications are never exposed directly to the public internet or flat local subnets; they sit behind an Identity-Aware Proxy (IAP/Envoy). Every incoming request requires: 1) Strong user authentication via IdP with FIDO2 WebAuthn MFA. 2) Device health attestation: the device must present a client certificate issued by corporate MDM verifying disk encryption and active EDR. 3) Continuous authorization: if device posture degrades during a session, access is revoked immediately.",
+    "keyConceptsToCover": [
+      "Zero Trust Network Access (ZTNA)",
+      "Identity-Aware Proxy",
+      "Device Posture Attestation",
+      "mTLS Micro-segmentation",
+      "FIDO2 WebAuthn"
+    ],
+    "followUps": [
+      "How does ZTNA mitigate lateral movement compared to traditional corporate VPNs?",
+      "How do you handle legacy internal protocols (e.g. SSH, RDP) through an identity-aware HTTP proxy?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-core-technical-13utx",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "Explain how Cross-Site Request Forgery (CSRF) and Cross-Site Scripting (XSS) attacks work, and how modern browser defenses (SameSite cookies, CSP, Subresource Integrity) mitigate them.",
+    "hint": "Reflected/Stored/DOM XSS, CSRF state mutation via ambient credential transport, SameSite=Strict/Lax, Content-Security-Policy headers.",
+    "sampleAnswer": "XSS occurs when malicious JavaScript executes in the victim's browser context (Stored, Reflected, or DOM-based), allowing attackers to steal session tokens or manipulate DOM. CSRF tricks an authenticated browser into submitting unauthorized requests to a trusted site because cookies are automatically sent with ambient credentials. Modern defenses include: 1) Cookies with `SameSite=Lax` or `Strict` and `HttpOnly; Secure`. 2) Strict `Content-Security-Policy` (CSP) with nonces to block unapproved script execution. 3) Subresource Integrity (SRI) hashes on CDN scripts.",
+    "idealAnswer": "XSS occurs when malicious JavaScript executes in the victim's browser context (Stored, Reflected, or DOM-based), allowing attackers to steal session tokens or manipulate DOM. CSRF tricks an authenticated browser into submitting unauthorized requests to a trusted site because cookies are automatically sent with ambient credentials. Modern defenses include: 1) Cookies with `SameSite=Lax` or `Strict` and `HttpOnly; Secure`. 2) Strict `Content-Security-Policy` (CSP) with nonces to block unapproved script execution. 3) Subresource Integrity (SRI) hashes on CDN scripts.",
+    "keyConceptsToCover": [
+      "XSS (Stored/Reflected/DOM)",
+      "CSRF Mitigation",
+      "SameSite Cookie Attribute",
+      "Content-Security-Policy (CSP)",
+      "Subresource Integrity (SRI)"
+    ],
+    "followUps": [
+      "Why does `SameSite=Lax` still allow top-level GET navigation requests, and why should GET requests never mutate state?",
+      "How does an attacker bypass naive CSP configurations using JSONP endpoints?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-debugging-r7tuy",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "Your SIEM alerts that an AWS IAM role associated with an EC2 instance is suddenly executing unauthorized `s3:GetObject` calls across sensitive customer buckets. Triage and contain.",
+    "hint": "SSRF vulnerability in web app querying EC2 IMDS (169.254.169.254) to steal temporary STS credentials. Immediate IAM revocation, upgrade to IMDSv2.",
+    "sampleAnswer": "This alert indicates Server-Side Request Forgery (SSRF) where an attacker exploited a file-read or proxy endpoint to query the EC2 Instance Metadata Service (IMDS) at `http://169.254.169.254/latest/meta-data/iam/security-credentials/` and exfiltrate temporary AWS STS tokens. Immediate containment: 1) Revoke the compromised IAM session in AWS IAM console by attaching an inline deny policy for sessions issued before current timestamp. 2) Enforce IMDSv2 (requiring a PUT session token) on all EC2 instances to neutralize SSRF. 3) Audit CloudTrail to determine all downloaded S3 objects.",
+    "idealAnswer": "This alert indicates Server-Side Request Forgery (SSRF) where an attacker exploited a file-read or proxy endpoint to query the EC2 Instance Metadata Service (IMDS) at `http://169.254.169.254/latest/meta-data/iam/security-credentials/` and exfiltrate temporary AWS STS tokens. Immediate containment: 1) Revoke the compromised IAM session in AWS IAM console by attaching an inline deny policy for sessions issued before current timestamp. 2) Enforce IMDSv2 (requiring a PUT session token) on all EC2 instances to neutralize SSRF. 3) Audit CloudTrail to determine all downloaded S3 objects.",
+    "keyConceptsToCover": [
+      "SSRF Attack",
+      "EC2 IMDSv1 vs IMDSv2",
+      "AWS STS Token Revocation",
+      "CloudTrail Forensics"
+    ],
+    "followUps": [
+      "Why does IMDSv2 require an HTTP PUT request with a TTL header to prevent SSRF bypasses?",
+      "How do you detect lateral movement in an AWS account after IAM credential theft?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-dsa-yndjk",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Implement an automated IP CIDR block prefix match (Radix Tree / Trie) to filter blacklisted IP addresses at 100,000 packets per second.",
+    "hint": "Bitwise binary trie (32 levels for IPv4, 128 for IPv6), longest prefix matching, O(32) lookup.",
+    "sampleAnswer": "Standard hash maps cannot perform CIDR range queries efficiently. I implement a Binary Radix Trie where each bit of an IPv4 address (converted to a 32-bit integer) represents a tree branch (0 = left, 1 = right). A CIDR block `/24` creates a path of 24 nodes, marking the 24th node as a terminal blacklist entry. When a packet IP arrives, we traverse the trie bit-by-bit in maximum 32 steps (O(1)). If any terminal node is traversed, the packet matches the CIDR blacklist and is dropped.",
+    "idealAnswer": "Standard hash maps cannot perform CIDR range queries efficiently. I implement a Binary Radix Trie where each bit of an IPv4 address (converted to a 32-bit integer) represents a tree branch (0 = left, 1 = right). A CIDR block `/24` creates a path of 24 nodes, marking the 24th node as a terminal blacklist entry. When a packet IP arrives, we traverse the trie bit-by-bit in maximum 32 steps (O(1)). If any terminal node is traversed, the packet matches the CIDR blacklist and is dropped.",
+    "keyConceptsToCover": [
+      "Binary Radix Trie",
+      "Longest Prefix Match",
+      "IP CIDR Filtering",
+      "Bitwise Routing Table"
+    ],
+    "followUps": [
+      "How do you extend this Radix Tree to support IPv6 (128-bit addresses) without excessive memory consumption?",
+      "What is the memory footprint difference between a standard Trie vs a Compressed Patricia Tree?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-behavioral-dg3gh",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Describe a security vulnerability you discovered during a threat modeling or architecture review that prevented a critical breach before deployment.",
+    "hint": "STAR format: STRIDE threat modeling, discovered broken object-level authorization (BOLA / IDOR), educated development team, and added automated authorization middleware.",
+    "sampleAnswer": "During an architecture review for a new tenant billing portal, I conducted a STRIDE threat model on the invoice export endpoint `/api/invoices/{invoiceId}`. I discovered that while authentication was enforced, the service lacked object-level tenant validation (IDOR/BOLA), allowing an authenticated tenant to view competitor invoices by enumerating integer IDs. I raised this as a P1 security blocker, designed a tenant-scoped UUID lookup policy with automated authorization middleware, and added regression integration tests to CI.",
+    "idealAnswer": "During an architecture review for a new tenant billing portal, I conducted a STRIDE threat model on the invoice export endpoint `/api/invoices/{invoiceId}`. I discovered that while authentication was enforced, the service lacked object-level tenant validation (IDOR/BOLA), allowing an authenticated tenant to view competitor invoices by enumerating integer IDs. I raised this as a P1 security blocker, designed a tenant-scoped UUID lookup policy with automated authorization middleware, and added regression integration tests to CI.",
+    "keyConceptsToCover": [
+      "STRIDE Threat Modeling",
+      "IDOR / BOLA Prevention",
+      "Object-Level Authorization",
+      "Security by Design"
+    ],
+    "followUps": [
+      "How do you prioritize fixing security vulnerabilities when developers are under tight feature deadlines?",
+      "What is the difference between Authentication (AuthN) and Authorization (AuthZ) failures in production APIs?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-culture-4z77u",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "How do you implement Shift-Left Security in DevSecOps pipelines (SAST, DAST, SCA, container scanning) without frustrating developer velocity?",
+    "hint": "Static Application Security Testing (SAST), Software Composition Analysis (SCA for CVEs), gating only high/critical vulnerabilities, providing instant inline remediation guidance.",
+    "sampleAnswer": "Shift-Left Security means embedding automated security checks directly into the developer workflow. We integrate Snyk/Trivy for Software Composition Analysis (SCA) to catch known CVEs in npm/pip dependencies and Semgrep for Static Analysis (SAST) in GitHub pull requests. To avoid developer friction, we configure CI to only break builds on verified High and Critical vulnerabilities with available fixes. Furthermore, security PR bots post exact remediation code snippets directly into the PR review.",
+    "idealAnswer": "Shift-Left Security means embedding automated security checks directly into the developer workflow. We integrate Snyk/Trivy for Software Composition Analysis (SCA) to catch known CVEs in npm/pip dependencies and Semgrep for Static Analysis (SAST) in GitHub pull requests. To avoid developer friction, we configure CI to only break builds on verified High and Critical vulnerabilities with available fixes. Furthermore, security PR bots post exact remediation code snippets directly into the PR review.",
+    "keyConceptsToCover": [
+      "DevSecOps",
+      "SAST (Semgrep)",
+      "SCA (Snyk/Trivy)",
+      "CVE Vulnerability Management",
+      "Developer Velocity"
+    ],
+    "followUps": [
+      "What are the limitations of Static Analysis (SAST) compared to Dynamic Analysis (DAST)?",
+      "How do you manage false positives in automated security scanning tools?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-custom-jd-j1r0r",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "custom-jd",
+    "difficulty": "hard",
+    "question": "How do you design a secure cryptographic key management hierarchy using AWS KMS or HashiCorp Vault with envelope encryption?",
+    "hint": "Master Key (CMK / KEK) in HSM, Data Encryption Key (DEK) generated locally for payload encryption, encrypting DEK with master key, zero plaintext DEK storage.",
+    "sampleAnswer": "I implement Envelope Encryption. Storing all sensitive data directly in an HSM is prohibitively slow and expensive. Instead, an HSM-backed Key Encryption Key (KEK / Master Key) never leaves the secure boundary. When encrypting a database column or file, we call `KMS:GenerateDataKey` which returns a plaintext Data Encryption Key (DEK) and an encrypted DEK. The application encrypts the data locally with the plaintext DEK using AES-256-GCM, immediately wipes the plaintext DEK from memory, and stores the encrypted DEK alongside the ciphertext.",
+    "idealAnswer": "I implement Envelope Encryption. Storing all sensitive data directly in an HSM is prohibitively slow and expensive. Instead, an HSM-backed Key Encryption Key (KEK / Master Key) never leaves the secure boundary. When encrypting a database column or file, we call `KMS:GenerateDataKey` which returns a plaintext Data Encryption Key (DEK) and an encrypted DEK. The application encrypts the data locally with the plaintext DEK using AES-256-GCM, immediately wipes the plaintext DEK from memory, and stores the encrypted DEK alongside the ciphertext.",
+    "keyConceptsToCover": [
+      "Envelope Encryption",
+      "Key Encryption Key (KEK)",
+      "Data Encryption Key (DEK)",
+      "AES-256-GCM",
+      "Hardware Security Module (HSM)"
+    ],
+    "followUps": [
+      "Why does Envelope Encryption minimize KMS API rate limits and network latency?",
+      "How do you automate cryptographic key rotation without re-encrypting terabytes of existing database records?"
+    ]
+  },
+  {
+    "id": "cybersecurity-systems-engineer-core-technical-bsmch",
+    "role": "Cybersecurity & Systems Engineer",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "How do Buffer Overflow vulnerabilities work on x86-64 Linux, and how do modern compiler/OS protections (ASLR, Stack Canaries, NX/DEP) prevent code execution?",
+    "hint": "Overwriting return pointer on stack, shellcode injection, Stack Canaries (magic values), ASLR randomizing memory offsets, NX marking stack non-executable.",
+    "sampleAnswer": "A buffer overflow occurs when an application writes more data to a stack-allocated buffer than allocated (e.g. via strcpy), overwriting adjacent stack memory including the stored Base Pointer and Return Instruction Pointer (RIP). When the function returns, execution jumps to attacker-controlled memory. Modern protections include: 1) Stack Canaries: randomized integers placed before RIP that are validated before return. 2) NX/DEP: marks stack memory non-executable, preventing shellcode execution. 3) ASLR: randomizes stack, heap, and library base addresses, thwarting hardcoded jump targets.",
+    "idealAnswer": "A buffer overflow occurs when an application writes more data to a stack-allocated buffer than allocated (e.g. via strcpy), overwriting adjacent stack memory including the stored Base Pointer and Return Instruction Pointer (RIP). When the function returns, execution jumps to attacker-controlled memory. Modern protections include: 1) Stack Canaries: randomized integers placed before RIP that are validated before return. 2) NX/DEP: marks stack memory non-executable, preventing shellcode execution. 3) ASLR: randomizes stack, heap, and library base addresses, thwarting hardcoded jump targets.",
+    "keyConceptsToCover": [
+      "Buffer Overflow",
+      "Stack Canaries",
+      "ASLR (Address Space Layout Randomization)",
+      "NX/DEP Bit",
+      "Return-Oriented Programming (ROP)"
+    ],
+    "followUps": [
+      "How do attackers bypass NX/DEP using Return-Oriented Programming (ROP) gadgets?",
+      "What is the difference between a stack-based buffer overflow and a heap-based use-after-free vulnerability?"
+    ]
+  },
+  {
+    "id": "cloud-sre-core-technical-bqhy3",
+    "role": "Cloud / SRE",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "SRE Scenario 9: How do you design, monitor, and troubleshoot production Kubernetes cluster upgrades?",
+    "hint": "Focus on resilience, etcd quorum backup, drain node eviction, pod disruption budgets (PDB), kubelet minor version skew.",
+    "sampleAnswer": "When implementing Kubernetes cluster upgrades, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. etcd quorum backup, drain node eviction, pod disruption budgets (PDB), kubelet minor version skew.",
+    "idealAnswer": "When implementing Kubernetes cluster upgrades, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. etcd quorum backup, drain node eviction, pod disruption budgets (PDB), kubelet minor version skew.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Kubernetes cluster upgrades"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-system-design-etant",
+    "role": "Cloud / SRE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "SRE Scenario 10: How do you design, monitor, and troubleshoot production BGP network routing & Anycast?",
+    "hint": "Focus on resilience, BGP peering, Anycast routing to closest edge POP, route flap damping, latency reduction.",
+    "sampleAnswer": "When implementing BGP network routing & Anycast, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. BGP peering, Anycast routing to closest edge POP, route flap damping, latency reduction.",
+    "idealAnswer": "When implementing BGP network routing & Anycast, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. BGP peering, Anycast routing to closest edge POP, route flap damping, latency reduction.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "BGP network routing & Anycast"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-debugging-lpf6r",
+    "role": "Cloud / SRE",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "SRE Scenario 11: How do you design, monitor, and troubleshoot production Distributed tracing propagation?",
+    "hint": "Focus on resilience, W3C trace context, OpenTelemetry B3 headers, span baggage, context propagation across async boundaries.",
+    "sampleAnswer": "When implementing Distributed tracing propagation, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. W3C trace context, OpenTelemetry B3 headers, span baggage, context propagation across async boundaries.",
+    "idealAnswer": "When implementing Distributed tracing propagation, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. W3C trace context, OpenTelemetry B3 headers, span baggage, context propagation across async boundaries.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Distributed tracing propagation"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-dsa-omcho",
+    "role": "Cloud / SRE",
+    "category": "dsa",
+    "difficulty": "hard",
+    "question": "SRE Scenario 12: How do you design, monitor, and troubleshoot production Prometheus Thanos federation?",
+    "hint": "Focus on resilience, Thanos Sidecar, Store Gateway, Compact, long-term S3 metric storage, global deduplicated querying.",
+    "sampleAnswer": "When implementing Prometheus Thanos federation, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Thanos Sidecar, Store Gateway, Compact, long-term S3 metric storage, global deduplicated querying.",
+    "idealAnswer": "When implementing Prometheus Thanos federation, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Thanos Sidecar, Store Gateway, Compact, long-term S3 metric storage, global deduplicated querying.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Prometheus Thanos federation"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-behavioral-sv5mr",
+    "role": "Cloud / SRE",
+    "category": "behavioral",
+    "difficulty": "hard",
+    "question": "SRE Scenario 13: How do you design, monitor, and troubleshoot production etcd quorum recovery?",
+    "hint": "Focus on resilience, Raft consensus, split-brain prevention, snapshot restoration, member removal and re-addition.",
+    "sampleAnswer": "When implementing etcd quorum recovery, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Raft consensus, split-brain prevention, snapshot restoration, member removal and re-addition.",
+    "idealAnswer": "When implementing etcd quorum recovery, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Raft consensus, split-brain prevention, snapshot restoration, member removal and re-addition.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "etcd quorum recovery"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-culture-1hp4r",
+    "role": "Cloud / SRE",
+    "category": "culture",
+    "difficulty": "hard",
+    "question": "SRE Scenario 14: How do you design, monitor, and troubleshoot production Global DNS latency optimization?",
+    "hint": "Focus on resilience, Route 53 latency-based routing, EDNS client subnet, TTL caching, health check failovers.",
+    "sampleAnswer": "When implementing Global DNS latency optimization, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Route 53 latency-based routing, EDNS client subnet, TTL caching, health check failovers.",
+    "idealAnswer": "When implementing Global DNS latency optimization, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Route 53 latency-based routing, EDNS client subnet, TTL caching, health check failovers.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Global DNS latency optimization"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-core-technical-5486v",
+    "role": "Cloud / SRE",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "SRE Scenario 15: How do you design, monitor, and troubleshoot production Terraform state locking & drift?",
+    "hint": "Focus on resilience, DynamoDB state locking, automated plan verification, drift detection cron, state manipulation safety.",
+    "sampleAnswer": "When implementing Terraform state locking & drift, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. DynamoDB state locking, automated plan verification, drift detection cron, state manipulation safety.",
+    "idealAnswer": "When implementing Terraform state locking & drift, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. DynamoDB state locking, automated plan verification, drift detection cron, state manipulation safety.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Terraform state locking & drift"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-system-design-bi76c",
+    "role": "Cloud / SRE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "SRE Scenario 16: How do you design, monitor, and troubleshoot production Linux kernel memory tuning?",
+    "hint": "Focus on resilience, vm.swappiness, vm.overcommit_memory, hugepages, page cache dirty ratio tuning.",
+    "sampleAnswer": "When implementing Linux kernel memory tuning, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. vm.swappiness, vm.overcommit_memory, hugepages, page cache dirty ratio tuning.",
+    "idealAnswer": "When implementing Linux kernel memory tuning, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. vm.swappiness, vm.overcommit_memory, hugepages, page cache dirty ratio tuning.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Linux kernel memory tuning"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-debugging-t8agi",
+    "role": "Cloud / SRE",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "SRE Scenario 17: How do you design, monitor, and troubleshoot production PostgreSQL WAL archiving & replication?",
+    "hint": "Focus on resilience, Write-Ahead Logging, streaming physical replication, logical decoding, point-in-time recovery (PITR).",
+    "sampleAnswer": "When implementing PostgreSQL WAL archiving & replication, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Write-Ahead Logging, streaming physical replication, logical decoding, point-in-time recovery (PITR).",
+    "idealAnswer": "When implementing PostgreSQL WAL archiving & replication, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Write-Ahead Logging, streaming physical replication, logical decoding, point-in-time recovery (PITR).",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "PostgreSQL WAL archiving & replication"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-dsa-r5dpj",
+    "role": "Cloud / SRE",
+    "category": "dsa",
+    "difficulty": "hard",
+    "question": "SRE Scenario 18: How do you design, monitor, and troubleshoot production Kafka broker disk & partition rebalancing?",
+    "hint": "Focus on resilience, Partition rebalance tools, cruise control, replica lag, broker disk saturation remediation.",
+    "sampleAnswer": "When implementing Kafka broker disk & partition rebalancing, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Partition rebalance tools, cruise control, replica lag, broker disk saturation remediation.",
+    "idealAnswer": "When implementing Kafka broker disk & partition rebalancing, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Partition rebalance tools, cruise control, replica lag, broker disk saturation remediation.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Kafka broker disk & partition rebalancing"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-behavioral-4ft4l",
+    "role": "Cloud / SRE",
+    "category": "behavioral",
+    "difficulty": "hard",
+    "question": "SRE Scenario 19: How do you design, monitor, and troubleshoot production Service mesh mTLS enforcement?",
+    "hint": "Focus on resilience, Istio PeerAuthentication STRICT mode, SPIFFE/SPIRE identity, mutual TLS handshake overhead.",
+    "sampleAnswer": "When implementing Service mesh mTLS enforcement, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Istio PeerAuthentication STRICT mode, SPIFFE/SPIRE identity, mutual TLS handshake overhead.",
+    "idealAnswer": "When implementing Service mesh mTLS enforcement, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Istio PeerAuthentication STRICT mode, SPIFFE/SPIRE identity, mutual TLS handshake overhead.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Service mesh mTLS enforcement"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-culture-gmj20",
+    "role": "Cloud / SRE",
+    "category": "culture",
+    "difficulty": "hard",
+    "question": "SRE Scenario 20: How do you design, monitor, and troubleshoot production AWS Direct Connect & Transit Gateway?",
+    "hint": "Focus on resilience, Dedicated 10Gbps fiber interconnects, Transit Gateway route tables, IPsec VPN backup failover.",
+    "sampleAnswer": "When implementing AWS Direct Connect & Transit Gateway, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Dedicated 10Gbps fiber interconnects, Transit Gateway route tables, IPsec VPN backup failover.",
+    "idealAnswer": "When implementing AWS Direct Connect & Transit Gateway, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Dedicated 10Gbps fiber interconnects, Transit Gateway route tables, IPsec VPN backup failover.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "AWS Direct Connect & Transit Gateway"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-core-technical-5fh4z",
+    "role": "Cloud / SRE",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "SRE Scenario 21: How do you design, monitor, and troubleshoot production Container runtime security & Falco?",
+    "hint": "Focus on resilience, eBPF kernel system call inspection, unauthorized shell spawning detection, automated pod isolation.",
+    "sampleAnswer": "When implementing Container runtime security & Falco, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. eBPF kernel system call inspection, unauthorized shell spawning detection, automated pod isolation.",
+    "idealAnswer": "When implementing Container runtime security & Falco, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. eBPF kernel system call inspection, unauthorized shell spawning detection, automated pod isolation.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Container runtime security & Falco"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-system-design-z3icu",
+    "role": "Cloud / SRE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "SRE Scenario 22: How do you design, monitor, and troubleshoot production CDN edge caching & cache purges?",
+    "hint": "Focus on resilience, Cloudflare / CloudFront surrogate keys, stale-while-revalidate, edge worker routing, instant purge API.",
+    "sampleAnswer": "When implementing CDN edge caching & cache purges, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Cloudflare / CloudFront surrogate keys, stale-while-revalidate, edge worker routing, instant purge API.",
+    "idealAnswer": "When implementing CDN edge caching & cache purges, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Cloudflare / CloudFront surrogate keys, stale-while-revalidate, edge worker routing, instant purge API.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "CDN edge caching & cache purges"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-debugging-godnb",
+    "role": "Cloud / SRE",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "SRE Scenario 23: How do you design, monitor, and troubleshoot production Database connection pool exhaustion?",
+    "hint": "Focus on resilience, PgBouncer vs HikariCP, connection queueing, thread pool starvation, TCP keepalive tuning.",
+    "sampleAnswer": "When implementing Database connection pool exhaustion, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. PgBouncer vs HikariCP, connection queueing, thread pool starvation, TCP keepalive tuning.",
+    "idealAnswer": "When implementing Database connection pool exhaustion, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. PgBouncer vs HikariCP, connection queueing, thread pool starvation, TCP keepalive tuning.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Database connection pool exhaustion"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-dsa-kbh7g",
+    "role": "Cloud / SRE",
+    "category": "dsa",
+    "difficulty": "hard",
+    "question": "SRE Scenario 24: How do you design, monitor, and troubleshoot production Auto-scaling algorithms (KEDA)?",
+    "hint": "Focus on resilience, Event-driven autoscaling, Kafka consumer lag metrics, AWS SQS queue depth scaling.",
+    "sampleAnswer": "When implementing Auto-scaling algorithms (KEDA), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Event-driven autoscaling, Kafka consumer lag metrics, AWS SQS queue depth scaling.",
+    "idealAnswer": "When implementing Auto-scaling algorithms (KEDA), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Event-driven autoscaling, Kafka consumer lag metrics, AWS SQS queue depth scaling.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Auto-scaling algorithms (KEDA)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-behavioral-t3qtj",
+    "role": "Cloud / SRE",
+    "category": "behavioral",
+    "difficulty": "hard",
+    "question": "SRE Scenario 25: How do you design, monitor, and troubleshoot production Linux network socket buffer tuning?",
+    "hint": "Focus on resilience, SO_RCVBUF, SO_SNDBUF, net.ipv4.tcp_max_syn_backlog, epoll vs select file descriptor limits.",
+    "sampleAnswer": "When implementing Linux network socket buffer tuning, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. SO_RCVBUF, SO_SNDBUF, net.ipv4.tcp_max_syn_backlog, epoll vs select file descriptor limits.",
+    "idealAnswer": "When implementing Linux network socket buffer tuning, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. SO_RCVBUF, SO_SNDBUF, net.ipv4.tcp_max_syn_backlog, epoll vs select file descriptor limits.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Linux network socket buffer tuning"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-culture-fcqr7",
+    "role": "Cloud / SRE",
+    "category": "culture",
+    "difficulty": "hard",
+    "question": "SRE Scenario 26: How do you design, monitor, and troubleshoot production Zero-trust service identity (SPIFFE/SPIRE)?",
+    "hint": "Focus on resilience, Cryptographic workload attestation, SVID X.509 certificates, short-lived automated rotation.",
+    "sampleAnswer": "When implementing Zero-trust service identity (SPIFFE/SPIRE), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Cryptographic workload attestation, SVID X.509 certificates, short-lived automated rotation.",
+    "idealAnswer": "When implementing Zero-trust service identity (SPIFFE/SPIRE), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Cryptographic workload attestation, SVID X.509 certificates, short-lived automated rotation.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Zero-trust service identity (SPIFFE/SPIRE)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-core-technical-uut2e",
+    "role": "Cloud / SRE",
+    "category": "core-technical",
+    "difficulty": "hard",
+    "question": "SRE Scenario 27: How do you design, monitor, and troubleshoot production Cloud cost optimization (FinOps)?",
+    "hint": "Focus on resilience, AWS Savings Plans vs Reserved Instances, spot instance interruption handling, right-sizing via Kubecost.",
+    "sampleAnswer": "When implementing Cloud cost optimization (FinOps), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. AWS Savings Plans vs Reserved Instances, spot instance interruption handling, right-sizing via Kubecost.",
+    "idealAnswer": "When implementing Cloud cost optimization (FinOps), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. AWS Savings Plans vs Reserved Instances, spot instance interruption handling, right-sizing via Kubecost.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Cloud cost optimization (FinOps)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-system-design-5dtgm",
+    "role": "Cloud / SRE",
+    "category": "system-design",
+    "difficulty": "hard",
+    "question": "SRE Scenario 28: How do you design, monitor, and troubleshoot production Distributed deadlock detection?",
+    "hint": "Focus on resilience, Lock dependency graphs, wait-for cycles, distributed transaction coordinators, timeout aborts.",
+    "sampleAnswer": "When implementing Distributed deadlock detection, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Lock dependency graphs, wait-for cycles, distributed transaction coordinators, timeout aborts.",
+    "idealAnswer": "When implementing Distributed deadlock detection, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Lock dependency graphs, wait-for cycles, distributed transaction coordinators, timeout aborts.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "Distributed deadlock detection"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-debugging-e62z4",
+    "role": "Cloud / SRE",
+    "category": "debugging",
+    "difficulty": "hard",
+    "question": "SRE Scenario 29: How do you design, monitor, and troubleshoot production High-throughput log ingest (Vector / Fluentbit)?",
+    "hint": "Focus on resilience, Backpressure handling, memory buffers, disk spooling, structured JSON parsing.",
+    "sampleAnswer": "When implementing High-throughput log ingest (Vector / Fluentbit), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Backpressure handling, memory buffers, disk spooling, structured JSON parsing.",
+    "idealAnswer": "When implementing High-throughput log ingest (Vector / Fluentbit), I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Backpressure handling, memory buffers, disk spooling, structured JSON parsing.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "High-throughput log ingest (Vector / Fluentbit)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "cloud-sre-dsa-plr7q",
+    "role": "Cloud / SRE",
+    "category": "dsa",
+    "difficulty": "hard",
+    "question": "SRE Scenario 30: How do you design, monitor, and troubleshoot production API Gateway Envoy filter chaining?",
+    "hint": "Focus on resilience, Envoy WASM filters, Lua scripting, rate limiting sidecars, JWT verification filter chains.",
+    "sampleAnswer": "When implementing API Gateway Envoy filter chaining, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Envoy WASM filters, Lua scripting, rate limiting sidecars, JWT verification filter chains.",
+    "idealAnswer": "When implementing API Gateway Envoy filter chaining, I prioritize automated verification and blast radius containment. We establish clear SLIs/SLOs in Prometheus, configure automated canary rollouts, and ensure comprehensive runbooks with automated self-healing scripts. Envoy WASM filters, Lua scripting, rate limiting sidecars, JWT verification filter chains.",
+    "keyConceptsToCover": [
+      "Site Reliability Engineering",
+      "Fault Isolation",
+      "Automated Mitigation",
+      "API Gateway Envoy filter chaining"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-jvm1p",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 9: How do you analyze, model, and present findings on Customer Lifetime Value (LTV)?",
+    "hint": "Focus on methodology: Cohort-based LTV modeling, churn discounting, payback period, CAC to LTV ratios.",
+    "sampleAnswer": "I approach Customer Lifetime Value (LTV) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Cohort-based LTV modeling, churn discounting, payback period, CAC to LTV ratios. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Customer Lifetime Value (LTV) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Cohort-based LTV modeling, churn discounting, payback period, CAC to LTV ratios. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Customer Lifetime Value (LTV)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-system-design-xuf5r",
+    "role": "Data Analyst",
+    "category": "system-design",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 10: How do you analyze, model, and present findings on Churn Prediction Cohorts?",
+    "hint": "Focus on methodology: Survival analysis, Kaplan-Meier curves, hazard ratios, early warning feature signals.",
+    "sampleAnswer": "I approach Churn Prediction Cohorts with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Survival analysis, Kaplan-Meier curves, hazard ratios, early warning feature signals. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Churn Prediction Cohorts with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Survival analysis, Kaplan-Meier curves, hazard ratios, early warning feature signals. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Churn Prediction Cohorts"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-debugging-mvi5w",
+    "role": "Data Analyst",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 11: How do you analyze, model, and present findings on Pricing Elasticity & Sensitivity?",
+    "hint": "Focus on methodology: Van Westendorp Price Sensitivity Meter, price elasticity of demand curves, A/B price testing.",
+    "sampleAnswer": "I approach Pricing Elasticity & Sensitivity with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Van Westendorp Price Sensitivity Meter, price elasticity of demand curves, A/B price testing. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Pricing Elasticity & Sensitivity with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Van Westendorp Price Sensitivity Meter, price elasticity of demand curves, A/B price testing. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Pricing Elasticity & Sensitivity"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-dsa-ct468",
+    "role": "Data Analyst",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 12: How do you analyze, model, and present findings on Marketing Attribution Multi-Touch?",
+    "hint": "Focus on methodology: First-touch vs Last-touch vs Markov Chain data-driven attribution models across campaign channels.",
+    "sampleAnswer": "I approach Marketing Attribution Multi-Touch with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. First-touch vs Last-touch vs Markov Chain data-driven attribution models across campaign channels. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Marketing Attribution Multi-Touch with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. First-touch vs Last-touch vs Markov Chain data-driven attribution models across campaign channels. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Marketing Attribution Multi-Touch"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-behavioral-y5vac",
+    "role": "Data Analyst",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 13: How do you analyze, model, and present findings on Warehouse Query Cost Optimization?",
+    "hint": "Focus on methodology: Snowflake warehouse clustering keys, partition pruning in BigQuery, materializing repeated joins.",
+    "sampleAnswer": "I approach Warehouse Query Cost Optimization with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Snowflake warehouse clustering keys, partition pruning in BigQuery, materializing repeated joins. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Warehouse Query Cost Optimization with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Snowflake warehouse clustering keys, partition pruning in BigQuery, materializing repeated joins. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Warehouse Query Cost Optimization"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-culture-8pgsp",
+    "role": "Data Analyst",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 14: How do you analyze, model, and present findings on Product Feature Engagement Funnels?",
+    "hint": "Focus on methodology: Multi-step dropoff analysis, time-to-value (TTV), reverse funnel pathing, session replay correlation.",
+    "sampleAnswer": "I approach Product Feature Engagement Funnels with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Multi-step dropoff analysis, time-to-value (TTV), reverse funnel pathing, session replay correlation. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Product Feature Engagement Funnels with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Multi-step dropoff analysis, time-to-value (TTV), reverse funnel pathing, session replay correlation. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Product Feature Engagement Funnels"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-84dok",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 15: How do you analyze, model, and present findings on Executive KPI Dashboard Storytelling?",
+    "hint": "Focus on methodology: Top-level KPI gauges, drilldown hierarchy, context benchmarks, actionable insight callouts.",
+    "sampleAnswer": "I approach Executive KPI Dashboard Storytelling with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Top-level KPI gauges, drilldown hierarchy, context benchmarks, actionable insight callouts. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Executive KPI Dashboard Storytelling with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Top-level KPI gauges, drilldown hierarchy, context benchmarks, actionable insight callouts. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Executive KPI Dashboard Storytelling"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-system-design-bk0y6",
+    "role": "Data Analyst",
+    "category": "system-design",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 16: How do you analyze, model, and present findings on Market Basket & Association Rules?",
+    "hint": "Focus on methodology: Apriori algorithm, Support, Confidence, Lift, cross-sell recommendation engines.",
+    "sampleAnswer": "I approach Market Basket & Association Rules with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Apriori algorithm, Support, Confidence, Lift, cross-sell recommendation engines. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Market Basket & Association Rules with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Apriori algorithm, Support, Confidence, Lift, cross-sell recommendation engines. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Market Basket & Association Rules"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-debugging-jxc9c",
+    "role": "Data Analyst",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 17: How do you analyze, model, and present findings on Time Series Seasonality Forecasting?",
+    "hint": "Focus on methodology: Prophet / ARIMA models, trend decomposition, holiday regressors, confidence intervals.",
+    "sampleAnswer": "I approach Time Series Seasonality Forecasting with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Prophet / ARIMA models, trend decomposition, holiday regressors, confidence intervals. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Time Series Seasonality Forecasting with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Prophet / ARIMA models, trend decomposition, holiday regressors, confidence intervals. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Time Series Seasonality Forecasting"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-dsa-wvji9",
+    "role": "Data Analyst",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 18: How do you analyze, model, and present findings on Customer Segmentation (RFM)?",
+    "hint": "Focus on methodology: Recency, Frequency, Monetary scoring, k-means cluster validation, targeted persona tiers.",
+    "sampleAnswer": "I approach Customer Segmentation (RFM) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Recency, Frequency, Monetary scoring, k-means cluster validation, targeted persona tiers. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Customer Segmentation (RFM) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Recency, Frequency, Monetary scoring, k-means cluster validation, targeted persona tiers. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Customer Segmentation (RFM)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-behavioral-68mu7",
+    "role": "Data Analyst",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 19: How do you analyze, model, and present findings on Data Quality & Anomaly Assertions?",
+    "hint": "Focus on methodology: dbt-expectations, Great Expectations suites, automated null and range drift detection.",
+    "sampleAnswer": "I approach Data Quality & Anomaly Assertions with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. dbt-expectations, Great Expectations suites, automated null and range drift detection. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Data Quality & Anomaly Assertions with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. dbt-expectations, Great Expectations suites, automated null and range drift detection. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Data Quality & Anomaly Assertions"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-culture-0ui3q",
+    "role": "Data Analyst",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 20: How do you analyze, model, and present findings on Sales Pipeline Velocity & Conversion?",
+    "hint": "Focus on methodology: Stage duration metrics, win rates by deal size, rep quota attainment distributions.",
+    "sampleAnswer": "I approach Sales Pipeline Velocity & Conversion with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Stage duration metrics, win rates by deal size, rep quota attainment distributions. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Sales Pipeline Velocity & Conversion with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Stage duration metrics, win rates by deal size, rep quota attainment distributions. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Sales Pipeline Velocity & Conversion"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-9xcr8",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 21: How do you analyze, model, and present findings on SaaS Net Revenue Retention (NRR)?",
+    "hint": "Focus on methodology: Expansion revenue, contraction, gross churn, cohort heatmaps, benchmark metrics.",
+    "sampleAnswer": "I approach SaaS Net Revenue Retention (NRR) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Expansion revenue, contraction, gross churn, cohort heatmaps, benchmark metrics. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach SaaS Net Revenue Retention (NRR) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Expansion revenue, contraction, gross churn, cohort heatmaps, benchmark metrics. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "SaaS Net Revenue Retention (NRR)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-system-design-1zerf",
+    "role": "Data Analyst",
+    "category": "system-design",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 22: How do you analyze, model, and present findings on User Survey Sentiment Analysis (NPS)?",
+    "hint": "Focus on methodology: Net Promoter Score calculation, CSAT, NLP text topic modeling on customer feedback comments.",
+    "sampleAnswer": "I approach User Survey Sentiment Analysis (NPS) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Net Promoter Score calculation, CSAT, NLP text topic modeling on customer feedback comments. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach User Survey Sentiment Analysis (NPS) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Net Promoter Score calculation, CSAT, NLP text topic modeling on customer feedback comments. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "User Survey Sentiment Analysis (NPS)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-debugging-558q9",
+    "role": "Data Analyst",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 23: How do you analyze, model, and present findings on Omnichannel Retail Inventory Turnover?",
+    "hint": "Focus on methodology: Sell-through rate, inventory holding costs, stockout probability, lead time variance.",
+    "sampleAnswer": "I approach Omnichannel Retail Inventory Turnover with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Sell-through rate, inventory holding costs, stockout probability, lead time variance. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Omnichannel Retail Inventory Turnover with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Sell-through rate, inventory holding costs, stockout probability, lead time variance. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Omnichannel Retail Inventory Turnover"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-dsa-el33l",
+    "role": "Data Analyst",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 24: How do you analyze, model, and present findings on A/B Test Peeking & Sequential Testing?",
+    "hint": "Focus on methodology: Alpha spending functions, sequential probability ratio tests (SPRT), preventing sample ratio mismatch.",
+    "sampleAnswer": "I approach A/B Test Peeking & Sequential Testing with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Alpha spending functions, sequential probability ratio tests (SPRT), preventing sample ratio mismatch. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach A/B Test Peeking & Sequential Testing with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Alpha spending functions, sequential probability ratio tests (SPRT), preventing sample ratio mismatch. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "A/B Test Peeking & Sequential Testing"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-behavioral-i59e8",
+    "role": "Data Analyst",
+    "category": "behavioral",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 25: How do you analyze, model, and present findings on Web Analytics Session Stitching?",
+    "hint": "Focus on methodology: Cross-device user ID reconciliation, anonymous-to-authenticated tracking, cookie consent handling.",
+    "sampleAnswer": "I approach Web Analytics Session Stitching with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Cross-device user ID reconciliation, anonymous-to-authenticated tracking, cookie consent handling. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Web Analytics Session Stitching with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Cross-device user ID reconciliation, anonymous-to-authenticated tracking, cookie consent handling. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Web Analytics Session Stitching"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-culture-9ep00",
+    "role": "Data Analyst",
+    "category": "culture",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 26: How do you analyze, model, and present findings on Data Mesh Domain Ownership?",
+    "hint": "Focus on methodology: Decentralized data products, domain-driven data modeling, federated computational governance.",
+    "sampleAnswer": "I approach Data Mesh Domain Ownership with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Decentralized data products, domain-driven data modeling, federated computational governance. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Data Mesh Domain Ownership with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Decentralized data products, domain-driven data modeling, federated computational governance. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Data Mesh Domain Ownership"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-core-technical-odplg",
+    "role": "Data Analyst",
+    "category": "core-technical",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 27: How do you analyze, model, and present findings on Product Usage Stickiness (DAU/MAU)?",
+    "hint": "Focus on methodology: L14/L28 engagement curves, power user curves, core action frequency analysis.",
+    "sampleAnswer": "I approach Product Usage Stickiness (DAU/MAU) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. L14/L28 engagement curves, power user curves, core action frequency analysis. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Product Usage Stickiness (DAU/MAU) with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. L14/L28 engagement curves, power user curves, core action frequency analysis. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Product Usage Stickiness (DAU/MAU)"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-system-design-3vs3w",
+    "role": "Data Analyst",
+    "category": "system-design",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 28: How do you analyze, model, and present findings on Supply Chain Demand Volatility?",
+    "hint": "Focus on methodology: Bullwhip effect analysis, safety stock calculations, supplier delivery reliability scoring.",
+    "sampleAnswer": "I approach Supply Chain Demand Volatility with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Bullwhip effect analysis, safety stock calculations, supplier delivery reliability scoring. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Supply Chain Demand Volatility with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. Bullwhip effect analysis, safety stock calculations, supplier delivery reliability scoring. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Supply Chain Demand Volatility"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-debugging-nalbl",
+    "role": "Data Analyst",
+    "category": "debugging",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 29: How do you analyze, model, and present findings on Healthcare / Fintech Regulatory Audits?",
+    "hint": "Focus on methodology: HIPAA/SOC2 compliance reporting, audit trail completeness, sensitive PII tokenization.",
+    "sampleAnswer": "I approach Healthcare / Fintech Regulatory Audits with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. HIPAA/SOC2 compliance reporting, audit trail completeness, sensitive PII tokenization. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Healthcare / Fintech Regulatory Audits with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. HIPAA/SOC2 compliance reporting, audit trail completeness, sensitive PII tokenization. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Healthcare / Fintech Regulatory Audits"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
+    ]
+  },
+  {
+    "id": "data-analyst-dsa-zo09b",
+    "role": "Data Analyst",
+    "category": "dsa",
+    "difficulty": "medium",
+    "question": "Analytics Case Study 30: How do you analyze, model, and present findings on Executive Board Deck Data Synthesis?",
+    "hint": "Focus on methodology: C-suite executive summaries, translating statistical variances into revenue drivers, strategic recommendations.",
+    "sampleAnswer": "I approach Executive Board Deck Data Synthesis with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. C-suite executive summaries, translating statistical variances into revenue drivers, strategic recommendations. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "idealAnswer": "I approach Executive Board Deck Data Synthesis with a rigorous analytical workflow: validating source data lineage, modeling reproducible transformation pipelines in dbt/SQL, and applying statistical rigor. C-suite executive summaries, translating statistical variances into revenue drivers, strategic recommendations. I synthesize findings into clear executive narratives with actionable business recommendations.",
+    "keyConceptsToCover": [
+      "Data Analysis",
+      "Statistical Modeling",
+      "Business Intelligence",
+      "Executive Board Deck Data Synthesis"
+    ],
+    "followUps": [
+      "How would you benchmark this in production?",
+      "What trade-offs did you consider?"
     ]
   }
 ];

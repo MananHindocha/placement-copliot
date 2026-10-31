@@ -15,7 +15,6 @@ import {
   INTERVIEW_ROLES,
   EXPANDED_CATEGORIES,
   getRoleInterviewQuestions,
-  type InterviewRole,
 } from "@/lib/interview-questions";
 import type {
   InterviewQuestion,
@@ -31,7 +30,6 @@ import {
   ChevronLeft,
   Lightbulb,
   Eye,
-  EyeOff,
   Mic,
   MicOff,
   Star,
@@ -54,14 +52,12 @@ import {
   Activity,
   Award,
   CheckCircle2,
-  XCircle,
-  GitBranch,
   FileCode,
-  Layers,
   Search,
-  RefreshCw,
+  Plus,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { VisualTelemetryAnalyzer, type VisualPostureState } from "@/lib/visual-telemetry";
 
 function GithubIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -134,9 +130,25 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 
 const FILLER_WORDS_LIST = ["um", "uh", "like", "basically", "actually", "literally", "you know"] as const;
 
+export interface StudioQuestion extends InterviewQuestion {
+  isCustom?: boolean;
+}
+
+interface RawResumeProject {
+  title?: string;
+  subtitle?: string;
+  bullets?: Array<string | { text?: string }>;
+}
+
+interface RawResumeExperience {
+  title?: string;
+  subtitle?: string;
+  bullets?: Array<string | { text?: string }>;
+}
+
 export default function InterviewPage() {
   // ─── Core Data State ────────────────────────────────────────────────────────
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [questions, setQuestions] = useState<StudioQuestion[]>([]);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +167,6 @@ export default function InterviewPage() {
   const [jdCompany, setJdCompany] = useState("");
   const [jdTitle, setJdTitle] = useState("");
   const [jdText, setJdText] = useState("");
-  const [isGeneratingJd, setIsGeneratingJd] = useState(false);
   const [jdSuccessMsg, setJdSuccessMsg] = useState<string | null>(null);
 
   // ─── GitHub Link Analyzer (Resume Grill) State ──────────────────────────────
@@ -176,6 +187,8 @@ export default function InterviewPage() {
   const [fillerCounts, setFillerCounts] = useState<Record<string, number>>({});
   const [isHesitating, setIsHesitating] = useState(false);
   const [hesitationGaps, setHesitationGaps] = useState(0);
+  const [recordingStatusBadge, setRecordingStatusBadge] = useState<string | null>(null);
+  const [micActiveLevel, setMicActiveLevel] = useState<number>(0);
 
   // ─── Multi-Turn Conversation State ──────────────────────────────────────────
   const [sessionTurns, setSessionTurns] = useState<InterviewTurn[]>([]);
@@ -192,7 +205,35 @@ export default function InterviewPage() {
   const [showTroubleshootHelp, setShowTroubleshootHelp] = useState(false);
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const [liveEyeContact, setLiveEyeContact] = useState<number>(-1);
-  const [livePosture, setLivePosture] = useState<"Stable" | "Centering" | "Shifting">("Stable");
+  const [livePosture, setLivePosture] = useState<VisualPostureState>("Stable");
+  const [reticleColor, setReticleColor] = useState<"green" | "amber" | "rose">("green");
+  const [visualToast, setVisualToast] = useState<string | null>(null);
+
+  // ─── Custom Resume + JD Question Generator State ─────────────────────────────
+  const [showCustomizerPanel, setShowCustomizerPanel] = useState(false);
+  const [customRole, setCustomRole] = useState("Full-Stack SDE");
+  const [customCompany, setCustomCompany] = useState("");
+  const [customJdText, setCustomJdText] = useState("");
+  const [customDifficulty, setCustomDifficulty] = useState<"Easy" | "Medium" | "Hard" | "Mixed">("Mixed");
+  const [customFocusCategories, setCustomFocusCategories] = useState<string[]>([
+    "core-technical",
+    "resume-grill",
+    "system-design",
+    "behavioral",
+    "debugging",
+  ]);
+  const [includeResumeContext, setIncludeResumeContext] = useState(true);
+  const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
+  const [customSuccessMsg, setCustomSuccessMsg] = useState<string | null>(null);
+
+  // ─── LocalStorage Resume Detection ──────────────────────────────────────────
+  const [detectedResume, setDetectedResume] = useState<{
+    fileName: string;
+    candidateName?: string;
+    skills: string[];
+    projects: Array<{ title: string; subtitle?: string; bullets: string[] }>;
+    experience: Array<{ title: string; subtitle?: string; bullets: string[] }>;
+  } | null>(null);
 
   // ─── Evaluation State ───────────────────────────────────────────────────────
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -205,6 +246,7 @@ export default function InterviewPage() {
   const audioCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
   const virtualAnimRef = useRef<number | null>(null);
+  const visualAnalyzerRef = useRef<VisualTelemetryAnalyzer | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -217,6 +259,7 @@ export default function InterviewPage() {
   const lastSpokenTimestampRef = useRef<number>(0);
   const eyeSamplesRef = useRef<{ center: number; total: number }>({ center: 0, total: 0 });
   const recentDistancesRef = useRef<number[]>([]);
+  const evaluationRef = useRef<HTMLDivElement | null>(null);
 
   // ─── Speech Synthesis (TTS) Helper ──────────────────────────────────────────
   const speakText = useCallback(
@@ -254,8 +297,6 @@ export default function InterviewPage() {
 
   // ─── Initial Data Loading ───────────────────────────────────────────────────
   const loadData = useCallback(() => {
-    setLoading(true);
-    setError(null);
     Promise.all([getInterviewQuestions(selectedRole), getPastInterviewSessions()])
       .then(([qs, past]) => {
         setQuestions(qs);
@@ -272,22 +313,81 @@ export default function InterviewPage() {
     loadData();
   }, [loadData]);
 
+  // Read resume from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timer = setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem("copilot_latest_resume_analysis");
+        if (raw) {
+          const workspace = JSON.parse(raw);
+          const skills: string[] = (
+            workspace.editableResume?.skills?.length
+              ? (workspace.editableResume.skills as string[])
+              : (workspace.analysis?.skills as string[]) || []
+          );
+          const rawProjects = (workspace.editableResume?.projects as RawResumeProject[] | undefined) || [];
+          const projects: Array<{ title: string; subtitle?: string; bullets: string[] }> = rawProjects.map((p) => ({
+            title: p.title || "Project",
+            subtitle: p.subtitle,
+            bullets: Array.isArray(p.bullets)
+              ? p.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
+              : [],
+          }));
+          const rawExperience = (workspace.editableResume?.experience as RawResumeExperience[] | undefined) || [];
+          const experience: Array<{ title: string; subtitle?: string; bullets: string[] }> = rawExperience.map((e) => ({
+            title: e.title || "Experience",
+            subtitle: e.subtitle,
+            bullets: Array.isArray(e.bullets)
+              ? e.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
+              : [],
+          }));
+          const candidateName = workspace.editableResume?.contactInfo?.fullName || "Candidate";
+          const fileName = workspace.fileName || "Uploaded Resume.pdf";
+
+          setDetectedResume({
+            fileName,
+            candidateName,
+            skills,
+            projects,
+            experience,
+          });
+        }
+      } catch (e) {
+        console.warn("Could not read resume analysis from localStorage:", e);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Read cross-module handoff from /jobs or /tracker
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const handoffRaw = sessionStorage.getItem("copilot_interview_handoff");
-      if (handoffRaw) {
-        const handoff = JSON.parse(handoffRaw);
-        sessionStorage.removeItem("copilot_interview_handoff");
-        if (handoff.company) setJdCompany(handoff.company);
-        if (handoff.title) setJdTitle(handoff.title);
-        if (handoff.jobDescription) setJdText(handoff.jobDescription);
-        setShowCustomJdModal(true);
+    const timer = setTimeout(() => {
+      try {
+        const handoffRaw = sessionStorage.getItem("copilot_interview_handoff");
+        if (handoffRaw) {
+          const handoff = JSON.parse(handoffRaw);
+          sessionStorage.removeItem("copilot_interview_handoff");
+          if (handoff.company) {
+            setJdCompany(handoff.company);
+            setCustomCompany(handoff.company);
+          }
+          if (handoff.title) {
+            setJdTitle(handoff.title);
+            setCustomRole(handoff.title);
+          }
+          if (handoff.jobDescription) {
+            setJdText(handoff.jobDescription);
+            setCustomJdText(handoff.jobDescription);
+          }
+          setShowCustomizerPanel(true);
+        }
+      } catch (e) {
+        console.warn("Could not parse interview handoff", e);
       }
-    } catch (e) {
-      console.warn("Could not parse interview handoff", e);
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // ─── Filtered Questions Based on Mode & Category ────────────────────────────
@@ -295,17 +395,20 @@ export default function InterviewPage() {
     if (studioMode === "grill") {
       return q.category === "resume-grill";
     }
-    // Match role (if question has role specified)
-    const roleMatches = !q.role || q.role.toLowerCase() === selectedRole.toLowerCase();
+    // Match role (if question has role specified or is custom tagged)
+    const roleMatches =
+      q.isCustom ||
+      !q.role ||
+      q.role.toLowerCase() === selectedRole.toLowerCase();
     if (!roleMatches) return false;
 
     if (filterCategory === "all") {
-      return q.category !== "resume-grill";
+      return q.isCustom || q.category !== "resume-grill";
     }
     return q.category === filterCategory;
   });
 
-  const activeQuestion: InterviewQuestion | undefined =
+  const activeQuestion: StudioQuestion | undefined =
     availableQuestions[currentIdx] || availableQuestions[0] || questions[0];
 
   // Auto-speak question when question changes if TTS is active
@@ -403,7 +506,8 @@ export default function InterviewPage() {
     drawVirtualFrame();
 
     try {
-      const stream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
+      const canvasEl = canvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream };
+      const stream = canvasEl.captureStream ? canvasEl.captureStream(30) : null;
       if (stream) {
         videoStreamRef.current = stream;
         if (videoRef.current) {
@@ -417,6 +521,8 @@ export default function InterviewPage() {
 
     setLiveEyeContact(88);
     setLivePosture("Stable");
+    setReticleColor("green");
+    setVisualToast("Avatar Stream Active (Calibrated)");
   };
 
   // ─── Camera Start / Stop Lifecycle (Reliable Hardware Release) ───────────────
@@ -452,9 +558,10 @@ export default function InterviewPage() {
         vStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 } },
         });
-      } catch (firstErr: any) {
+      } catch (firstErr: unknown) {
+        const firstErrName = (firstErr as { name?: string })?.name;
         // If permission explicitly denied by user, do not re-request immediately
-        if (firstErr?.name === "NotAllowedError" || firstErr?.name === "PermissionDeniedError") {
+        if (firstErrName === "NotAllowedError" || firstErrName === "PermissionDeniedError") {
           throw firstErr;
         }
         // Fallback to basic unconstrained video
@@ -471,71 +578,40 @@ export default function InterviewPage() {
         videoRef.current.play().catch(() => {});
       }
 
-      // Start Gaze & Stability Tracking (10Hz)
-      const offscreen = document.createElement("canvas");
-      offscreen.width = 64;
-      offscreen.height = 48;
-      const offCtx = offscreen.getContext("2d", { willReadFrequently: true });
+      // Start Real-Time Computer-Vision Telemetry Tracking (100ms / 10 FPS)
+      if (visualAnalyzerRef.current) {
+        visualAnalyzerRef.current.reset();
+      } else {
+        visualAnalyzerRef.current = new VisualTelemetryAnalyzer();
+      }
 
       if (gazeIntervalRef.current) clearInterval(gazeIntervalRef.current);
       gazeIntervalRef.current = setInterval(() => {
-        if (!videoRef.current || !offCtx || videoRef.current.readyState < 2) return;
-        offCtx.drawImage(videoRef.current, 0, 0, 64, 48);
-        const imgData = offCtx.getImageData(0, 0, 64, 48);
-        const data = imgData.data;
-
-        let totalLum = 0;
-        let weightedX = 0;
-        let weightedY = 0;
-
-        for (let y = 0; y < 48; y += 2) {
-          for (let x = 0; x < 64; x += 2) {
-            const idx = (y * 64 + x) * 4;
-            const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-            if (lum > 35) {
-              totalLum += lum;
-              weightedX += x * lum;
-              weightedY += y * lum;
-            }
-          }
-        }
-
-        if (totalLum > 0) {
-          const cx = weightedX / totalLum;
-          const cy = weightedY / totalLum;
-
-          const inCenter = cx >= 20 && cx <= 44 && cy >= 14 && cy <= 34;
-          eyeSamplesRef.current.total += 1;
-          if (inCenter) eyeSamplesRef.current.center += 1;
-
-          const ratio = Math.round((eyeSamplesRef.current.center / eyeSamplesRef.current.total) * 100);
-          setLiveEyeContact(ratio);
-
-          const dist = Math.hypot(cx - 32, cy - 24);
-          recentDistancesRef.current.push(dist);
-          if (recentDistancesRef.current.length > 12) recentDistancesRef.current.shift();
-          const avgDist =
-            recentDistancesRef.current.reduce((a, b) => a + b, 0) / recentDistancesRef.current.length;
-          setLivePosture(avgDist < 5.5 ? "Stable" : avgDist < 10 ? "Centering" : "Shifting");
-        }
-      }, 120);
-    } catch (err: any) {
+        if (!videoRef.current || !visualAnalyzerRef.current) return;
+        const frame = visualAnalyzerRef.current.analyzeFrame(videoRef.current);
+        setLiveEyeContact(frame.smoothEyeContactPct);
+        setLivePosture(frame.posture);
+        setReticleColor(frame.hudStatusColor);
+        setVisualToast(frame.hudToast);
+      }, 100);
+    } catch (err: unknown) {
       console.warn("[Webcam Notice] Camera access error:", err);
       let reason: "denied" | "in_use" | "not_found" | "unsupported" = "denied";
       let msg = "Camera permission was denied in your browser or Windows Privacy Settings.";
+      const errorObj = err as { name?: string; message?: string };
 
-      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+      if (errorObj?.name === "NotAllowedError" || errorObj?.name === "PermissionDeniedError") {
         reason = "denied";
         msg = "Camera permission was denied in your browser or Windows Privacy Settings.";
-      } else if (err?.name === "NotReadableError" || err?.name === "TrackStartError") {
+      } else if (errorObj?.name === "NotReadableError" || errorObj?.name === "TrackStartError") {
         reason = "in_use";
         msg = "Your webcam is currently locked by another application (e.g. Zoom, Teams, Skype, or Discord).";
-      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+      } else if (errorObj?.name === "NotFoundError" || errorObj?.name === "DevicesNotFoundError") {
         reason = "not_found";
         msg = "No webcam device was detected. Please plug in or enable your camera.";
       } else {
         reason = "unsupported";
-        msg = err?.message || "Unable to initialize video stream.";
+        msg = errorObj?.message || "Unable to initialize video stream.";
       }
 
       setCameraErrorInfo({ type: reason, message: msg });
@@ -566,6 +642,10 @@ export default function InterviewPage() {
       videoRef.current.pause();
     }
 
+    if (visualAnalyzerRef.current) {
+      visualAnalyzerRef.current.reset();
+    }
+
     if (gazeIntervalRef.current) {
       clearInterval(gazeIntervalRef.current);
       gazeIntervalRef.current = null;
@@ -576,6 +656,9 @@ export default function InterviewPage() {
     setCameraPermissionDenied(false);
     setCameraErrorInfo(null);
     setLiveEyeContact(-1);
+    setLivePosture("Stable");
+    setReticleColor("green");
+    setVisualToast(null);
   };
 
   // Cleanup media tracks on unmount
@@ -615,8 +698,11 @@ export default function InterviewPage() {
   // ─── Dual-Engine Speech Recording (Web Speech + Groq Whisper) ───────────────
   const startRecording = async () => {
     stopTTS();
+    setError(null);
     setIsRecording(true);
     isRecordingRef.current = true;
+    setRecordingStatusBadge(null);
+    setMicActiveLevel(0);
     setDurationSeconds(0);
     setWpmHistory([]);
     eyeSamplesRef.current = { center: 0, total: 0 };
@@ -626,47 +712,61 @@ export default function InterviewPage() {
     setHesitationGaps(0);
     audioChunksRef.current = [];
 
-    // 1. Acquire Microphone Audio Stream for MediaRecorder and Audio Visualizer
+    // 1. Acquire Single Clean Microphone Audio Stream
+    let audioStream: MediaStream;
     try {
-      if (!audioStreamRef.current || audioStreamRef.current.getAudioTracks().length === 0) {
-        const aStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStreamRef.current = aStream;
+      if (audioStreamRef.current && audioStreamRef.current.getAudioTracks().length > 0) {
+        audioStream = audioStreamRef.current;
+      } else {
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        audioStreamRef.current = audioStream;
       }
+    } catch (micErr) {
+      console.warn("[Microphone Notice] Mic stream error:", micErr);
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      setError("Microphone permission denied or hardware unavailable. Please allow microphone access.");
+      return;
+    }
 
-      const audioStream = audioStreamRef.current;
+    // 2. Initialize MediaRecorder for parallel audio capture (Whisper backup)
+    if (typeof MediaRecorder !== "undefined" && audioStream) {
+      try {
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/mp4";
 
-      // Initialize MediaRecorder for parallel audio capture (Whisper backup)
-      if (typeof MediaRecorder !== "undefined" && audioStream) {
-        try {
-          const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-            ? "audio/webm;codecs=opus"
-            : MediaRecorder.isTypeSupported("audio/webm")
-            ? "audio/webm"
-            : "audio/mp4";
+        const recorder = new MediaRecorder(audioStream, { mimeType });
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
 
-          const recorder = new MediaRecorder(audioStream, { mimeType });
-          mediaRecorderRef.current = recorder;
-          audioChunksRef.current = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
 
-          recorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) {
-              audioChunksRef.current.push(e.data);
-            }
-          };
-
-          recorder.start(250); // Slice chunks every 250ms
-        } catch (recErr) {
-          console.warn("[MediaRecorder] Failed to start recorder:", recErr);
-        }
+        recorder.start(250); // Slice chunks every 250ms
+      } catch (recErr) {
+        console.warn("[MediaRecorder] Failed to start recorder:", recErr);
       }
+    }
 
-      // AudioContext & AnalyserNode for live 60-bar waveform
+    // 3. AudioContext & AnalyserNode for live volume meter & waveform
+    try {
       if (audioStream && audioStream.getAudioTracks().length > 0) {
         const AudioCtx =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) {
           const audioCtx = new AudioCtx();
+          if (audioCtx.state === "suspended") {
+            await audioCtx.resume();
+          }
           audioCtxRef.current = audioCtx;
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
@@ -674,42 +774,50 @@ export default function InterviewPage() {
           source.connect(analyser);
 
           const canvas = audioCanvasRef.current;
-          if (canvas) {
-            const ctx = canvas.getContext("2d");
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
 
-            const renderWaveform = () => {
-              if (!ctx || !isRecordingRef.current) return;
-              analyser.getByteFrequencyData(dataArray);
+          const renderWaveform = () => {
+            if (!isRecordingRef.current) return;
+            analyser.getByteFrequencyData(dataArray);
 
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              const barWidth = (canvas.width / bufferLength) * 1.6;
-              let x = 0;
+            // Compute live average volume for meter
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+            const avg = sum / (bufferLength || 1);
+            setMicActiveLevel(Math.min(100, Math.round((avg / 128) * 100)));
 
-              for (let i = 0; i < bufferLength; i++) {
-                const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
-                const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-                gradient.addColorStop(0, "rgba(99, 102, 241, 0.2)");
-                gradient.addColorStop(1, "rgba(16, 185, 129, 0.9)");
+            if (canvas) {
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const barWidth = (canvas.width / bufferLength) * 1.6;
+                let x = 0;
 
-                ctx.fillStyle = gradient;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                x += barWidth + 2;
+                for (let i = 0; i < bufferLength; i++) {
+                  const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+                  const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+                  gradient.addColorStop(0, "rgba(99, 102, 241, 0.2)");
+                  gradient.addColorStop(1, "rgba(16, 185, 129, 0.9)");
+
+                  ctx.fillStyle = gradient;
+                  ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                  x += barWidth + 2;
+                }
               }
+            }
 
-              animFrameRef.current = requestAnimationFrame(renderWaveform);
-            };
+            animFrameRef.current = requestAnimationFrame(renderWaveform);
+          };
 
-            renderWaveform();
-          }
+          renderWaveform();
         }
       }
-    } catch (micErr) {
-      console.warn("[Microphone Notice] Mic stream error:", micErr);
+    } catch (ctxErr) {
+      console.warn("[AudioContext] Waveform setup error:", ctxErr);
     }
 
-    // 2. Initialize Browser Web SpeechRecognition with Auto-Restart
+    // 4. Non-Blocking Browser Web SpeechRecognition
     const SpeechRec =
       (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition;
@@ -730,22 +838,22 @@ export default function InterviewPage() {
             currentTranscript += event.results[i][0].transcript + " ";
           }
           const clean = currentTranscript.trim();
-          setResponse(clean);
-          countFillers(clean);
+          if (clean) {
+            setResponse(clean);
+            countFillers(clean);
+          }
         };
 
         recognition.onerror = (err) => {
-          console.warn("[SpeechRecognition Error]:", err);
+          console.warn("[SpeechRecognition Non-Blocking Error]:", err);
+          setRecordingStatusBadge("● Recording Audio (Groq Whisper AI will transcribe on Stop)...");
         };
 
         recognition.onend = () => {
-          // If the browser terminated listening due to 3-5 seconds of silence, automatically restart!
-          if (isRecordingRef.current) {
+          if (isRecordingRef.current && !recordingStatusBadge) {
             try {
               recognition.start();
-            } catch {
-              // Ignore if already active
-            }
+            } catch {}
           }
         };
 
@@ -753,10 +861,13 @@ export default function InterviewPage() {
         recognitionRef.current = recognition;
       } catch (sttErr) {
         console.warn("[SpeechRec] Web Speech could not start:", sttErr);
+        setRecordingStatusBadge("● Recording Audio (Groq Whisper AI will transcribe on Stop)...");
       }
+    } else {
+      setRecordingStatusBadge("● Recording Audio (Groq Whisper AI will transcribe on Stop)...");
     }
 
-    // 3. Interval: Timer, WPM calculator, and Hesitation Silence detector (>2.5s)
+    // 5. Interval: Timer, WPM calculator, and Hesitation Silence detector (>2.5s)
     let elapsed = 0;
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
 
@@ -772,10 +883,10 @@ export default function InterviewPage() {
         setIsHesitating(false);
       }
 
-      if (elapsed % 4 === 0) {
+      if (elapsed % 3 === 0) {
         setResponse((currentText) => {
           const words = currentText.trim().split(/\s+/).filter(Boolean).length;
-          const currentWpm = Math.round((words / elapsed) * 60);
+          const currentWpm = Math.round((words / Math.max(elapsed, 3)) * 60);
           setLiveWpm(currentWpm);
           setWpmHistory((prev) => [...prev, currentWpm]);
           return currentText;
@@ -784,13 +895,20 @@ export default function InterviewPage() {
     }, 1000);
   };
 
-  const stopRecording = async () => {
+  const stopRecording = async (): Promise<string> => {
     setIsRecording(false);
     isRecordingRef.current = false;
+    setRecordingStatusBadge(null);
+    setMicActiveLevel(0);
 
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
+    }
+
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
     }
 
     if (recognitionRef.current) {
@@ -800,59 +918,116 @@ export default function InterviewPage() {
       recognitionRef.current = null;
     }
 
-    // Stop MediaRecorder and evaluate Groq Whisper transcription if needed
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    // Stop audio context
+    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
       try {
-        mediaRecorderRef.current.stop();
+        audioCtxRef.current.close();
       } catch {}
+      audioCtxRef.current = null;
     }
 
-    const words = response.trim().split(/\s+/).filter(Boolean).length;
-    const finalWpm = durationSeconds > 0 ? Math.round((words / Math.max(1, durationSeconds)) * 60) : 120;
-    setLiveWpm(finalWpm);
-    countFillers(response);
-
-    // If Web Speech produced very little or candidate recorded audio, send to Groq Whisper for 100% precision
-    if (audioChunksRef.current.length > 0 && (words < 4 || durationSeconds >= 3)) {
-      setTimeout(async () => {
+    // Flush & stop MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        if (!mediaRecorderRef.current) return resolve();
+        mediaRecorderRef.current.onstop = () => resolve();
         try {
-          setIsTranscribingWithWhisper(true);
-          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-          const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
+          mediaRecorderRef.current.stop();
+        } catch {
+          resolve();
+        }
+      });
+    }
 
-          const res = await fetch("/api/interview/transcribe", {
-            method: "POST",
-            body: formData,
-          });
+    // Release microphone tracks to turn off hardware LED
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
+    }
 
-          if (res.ok) {
-            const data = await res.json();
-            if (data.text && data.text.trim().length > response.trim().length) {
-              setResponse(data.text.trim());
-              countFillers(data.text.trim());
-              if (data.wordsPerMinute) {
-                setLiveWpm(data.wordsPerMinute);
-              }
+    let audioBlob: Blob | null = null;
+    if (audioChunksRef.current.length > 0) {
+      const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+      audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+    }
+
+    let currentTranscript = response.trim();
+
+    // Send audio blob to Groq Whisper if available
+    if (audioBlob && audioBlob.size > 0) {
+      setIsTranscribingWithWhisper(true);
+      try {
+        const formData = new FormData();
+        const ext = audioBlob.type.includes("mp4") ? "mp4" : "webm";
+        formData.append("audio", audioBlob, `recording.${ext}`);
+
+        const res = await fetch("/api/interview/transcribe", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as { ok?: boolean; text?: string; wordsPerMinute?: number };
+          if (data.ok && data.text && data.text.trim()) {
+            currentTranscript = data.text.trim();
+            setResponse(currentTranscript);
+            countFillers(currentTranscript);
+            if (data.wordsPerMinute) {
+              setLiveWpm(data.wordsPerMinute);
             }
           }
-        } catch (transcribeErr) {
-          console.warn("[Whisper Transcribe Error]:", transcribeErr);
-        } finally {
-          setIsTranscribingWithWhisper(false);
         }
-      }, 350);
+      } catch (whisperErr) {
+        console.warn("[Groq Whisper Transcription error]:", whisperErr);
+      } finally {
+        setIsTranscribingWithWhisper(false);
+      }
     }
+
+    // Final calculations
+    const words = currentTranscript.split(/\s+/).filter(Boolean).length;
+    const finalWpm = Math.round((words / Math.max(durationSeconds, 5)) * 60);
+    setLiveWpm(finalWpm || 120);
+    countFillers(currentTranscript);
+
+    return currentTranscript;
+  };
+
+  // ─── 1-Click Sample Answer Loader ───────────────────────────────────────────
+  const handleApplySampleAnswer = () => {
+    const sample =
+      activeQuestion?.sampleAnswer ||
+      activeQuestion?.idealAnswer ||
+      "In my previous engineering project, we faced critical latency spikes under peak load. As the primary backend engineer, I profiled database bottlenecks, indexed foreign keys in PostgreSQL, and introduced a Redis caching tier for session data. This reduced p99 query latency from 850ms down to 42ms and successfully handled 10x traffic during product launch.";
+    setResponse(sample);
+    setDurationSeconds(42);
+    setLiveWpm(128);
+    setWpmHistory([120, 125, 130, 128]);
+    countFillers(sample);
+    setShowSample(true);
   };
 
   // ─── Evaluation Submission ──────────────────────────────────────────────────
   const handleEvaluate = async () => {
-    if (!response.trim() || !activeQuestion) return;
-    if (isRecording) stopRecording();
+    if (!activeQuestion) return;
+
+    let textToEvaluate = response.trim();
+
+    // If currently recording, stop recording and await Whisper transcript!
+    if (isRecording || isRecordingRef.current) {
+      textToEvaluate = await stopRecording();
+    }
+
+    if (!textToEvaluate) {
+      setError("No answer transcript found. Please record or type your response first.");
+      return;
+    }
+
     setIsEvaluating(true);
+    setError(null);
     setSaveSuccessMsg(null);
 
-    const words = response.trim().split(/\s+/).filter(Boolean).length;
+    const words = textToEvaluate.split(/\s+/).filter(Boolean).length;
     const calculatedWpm = durationSeconds > 0 ? Math.round((words / durationSeconds) * 60) : 125;
     const totalFillers = Object.values(fillerCounts).reduce((a, b) => a + b, 0);
 
@@ -862,7 +1037,7 @@ export default function InterviewPage() {
         questionText: activeQuestion.question,
         category: activeQuestion.category,
         role: selectedRole,
-        userTranscript: response.trim(),
+        userTranscript: textToEvaluate,
         durationSeconds: Math.max(10, durationSeconds),
         telemetry: {
           avgWpm: liveWpm || calculatedWpm,
@@ -871,15 +1046,38 @@ export default function InterviewPage() {
           totalFillerCount: totalFillers,
           hesitationGapsCount: hesitationGaps,
           eyeContactPct: cameraActive && !cameraPermissionDenied ? liveEyeContact : -1,
-          postureStabilityPct: livePosture === "Stable" ? 92 : livePosture === "Centering" ? 78 : 65,
+          postureStabilityPct:
+            livePosture === "Stable"
+              ? 92
+              : livePosture === "Calibrating..."
+              ? 85
+              : livePosture === "Off-Center"
+              ? 74
+              : livePosture === "Shifting"
+              ? 62
+              : 45,
         },
-        resumeContext: studioMode === "grill" ? `Project Architect: ${selectedRole}` : undefined,
+        resumeContext:
+          detectedResume
+            ? `Candidate: ${detectedResume.candidateName || "Candidate"}. Skills: ${detectedResume.skills.slice(0, 8).join(", ")}. Projects: ${detectedResume.projects.map((p) => p.title).join(", ")}`
+            : studioMode === "grill"
+            ? `Project Architect: ${selectedRole}`
+            : undefined,
         githubRepoContext: githubAnalysis ? JSON.stringify(githubAnalysis.summary) : undefined,
-        customJdContext: jdText ? `${jdCompany} - ${jdTitle}: ${jdText.slice(0, 500)}` : undefined,
+        customJdContext: customJdText
+          ? `${customCompany} - ${customRole}: ${customJdText.slice(0, 500)}`
+          : jdText
+          ? `${jdCompany} - ${jdTitle}: ${jdText.slice(0, 500)}`
+          : undefined,
       });
 
       setEvalResult(evaluation);
       setIsEvaluating(false);
+
+      // Auto-scroll to evaluation report smoothly
+      setTimeout(() => {
+        evaluationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
 
       if (ttsEnabled && evaluation.followUpQuestion?.prompt) {
         setTimeout(() => {
@@ -940,48 +1138,67 @@ export default function InterviewPage() {
     }
   };
 
-  // ─── Custom JD Question Generation ──────────────────────────────────────────
-  const handleGenerateCustomJd = async () => {
-    if (!jdText.trim() || jdText.trim().length < 20) {
-      setError("Please paste a job description of at least 20 characters.");
-      return;
-    }
+  // ─── Dual-Synthesizer Custom Question Generation (Resume + JD) ─────────────
+  const handleGenerateCustomQuestions = async (appendMode: boolean = false) => {
+    const role = customRole || selectedRole;
+    const requirement = customJdText.trim() || `${role} engineering competencies, clean architecture, and production scale`;
 
-    setIsGeneratingJd(true);
+    setIsGeneratingCustom(true);
     setError(null);
-    setJdSuccessMsg(null);
+    setCustomSuccessMsg(null);
 
     try {
-      const res = await fetch("/api/interview/custom-jd", {
+      const payload = {
+        targetRole: role,
+        targetCompany: customCompany.trim() || undefined,
+        jobRequirement: requirement,
+        resumeContext: (includeResumeContext && detectedResume) ? {
+          candidateName: detectedResume.candidateName,
+          skills: detectedResume.skills,
+          projects: detectedResume.projects,
+          experience: detectedResume.experience,
+        } : undefined,
+        focusCategories: customFocusCategories,
+        difficulty: customDifficulty,
+        count: appendMode ? 10 : 12,
+      };
+
+      const res = await fetch("/api/interview/custom-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetCompany: jdCompany.trim(),
-          jobTitle: jdTitle.trim() || selectedRole,
-          jobDescription: jdText.trim(),
-          count: 8,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to generate questions from JD");
+        throw new Error(errData.error || "Failed to generate tailored interview questions.");
       }
 
       const data = await res.json();
       if (Array.isArray(data.questions) && data.questions.length > 0) {
-        setQuestions((prev) => [...data.questions, ...prev]);
-        setFilterCategory("all");
-        setCurrentIdx(0);
-        setResponse("");
-        setEvalResult(null);
-        setJdSuccessMsg(`Generated ${data.questions.length} tailored interview questions!`);
-        setShowCustomJdModal(false);
+        const taggedQuestions: InterviewQuestion[] = data.questions.map((q: InterviewQuestion) => ({
+          ...q,
+          isCustom: true,
+        }));
+
+        if (appendMode) {
+          setQuestions((prev) => [...prev, ...taggedQuestions]);
+          setCustomSuccessMsg(`Added ${taggedQuestions.length} more custom questions to queue! (${data.source || "AI engine"})`);
+        } else {
+          setQuestions((prev) => [...taggedQuestions, ...prev]);
+          setFilterCategory("all");
+          setCurrentIdx(0);
+          setResponse("");
+          setEvalResult(null);
+          setCustomSuccessMsg(`Generated ${taggedQuestions.length} questions tailored to your resume & requirements! (${data.source || "AI engine"})`);
+        }
+      } else {
+        throw new Error("No interview questions were generated. Please refine your requirements.");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error generating questions from JD");
+      setError(err instanceof Error ? err.message : "Error generating tailored questions.");
     } finally {
-      setIsGeneratingJd(false);
+      setIsGeneratingCustom(false);
     }
   };
 
@@ -1205,14 +1422,22 @@ export default function InterviewPage() {
             🔥 Resume Project Grill
           </button>
 
-          {/* Custom JD Generator Trigger */}
+          {/* Custom Resume + JD Generator Trigger */}
           <button
             type="button"
-            onClick={() => setShowCustomJdModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all"
+            onClick={() => setShowCustomizerPanel((prev) => !prev)}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+              showCustomizerPanel
+                ? "bg-indigo-600 text-white font-semibold shadow-md shadow-indigo-600/30"
+                : "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+            )}
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            Custom JD Generator
+            <span>🎯 Customize by Resume &amp; JD</span>
+            {detectedResume && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Resume Loaded" />
+            )}
           </button>
         </div>
 
@@ -1225,6 +1450,7 @@ export default function InterviewPage() {
               onChange={(e) => {
                 const newRole = e.target.value;
                 setSelectedRole(newRole);
+                setCustomRole(newRole);
                 setCurrentIdx(0);
                 setEvalResult(null);
                 setResponse("");
@@ -1271,75 +1497,268 @@ export default function InterviewPage() {
         </div>
       </div>
 
-      {/* ─── CUSTOM JD GENERATOR MODAL ───────────────────────────────────────── */}
-      {showCustomJdModal && (
-        <Card className="p-6 bg-gradient-to-br from-[#0e1424] via-[#11182c] to-[#0e1424] border-indigo-500/30 shadow-2xl animate-fadeIn">
-          <div className="flex items-center justify-between pb-3 border-b border-white/8 mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-400" />
-              <h3 className="text-base font-bold text-white">Generate Custom Interview Questions from Job Description</h3>
+      {/* ─── RESUME DETECTION QUICK BADGE (WHEN PANEL IS COLLAPSED) ─────────── */}
+      {detectedResume && !showCustomizerPanel && !showCustomJdModal && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-emerald-950/20 border border-emerald-500/25 text-xs animate-fadeIn">
+          <div className="flex items-center gap-2 text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span>
+              Loaded Resume: <strong className="text-white font-mono">{detectedResume.fileName}</strong> ({detectedResume.projects.length} Projects, {detectedResume.skills.length} Skills detected)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCustomizerPanel(true)}
+            className="text-[11px] font-medium text-indigo-300 hover:text-white underline self-start sm:self-auto"
+          >
+            Customize Questions for Target Job &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* ─── CUSTOM RESUME + JOB REQUIREMENT PANEL ───────────────────────── */}
+      {(showCustomizerPanel || showCustomJdModal) && (
+        <Card className="p-5 md:p-6 bg-gradient-to-br from-[#0c1222] via-[#0f172a] to-[#0c1222] border-indigo-500/40 shadow-2xl rounded-2xl animate-fadeIn space-y-5">
+          {/* Header */}
+          <div className="flex items-start justify-between pb-3 border-b border-white/8">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  🎯 Customize Questions by Resume &amp; Job Requirement
+                </h3>
+                <Badge variant="indigo" size="sm">Dual-Synthesizer AI</Badge>
+              </div>
+              <p className="text-xs text-slate-400">
+                Synthesizes your uploaded resume projects &amp; skills with target company requirements to generate tailored, bar-raiser interview questions.
+              </p>
             </div>
             <button
               type="button"
-              onClick={() => setShowCustomJdModal(false)}
-              className="text-slate-400 hover:text-white text-sm"
+              onClick={() => {
+                setShowCustomizerPanel(false);
+                setShowCustomJdModal(false);
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm"
             >
               ✕
             </button>
           </div>
 
-          <p className="text-xs text-slate-400 mb-4">
-            Paste any job posting or company requirements. Our AI will analyze the tech stack, scale, and responsibilities to generate 8-10 tough bar-raiser interview questions.
-          </p>
+          {/* Resume Integration Status Card */}
+          <div className={clsx(
+            "p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
+            detectedResume
+              ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
+              : "bg-slate-900/60 border-white/8 text-slate-400"
+          )}>
+            <div className="flex items-center gap-2.5">
+              {detectedResume ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              )}
+              <div>
+                {detectedResume ? (
+                  <p className="font-semibold text-emerald-300">
+                    ✓ Loaded Resume: <span className="text-white font-mono">{detectedResume.fileName}</span>
+                    <span className="text-emerald-400/80 font-normal ml-1.5">
+                      ({detectedResume.projects.length} Projects, {detectedResume.skills.length} Skills detected)
+                    </span>
+                  </p>
+                ) : (
+                  <p>
+                    No uploaded resume found in workspace. Using target role defaults, or upload your resume in the{" "}
+                    <a href="/resume" className="text-indigo-400 underline hover:text-indigo-300 font-medium">Resume Screener</a>.
+                  </p>
+                )}
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {detectedResume && (
+              <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-slate-300 hover:text-white bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/10">
+                <input
+                  type="checkbox"
+                  checked={includeResumeContext}
+                  onChange={(e) => setIncludeResumeContext(e.target.checked)}
+                  className="rounded border-slate-600 text-indigo-500 focus:ring-indigo-400"
+                />
+                <span>Include Resume in AI Prompt</span>
+              </label>
+            )}
+          </div>
+
+          {/* Inputs Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Target Role */}
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Target Company (Optional)</label>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Target Role <span className="text-indigo-400">*</span>
+              </label>
+              <select
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
+                className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+              >
+                {INTERVIEW_ROLES.map((r) => (
+                  <option key={r} value={r} className="bg-slate-900 text-slate-200">
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Target Company */}
+            <div>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Target Company (Optional)
+              </label>
               <input
                 type="text"
-                placeholder="e.g. Google, Stripe, Razorpay"
-                value={jdCompany}
-                onChange={(e) => setJdCompany(e.target.value)}
+                placeholder="e.g. Google, Stripe, Zepto, Swiggy"
+                value={customCompany}
+                onChange={(e) => setCustomCompany(e.target.value)}
                 className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
+
+            {/* Difficulty */}
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Target Job Title (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Senior Backend Engineer"
-                value={jdTitle}
-                onChange={(e) => setJdTitle(e.target.value)}
-                className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Difficulty Bar
+              </label>
+              <select
+                value={customDifficulty}
+                onChange={(e) => setCustomDifficulty(e.target.value as "Easy" | "Medium" | "Hard" | "Mixed")}
+                className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="Mixed" className="bg-slate-900">Mixed (Bar-Raiser &amp; Core)</option>
+                <option value="Hard" className="bg-slate-900">Hard (Senior / Staff)</option>
+                <option value="Medium" className="bg-slate-900">Medium (Mid-Level SDE)</option>
+                <option value="Easy" className="bg-slate-900">Easy (Foundational)</option>
+              </select>
             </div>
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs font-semibold text-slate-300 block mb-1">Job Description &amp; Technical Requirements *</label>
+          {/* Question Mix Focus Categories */}
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+              Target Question Focus Areas
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "core-technical", label: "Core Technical & Architecture" },
+                { id: "resume-grill", label: "Resume Project Grill" },
+                { id: "system-design", label: "Distributed System Design" },
+                { id: "behavioral", label: "STAR Leadership & Ownership" },
+                { id: "debugging", label: "Live Debugging & RCA" },
+                { id: "dsa", label: "DSA & Algorithmic Problem Solving" },
+              ].map((area) => {
+                const selected = customFocusCategories.includes(area.id);
+                return (
+                  <button
+                    key={area.id}
+                    type="button"
+                    onClick={() => {
+                      if (selected) {
+                        if (customFocusCategories.length > 1) {
+                          setCustomFocusCategories((prev) => prev.filter((id) => id !== area.id));
+                        }
+                      } else {
+                        setCustomFocusCategories((prev) => [...prev, area.id]);
+                      }
+                    }}
+                    className={clsx(
+                      "px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all select-none",
+                      selected
+                        ? "bg-indigo-600/30 border-indigo-500/60 text-indigo-200 font-semibold"
+                        : "bg-white/5 border-white/8 text-slate-400 hover:text-white"
+                    )}
+                  >
+                    {selected ? "✓ " : "+ "}{area.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Job Description & Requirements Textarea */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-300">
+                Job Description &amp; Technical Requirements <span className="text-indigo-400">*</span>
+              </label>
+              <span className="text-[10px] text-slate-500">
+                Paste responsibilities, required stack, or key qualifications
+              </span>
+            </div>
             <textarea
-              rows={5}
-              placeholder="Paste the full job description, required tech stack, responsibilities, or qualification bullet points..."
-              value={jdText}
-              onChange={(e) => setJdText(e.target.value)}
+              rows={4}
+              placeholder="Paste target Job Description, required competencies, or tech stack expectations (e.g. 'Must have experience with Next.js, Kafka, microservices, and high-concurrency database indexing')..."
+              value={customJdText}
+              onChange={(e) => setCustomJdText(e.target.value)}
               className="w-full text-xs bg-black/40 border border-white/10 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setShowCustomJdModal(false)}>
-              Cancel
-            </Button>
+          {/* Success / Info Feedback */}
+          {customSuccessMsg && (
+            <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>{customSuccessMsg}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomSuccessMsg(null)}
+                className="text-emerald-400/70 hover:text-white text-xs"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <Button
-              variant="primary"
+              variant="ghost"
               size="sm"
-              icon={isGeneratingJd ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              onClick={handleGenerateCustomJd}
-              disabled={isGeneratingJd || !jdText.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white"
+              onClick={() => {
+                setShowCustomizerPanel(false);
+                setShowCustomJdModal(false);
+              }}
+              className="text-slate-400 hover:text-white text-xs"
             >
-              {isGeneratingJd ? "Analyzing JD & Generating Questions..." : "Generate Interview Questions"}
+              Close Customizer
             </Button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* + Generate 10 More Questions button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={isGeneratingCustom ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 text-indigo-400" />}
+                onClick={() => handleGenerateCustomQuestions(true)}
+                disabled={isGeneratingCustom || (!customJdText.trim() && !customRole)}
+                className="text-xs border border-indigo-500/30 hover:border-indigo-500/60"
+              >
+                + Generate 10 More Questions
+              </Button>
+
+              {/* Generate 12 Custom Questions (Primary) */}
+              <Button
+                variant="primary"
+                size="sm"
+                icon={isGeneratingCustom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
+                onClick={() => handleGenerateCustomQuestions(false)}
+                disabled={isGeneratingCustom || (!customJdText.trim() && !customRole)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30"
+              >
+                {isGeneratingCustom ? "Analyzing Profile & Generating..." : "⚡ Generate Tailored Questions (12)"}
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -1674,9 +2093,27 @@ export default function InterviewPage() {
                   {cameraActive && !cameraPermissionDenied && (
                     <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
                       <div className="flex justify-between items-start">
-                        <div className="w-4 h-4 border-t-2 border-l-2 border-indigo-500/80" />
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 border border-emerald-500/40 text-[10px] text-emerald-300 font-semibold backdrop-blur-sm pointer-events-auto">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-t-2 border-l-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 border border-white/10 text-[10px] text-emerald-300 font-semibold backdrop-blur-sm pointer-events-auto">
+                          <span
+                            className={clsx(
+                              "w-1.5 h-1.5 rounded-full",
+                              reticleColor === "green"
+                                ? "bg-emerald-400 animate-pulse"
+                                : reticleColor === "amber"
+                                ? "bg-amber-400"
+                                : "bg-rose-400 animate-ping"
+                            )}
+                          />
                           <span>{isVirtualCamera ? "VIRTUAL AVATAR HUD" : "LIVE WEBCAM HUD"}</span>
                           {isVirtualCamera && (
                             <button
@@ -1688,15 +2125,78 @@ export default function InterviewPage() {
                             </button>
                           )}
                         </div>
-                        <div className="w-4 h-4 border-t-2 border-r-2 border-indigo-500/80" />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-t-2 border-r-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
                       </div>
 
-                      {/* Head Centering Guide Box */}
-                      <div className="self-center w-28 h-28 border border-dashed border-indigo-400/30 rounded-2xl flex items-center justify-center" />
+                      {/* Head Centering Guide Box & HUD Guidance Toast */}
+                      <div className="self-center flex flex-col items-center gap-2">
+                        <div
+                          className={clsx(
+                            "w-28 h-28 border border-dashed rounded-2xl flex items-center justify-center transition-all duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                              : reticleColor === "amber"
+                              ? "border-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                              : "border-rose-400/50 shadow-[0_0_20px_rgba(244,63,94,0.2)]"
+                          )}
+                        >
+                          <div
+                            className={clsx(
+                              "w-2 h-2 rounded-full transition-colors duration-300",
+                              reticleColor === "green"
+                                ? "bg-emerald-400/70"
+                                : reticleColor === "amber"
+                                ? "bg-amber-400/70"
+                                : "bg-rose-400/70"
+                            )}
+                          />
+                        </div>
+                        {visualToast && (
+                          <div
+                            className={clsx(
+                              "px-2.5 py-0.5 rounded-full text-[10px] font-medium tracking-wide bg-black/85 backdrop-blur-md border shadow-md transition-all animate-fadeIn",
+                              reticleColor === "green"
+                                ? "border-emerald-500/40 text-emerald-300"
+                                : reticleColor === "amber"
+                                ? "border-amber-500/40 text-amber-300"
+                                : "border-rose-500/40 text-rose-300"
+                            )}
+                          >
+                            {visualToast}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex justify-between items-end">
-                        <div className="w-4 h-4 border-b-2 border-l-2 border-indigo-500/80" />
-                        <div className="w-4 h-4 border-b-2 border-r-2 border-indigo-500/80" />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-b-2 border-l-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-b-2 border-r-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
                       </div>
                     </div>
                   )}
@@ -1737,9 +2237,13 @@ export default function InterviewPage() {
                           "font-semibold",
                           livePosture === "Stable"
                             ? "text-emerald-400"
-                            : livePosture === "Centering"
+                            : livePosture === "Calibrating..."
+                            ? "text-blue-400"
+                            : livePosture === "Off-Center"
                             ? "text-amber-400"
-                            : "text-rose-400"
+                            : livePosture === "Shifting"
+                            ? "text-rose-400"
+                            : "text-slate-500"
                         )}
                       >
                         {livePosture}
@@ -1924,6 +2428,31 @@ export default function InterviewPage() {
                     </span>
                   </div>
 
+                  {/* Real-time Mic Volume / Audio Activity Meter */}
+                  {isRecording && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25">
+                      <div className="flex items-center gap-0.5 h-3.5">
+                        {[1, 2, 3, 4, 5].map((bar) => (
+                          <span
+                            key={bar}
+                            className={clsx(
+                              "w-1 rounded-full transition-all duration-75",
+                              micActiveLevel >= bar * 18
+                                ? "bg-emerald-400"
+                                : "bg-emerald-950/40"
+                            )}
+                            style={{
+                              height: micActiveLevel >= bar * 18 ? `${Math.max(4, bar * 3)}px` : "3px",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-300">
+                        {micActiveLevel > 15 ? "Mic Active" : "Listening..."}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Live WPM Gauge */}
                   <div className="flex items-center gap-1.5">
                     <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -1964,6 +2493,13 @@ export default function InterviewPage() {
                     <div className="flex items-center gap-1 text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 animate-pulse">
                       <AlertCircle className="w-3 h-3 text-amber-400" />
                       <span>Hesitation (&gt;2.5s)</span>
+                    </div>
+                  )}
+
+                  {/* Non-Blocking Speech Recognition Fallback Badge */}
+                  {recordingStatusBadge && (
+                    <div className="flex items-center gap-1 text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 animate-pulse">
+                      <span>{recordingStatusBadge}</span>
                     </div>
                   )}
 
@@ -2027,10 +2563,11 @@ export default function InterviewPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      icon={showSample ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      onClick={() => setShowSample(!showSample)}
+                      icon={<Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+                      onClick={handleApplySampleAnswer}
+                      title="Load realistic 90-word STAR answer to test evaluation"
                     >
-                      {showSample ? "Hide Sample" : "Sample"}
+                      Sample
                     </Button>
                   </div>
 
@@ -2041,15 +2578,23 @@ export default function InterviewPage() {
                       icon={
                         isEvaluating ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : isTranscribingWithWhisper ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300" />
                         ) : (
                           <Brain className="w-3.5 h-3.5" />
                         )
                       }
                       onClick={handleEvaluate}
-                      disabled={!response.trim() || isEvaluating}
+                      disabled={(!response.trim() && !isRecording) || isEvaluating || isTranscribingWithWhisper}
                       className="bg-indigo-600 hover:bg-indigo-500 w-full sm:w-auto"
                     >
-                      {isEvaluating ? "Evaluating..." : "Submit & Evaluate Answer"}
+                      {isEvaluating
+                        ? "Evaluating..."
+                        : isTranscribingWithWhisper
+                        ? "Transcribing Voice..."
+                        : isRecording
+                        ? "Stop & Evaluate Answer"
+                        : "Submit & Evaluate Answer"}
                     </Button>
                   </div>
                 </div>
@@ -2059,7 +2604,7 @@ export default function InterviewPage() {
 
           {/* ─── POST-ANSWER DEEP DIAGNOSTIC DASHBOARD ───────────────────────── */}
           {evalResult && (
-            <div className="space-y-6 pt-4 animate-fadeIn">
+            <div ref={evaluationRef} className="space-y-6 pt-4 animate-fadeIn">
               {/* 3-Gauge Score Header */}
               <Card className="p-6 bg-gradient-to-br from-[#0e1424] via-[#11182c] to-[#0e1424] border-indigo-500/30 shadow-2xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-white/8 gap-4 mb-6">
