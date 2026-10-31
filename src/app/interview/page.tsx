@@ -2443,6 +2443,26 @@ export default function InterviewPage() {
                   className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                 />
               </div>
+              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase">1-Click Test Repos:</span>
+                {[
+                  { name: "facebook/react", url: "https://github.com/facebook/react", focus: "Fiber reconciliation, hook queue, scheduling" },
+                  { name: "vercel/next.js", url: "https://github.com/vercel/next.js", focus: "Server components, streaming SSR, App Router" },
+                  { name: "expressjs/express", url: "https://github.com/expressjs/express", focus: "Middleware pipeline, router trie, error handling" },
+                ].map((demo) => (
+                  <button
+                    key={demo.name}
+                    type="button"
+                    onClick={() => {
+                      setGithubUrl(demo.url);
+                      setGithubFocusNotes(demo.focus);
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-[11px] text-rose-300 font-mono transition-all"
+                  >
+                    📦 {demo.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="lg:col-span-5">
