@@ -231,6 +231,10 @@ export type InterviewQuestion = {
   difficulty: "easy" | "medium" | "hard";
   question: string;
   hint: string;
+  whyAskThis?: string;
+  bridgeTag?: string;
+  codeExcerpt?: string;
+  progressiveHints?: string[];
   sampleAnswer?: string;
   idealAnswer?: string;
   followUps?: string[];
@@ -244,6 +248,8 @@ export interface GitHubGrillQuestion {
   difficulty: "Medium" | "Hard";
   question: string;
   referencedFiles: string[];
+  codeExcerpt?: string;
+  keyConcepts?: string[];
   whatInterviewerLooksFor: string;
   hint: string;
 }
@@ -294,6 +300,7 @@ export interface InterviewEvaluationResponse {
   strengths: string[];
   improvements: string[];
   rewrittenIdealAnswer: string;
+  interviewerReaction?: string;
   followUpQuestion: {
     prompt: string;
     intent: string;

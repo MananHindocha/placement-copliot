@@ -17,6 +17,8 @@ interface RawGrillQuestion {
   difficulty?: "Medium" | "Hard";
   question?: string;
   referencedFiles?: string[];
+  codeExcerpt?: string;
+  keyConcepts?: string[];
   whatInterviewerLooksFor?: string;
   hint?: string;
 }
@@ -45,6 +47,13 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
   return null;
 }
 
+function getExcerpt(snippets: SourceSnippet[], filePath: string, fallback: string): string {
+  const match = snippets.find((s) => s.path === filePath) || snippets[0];
+  if (!match || !match.content) return fallback;
+  const lines = match.content.split("\n").filter((l) => l.trim().length > 0);
+  return lines.slice(0, 9).join("\n") || fallback;
+}
+
 function generateDeterministicGitHubGrill(
   owner: string,
   repo: string,
@@ -63,13 +72,19 @@ function generateDeterministicGitHubGrill(
   const f1 = files[1] || files[0] || "src/app/page.tsx";
   const f2 = files[2] || files[0] || "src/lib/utils.ts";
 
+  const exc0 = getExcerpt(sourceSnippets, f0, `export async function handleRequest(req: Request) {\n  const session = await auth();\n  if (!session) return new Response("Unauthorized", { status: 401 });\n  const data = await db.query();\n  return Response.json({ success: true, data });\n}`);
+  const exc1 = getExcerpt(sourceSnippets, f1, `export default function DashboardPage({ params }: { params: { id: string } }) {\n  const [state, setState] = useState<Item[]>([]);\n  useEffect(() => {\n    fetchData(params.id).then(setState);\n  }, [params.id]);\n}`);
+  const exc2 = getExcerpt(sourceSnippets, f2, `export const cache = new Map<string, unknown>();\nexport function getCached(key: string) {\n  if (cache.has(key)) return cache.get(key);\n  const fresh = computeExpensive(key);\n  cache.set(key, fresh);\n  return fresh;\n}`);
+
   const questions: GitHubGrillQuestion[] = [
     {
       id: `gh-grill-${Date.now()}-1`,
       category: "Architecture",
       difficulty: "Hard",
-      question: `In ${f0}, how did you separate state management, asynchronous mutations, and rendering? If you had to refactor this architecture today, what would you decouple?`,
+      question: `In ${f0}, how did you separate state management, asynchronous mutations, and data access? If you had to refactor this architecture today, what would you decouple?`,
       referencedFiles: [f0, f1],
+      codeExcerpt: exc0,
+      keyConcepts: ["Separation of Concerns", "State Decoupling", "Asynchronous Mutations", "Single Point of Failure"],
       whatInterviewerLooksFor: "Ability to critically evaluate own architectural boundaries, modularity, and separation of concerns.",
       hint: "Explain data flow boundaries, caching strategies, and how components interact without tight coupling.",
     },
@@ -79,6 +94,8 @@ function generateDeterministicGitHubGrill(
       difficulty: "Hard",
       question: `Looking at ${f0}, what happens if 5,000 users trigger simultaneous operations? Walk me through where the system hits memory or concurrency bottlenecks.`,
       referencedFiles: [f0],
+      codeExcerpt: exc0,
+      keyConcepts: ["Connection Pool Exhaustion", "Event Loop Blocking", "Rate Limiting", "Backpressure"],
       whatInterviewerLooksFor: "Understanding memory leaks, connection pool exhaustion, event-loop blocking, and scaling limits.",
       hint: "Analyze asynchronous queueing, DB connection limits, and horizontal scaling capabilities.",
     },
@@ -88,6 +105,8 @@ function generateDeterministicGitHubGrill(
       difficulty: "Medium",
       question: `In ${f1}, walk me through your input validation, boundary error handling, and null safety. How do you ensure bad payloads don't crash workers or leak internal stack traces?`,
       referencedFiles: [f1, f2],
+      codeExcerpt: exc1,
+      keyConcepts: ["Input Validation", "Boundary Error Handling", "Null Safety", "Defense in Depth"],
       whatInterviewerLooksFor: "Input sanitization (e.g. Zod/Joi), centralized error handlers, and defense against malicious payloads.",
       hint: "Discuss runtime schema validation, HTTP error code mapping, and masking internal database errors.",
     },
@@ -97,6 +116,8 @@ function generateDeterministicGitHubGrill(
       difficulty: "Hard",
       question: `What was the hardest bug, race condition, or performance bottleneck in ${f0} during development, and how did you isolate and patch it?`,
       referencedFiles: [f0, f2],
+      codeExcerpt: exc0,
+      keyConcepts: ["Race Condition Isolation", "Root Cause Analysis", "Telemetry Profiling", "Regression Prevention"],
       whatInterviewerLooksFor: "Systematic root cause analysis, telemetry, reproducing bugs, and adding regression tests.",
       hint: "Use STAR format: Describe the symptom, profiling tool used, the unexpected race condition, and the permanent patch.",
     },
@@ -106,8 +127,43 @@ function generateDeterministicGitHubGrill(
       difficulty: "Medium",
       question: `How are secrets, environment variables, and authentication tokens handled in ${repo} (${f2}) during development vs production CI/CD?`,
       referencedFiles: [f2, "package.json"],
+      codeExcerpt: exc2,
+      keyConcepts: ["Secret Rotation", "Environment Isolation", "Token Expiry", "Least Privilege"],
       whatInterviewerLooksFor: "Zero hardcoded secrets, automated secret scanners, and secure token lifecycle management.",
       hint: "Highlight environment variable validation at startup and secret management in CI pipelines.",
+    },
+    {
+      id: `gh-grill-${Date.now()}-6`,
+      category: "Scalability & Edge Cases",
+      difficulty: "Hard",
+      question: `In ${f2}, if state or cache is stored locally in-memory, what breaks when deploying across 3 distributed serverless containers, and how do you achieve idempotency?`,
+      referencedFiles: [f2],
+      codeExcerpt: exc2,
+      keyConcepts: ["Distributed Caching", "Stateless Architecture", "Idempotency Keys", "Redis Cluster"],
+      whatInterviewerLooksFor: "Understanding distributed state, distributed lock race conditions, and idempotent API design.",
+      hint: "Transition in-memory state to Redis or a shared key-value store with distributed locks.",
+    },
+    {
+      id: `gh-grill-${Date.now()}-7`,
+      category: "Code Implementation",
+      difficulty: "Medium",
+      question: `Examining your component rendering logic in ${f1}, how do you prevent unnecessary re-renders or hydration mismatches between server and client?`,
+      referencedFiles: [f1],
+      codeExcerpt: exc1,
+      keyConcepts: ["Hydration Mismatch", "Render Optimization", "Memoization", "Virtual DOM Diffing"],
+      whatInterviewerLooksFor: "Proficiency in framework internals, DOM diffing, and eliminating redundant cycles.",
+      hint: "Explain hydration lifecycle, useEffect dependencies, and pure component boundaries.",
+    },
+    {
+      id: `gh-grill-${Date.now()}-8`,
+      category: "Architecture",
+      difficulty: "Hard",
+      question: `If ${repo} had to support zero-downtime database schema migrations with backwards compatibility, how would you stage the rollout?`,
+      referencedFiles: [f0, "package.json"],
+      codeExcerpt: exc0,
+      keyConcepts: ["Expand-Contract Migration", "Backwards Compatibility", "Zero Downtime", "Blue-Green Deployment"],
+      whatInterviewerLooksFor: "Knowledge of expand-contract pattern, dual-writing, and safe rollback procedures.",
+      hint: "Discuss adding new nullable columns, dual-writing in code, backfilling records, and safely dropping old columns.",
     },
   ];
 
@@ -120,7 +176,7 @@ function generateDeterministicGitHubGrill(
     architectureStrengths: [
       "Modular file organization with clear entrypoint separation",
       "Modern dependency configuration",
-      "Clean TypeScript / component-based separation of concerns",
+      "Clean component-based separation of concerns",
     ],
     potentialWeaknessesOrRisks: [
       "Potential memory / concurrency contention under high load",
@@ -167,6 +223,8 @@ Return strictly valid JSON matching this schema:
       "difficulty": "Hard",
       "question": "Sharp question referencing actual files and decisions from the repo",
       "referencedFiles": ["path/to/file.ts"],
+      "codeExcerpt": "5-10 line code snippet from that file under review",
+      "keyConcepts": ["Concept 1", "Concept 2", "Concept 3", "Concept 4"],
       "whatInterviewerLooksFor": "What signals competence vs superficial knowledge",
       "hint": "Guidance on trade-offs"
     }
@@ -229,15 +287,23 @@ ${readmeText ? readmeText.slice(0, 2000) : "No README"}${sourceFilesText}`;
       keyFilesAnalyzed: Array.isArray(parsed.keyFilesAnalyzed) ? parsed.keyFilesAnalyzed.map(String) : fileTree.slice(0, 5),
       architectureStrengths: Array.isArray(parsed.architectureStrengths) ? parsed.architectureStrengths.map(String) : ["Clean code organization"],
       potentialWeaknessesOrRisks: Array.isArray(parsed.potentialWeaknessesOrRisks) ? parsed.potentialWeaknessesOrRisks.map(String) : ["Scalability bottlenecks"],
-      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => ({
-        id: `gh-grill-${Date.now()}-${i + 1}`,
-        category: q.category || "Architecture",
-        difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
-        question: String(q.question || ""),
-        referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
-        whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
-        hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
-      })),
+      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => {
+        const primaryFile = Array.isArray(q.referencedFiles) && q.referencedFiles[0] ? q.referencedFiles[0] : "";
+        const fallbackSnippet = primaryFile ? getExcerpt(sourceSnippets, primaryFile, "") : "";
+        return {
+          id: `gh-grill-${Date.now()}-${i + 1}`,
+          category: q.category || "Architecture",
+          difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
+          question: String(q.question || ""),
+          referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
+          codeExcerpt: String(q.codeExcerpt || fallbackSnippet || "").trim() || undefined,
+          keyConcepts: Array.isArray(q.keyConcepts) && q.keyConcepts.length > 0
+            ? q.keyConcepts.map(String)
+            : ["Architecture Trade-offs", "Edge Case Handling", "Concurrency", "Error Handling"],
+          whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
+          hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
+        };
+      }),
     };
   } catch {
     return null;
@@ -296,6 +362,8 @@ Respond strictly in valid JSON:
       "difficulty": "Hard",
       "question": "string citing specific files",
       "referencedFiles": ["string"],
+      "codeExcerpt": "5-10 line code snippet from that file",
+      "keyConcepts": ["string", "string", "string", "string"],
       "whatInterviewerLooksFor": "string",
       "hint": "string"
     }
@@ -336,15 +404,23 @@ Respond strictly in valid JSON:
       keyFilesAnalyzed: Array.isArray(parsed.keyFilesAnalyzed) ? parsed.keyFilesAnalyzed.map(String) : fileTree.slice(0, 5),
       architectureStrengths: Array.isArray(parsed.architectureStrengths) ? parsed.architectureStrengths.map(String) : ["Clean architecture"],
       potentialWeaknessesOrRisks: Array.isArray(parsed.potentialWeaknessesOrRisks) ? parsed.potentialWeaknessesOrRisks.map(String) : ["Edge case resilience"],
-      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => ({
-        id: `gh-grill-${Date.now()}-${i + 1}`,
-        category: q.category || "Architecture",
-        difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
-        question: String(q.question || ""),
-        referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
-        whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
-        hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
-      })),
+      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => {
+        const primaryFile = Array.isArray(q.referencedFiles) && q.referencedFiles[0] ? q.referencedFiles[0] : "";
+        const fallbackSnippet = primaryFile ? getExcerpt(sourceSnippets, primaryFile, "") : "";
+        return {
+          id: `gh-grill-${Date.now()}-${i + 1}`,
+          category: q.category || "Architecture",
+          difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
+          question: String(q.question || ""),
+          referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
+          codeExcerpt: String(q.codeExcerpt || fallbackSnippet || "").trim() || undefined,
+          keyConcepts: Array.isArray(q.keyConcepts) && q.keyConcepts.length > 0
+            ? q.keyConcepts.map(String)
+            : ["Architecture Trade-offs", "Edge Case Handling", "Concurrency", "Error Handling"],
+          whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
+          hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
+        };
+      }),
     };
   } catch {
     return null;

@@ -125,8 +125,9 @@ export class VisualTelemetryAnalyzer {
     // Zero or near-zero face pixels detected
     if (totalWeight < 600 || maxX <= minX || maxY <= minY) {
       this.frameCount++;
-      // Actively decay eye contact EMA
-      this.smoothEyeContact = clamp(this.smoothEyeContact * 0.82);
+      // Actively decay eye contact EMA toward 0
+      this.smoothEyeContact = clamp(Math.round(this.smoothEyeContact * 0.70));
+      if (this.smoothEyeContact < 6) this.smoothEyeContact = 0;
 
       return {
         faceDetected: false,
@@ -137,7 +138,7 @@ export class VisualTelemetryAnalyzer {
         pitchScore: 0,
         symmetryScore: 0,
         centroid: { x: 0.5, y: 0.5 },
-        hudToast: "Position your face inside the camera frame",
+        hudToast: "⚠️ Position face in frame",
         hudStatusColor: "rose",
       };
     }
@@ -176,7 +177,7 @@ export class VisualTelemetryAnalyzer {
     const pitchDeviation = Math.abs(cy - 0.46);
     const pitchScore = clamp(100 - pitchDeviation * 230);
 
-    // Instant Eye Score
+    // Instant Eye Score (looking straight at camera yields 90-100)
     let instantEyeScore = clamp(
       yawScore * 0.55 + pitchScore * 0.30 + symmetryScore * 0.15
     );
@@ -194,12 +195,12 @@ export class VisualTelemetryAnalyzer {
       instantEyeScore = Math.min(instantEyeScore, 30);
     }
 
-    // Smooth Eye Contact using Exponential Moving Average
+    // 12-Frame Rolling Exponential Moving Average: ema = 0.78 * prev + 0.22 * currentFrameScore
     if (this.frameCount <= 2) {
       this.smoothEyeContact = instantEyeScore;
     } else {
       this.smoothEyeContact = clamp(
-        Math.round(this.smoothEyeContact * 0.82 + instantEyeScore * 0.18)
+        Math.round(this.smoothEyeContact * 0.78 + instantEyeScore * 0.22)
       );
     }
 
@@ -233,24 +234,22 @@ export class VisualTelemetryAnalyzer {
       }
     }
 
-    // HUD Status Color
+    // HUD Status Color & Toast
     let hudStatusColor: "green" | "amber" | "rose" = "green";
-    if (posture === "Off-Center" || this.smoothEyeContact < 45) {
-      hudStatusColor = "rose";
-    } else if (posture === "Shifting" || (this.smoothEyeContact >= 45 && this.smoothEyeContact < 75)) {
+    let hudToast: string | null = null;
+
+    if (posture === "Off-Center") {
       hudStatusColor = "amber";
+      hudToast = "⚠️ Center yourself in frame";
+    } else if (posture === "Shifting") {
+      hudStatusColor = "amber";
+      hudToast = "⚠️ Keep your posture steady";
+    } else if (this.smoothEyeContact < 55) {
+      hudStatusColor = "amber";
+      hudToast = "⚠️ Look toward the camera lens";
     } else {
       hudStatusColor = "green";
-    }
-
-    // HUD Toast Tip
-    let hudToast: string | null = null;
-    if (posture === "Off-Center") {
-      hudToast = "Center your head inside the frame";
-    } else if (posture === "Shifting") {
-      hudToast = "Keep your posture steady and calm";
-    } else if (this.smoothEyeContact < 55) {
-      hudToast = "Look directly at the webcam lens";
+      hudToast = "✓ Good Eye Contact & Framing";
     }
 
     return {

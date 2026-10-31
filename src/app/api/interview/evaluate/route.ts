@@ -236,18 +236,29 @@ function computeDeterministicEvaluation(
   // 8. 95/100 STAR Answer Rewrite
   const rewrittenIdealAnswer = `In my previous engineering project, our core production service was experiencing severe throughput degradation during traffic surges. As the lead developer, I was tasked with identifying the root cause and restoring p99 latency to under 80ms under a strict 48-hour deadline. I profiled the bottleneck using distributed tracing, identified lock contention on the primary relational database, and implemented an in-memory Redis caching tier with a write-through strategy. This architectural shift offloaded 84% of read queries, reduced p99 response times from 450ms down to 38ms, and ensured zero downtime across 50,000 concurrent daily active users.`;
 
-  // 9. Contextual Follow-Up Probe
+  // 9. Contextual Follow-Up Probe & Conversational Reaction
   let followUpPrompt = "How did you monitor system health and handle edge-case failures during this rollout?";
   let followUpIntent = "Testing resilience engineering, telemetry, and fault-tolerance mindset.";
+
+  let interviewerReaction = "You framed the problem clearly, but let's probe deeper on how this architecture behaves under adverse conditions.";
+  if (contentScore >= 80) {
+    interviewerReaction = "You gave a strong architectural breakdown with concrete technical details; now let's test your resilience edge cases.";
+  } else if (!resultPresent) {
+    interviewerReaction = "You walked through the implementation steps nicely, but an engineering panel will want to see measurable data on latency and throughput.";
+  } else if (!actionPresent) {
+    interviewerReaction = "Good high-level overview, but you need to get deeper into the exact technologies and architectural choices you personally owned.";
+  }
 
   if (req.githubRepoContext) {
     followUpPrompt =
       "Looking closely at your repository's design, what single point of failure (SPOF) exists in this component, and how would you redesign it for 10x traffic?";
     followUpIntent = "Probing distributed systems resilience, fault isolation, and architectural trade-offs in candidate's project.";
+    interviewerReaction = "I see how you structured this module in your repository, but let's examine what happens when concurrent load spikes.";
   } else if (req.customJdContext) {
     followUpPrompt =
       "How do your technical choices in this response directly address the performance and scale requirements outlined in the target job description?";
     followUpIntent = "Validating practical fit for the specific engineering stack and high-throughput requirements of this role.";
+    interviewerReaction = "You touched on standard web patterns, but this specific role demands high concurrency and strict p99 latency guarantees.";
   } else if (!resultPresent) {
     followUpPrompt =
       "You walked through the implementation steps, but how exactly did you benchmark the performance improvement or business impact after shipping?";
@@ -260,6 +271,7 @@ function computeDeterministicEvaluation(
     followUpPrompt =
       "If concurrent traffic or dataset size increased by 10x overnight, where would this architecture fail first, and how would you redesign it?";
     followUpIntent = "Assessing distributed systems scaling limits and bottleneck anticipation.";
+    interviewerReaction = "That solves the baseline use case, but on a large-scale project you need to anticipate cascading failure modes.";
   }
 
   // 10. Concept Coverage & Code Scratchpad Evaluation
@@ -306,6 +318,7 @@ function computeDeterministicEvaluation(
     strengths,
     improvements,
     rewrittenIdealAnswer,
+    interviewerReaction,
     followUpQuestion: {
       prompt: followUpPrompt,
       intent: followUpIntent,
@@ -362,6 +375,7 @@ function buildStandardizedResponse(
     : fallback.codeReviewCritique;
 
   const rewrittenIdealAnswer = String(parsed.rewrittenIdealAnswer || "").trim() || fallback.rewrittenIdealAnswer;
+  const interviewerReaction = String(parsed.interviewerReaction || "").trim() || fallback.interviewerReaction;
 
   const fq = (parsed.followUpQuestion as Record<string, unknown>) || {};
   const followUpPrompt = String(fq.prompt || "").trim() || fallback.followUpQuestion.prompt;
@@ -405,6 +419,7 @@ function buildStandardizedResponse(
     strengths,
     improvements,
     rewrittenIdealAnswer,
+    interviewerReaction,
     followUpQuestion: {
       prompt: followUpPrompt,
       intent: followUpIntent,
@@ -452,6 +467,7 @@ Return a strictly valid JSON object matching this schema:
   "strengths": [string, string, string],
   "improvements": [string, string, string],
   "rewrittenIdealAnswer": string (a 95/100 polished first-person STAR answer incorporating candidate's context),
+  "interviewerReaction": string (1 natural sentence directly responding to what the candidate said before introducing the follow-up, e.g. "You articulated the database bottleneck clearly, but let's push deeper on how you'd handle partial network failures..."),
   "followUpQuestion": {
     "prompt": string (sharp interviewer cross-question directly probing a weakness or trade-off in the answer),
     "intent": string (why the interviewer asks this)
@@ -585,6 +601,7 @@ Respond ONLY with valid JSON:
   "strengths": ["<string>", "<string>"],
   "improvements": ["<string>", "<string>"],
   "rewrittenIdealAnswer": "<string>",
+  "interviewerReaction": "<1 natural sentence directly responding to the candidate's answer before asking the follow-up>",
   "followUpQuestion": {
     "prompt": "<string>",
     "intent": "<string>"

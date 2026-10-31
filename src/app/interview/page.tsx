@@ -274,6 +274,70 @@ function getQuestionExpectedConcepts(question?: StudioQuestion): string[] {
   return Array.from(new Set(words)).slice(0, 4);
 }
 
+const CONCEPT_SYNONYM_DICTIONARY: Record<string, string[]> = {
+  "o(1)": ["constant time", "hash map", "direct index", "o 1", "constant complexity"],
+  "optimistic ui": ["optimistic update", "rollback", "instant feedback", "speculative update", "useoptimistic"],
+  "redis": ["in-memory", "cache", "pub/sub", "key value store", "ttl", "eviction"],
+  "kafka": ["event stream", "message queue", "partition", "broker", "consumer group", "offset"],
+  "connection pool": ["pooling", "active connections", "pgbouncer", "pool size", "db pool"],
+  "deadlock": ["lock contention", "mutex", "circular wait", "two phase locking", "race condition"],
+  "crdt": ["conflict free", "eventual consistency", "vector clock", "state based replication"],
+  "rate limiting": ["token bucket", "leaky bucket", "sliding window", "429", "throttle"],
+  "idempotency": ["idempotent", "unique key", "retry safe", "at most once", "deduplication"],
+  "sharding": ["horizontal partition", "shard key", "consistent hashing", "database partition"],
+  "websocket": ["real time", "full duplex", "socket", "long polling", "bidirectional"],
+  "graphql": ["schema", "resolver", "overfetching", "query mutation", "dataloader"],
+  "jwt": ["token", "bearer", "claims", "stateless auth", "signature", "refresh token"],
+  "acid": ["atomicity", "consistency", "isolation", "durability", "transaction"],
+  "b-tree": ["b tree", "index scan", "clustered index", "binary search tree", "leaf nodes"],
+  "lru": ["least recently used", "cache eviction", "doubly linked list", "eviction policy"],
+  "sliding window": ["two pointer", "window size", "subarray", "rolling window"],
+  "dynamic programming": ["memoization", "tabulation", "optimal substructure", "overlapping subproblems", "dp"],
+};
+
+const CODE_LANGUAGES = [
+  { id: "typescript", name: "TypeScript / JS", defaultSnippet: "// TypeScript / JavaScript\nfunction handleOptimisticUpdate(state, action) {\n  // Instant state update with rollback fallback\n}" },
+  { id: "python", name: "Python 3", defaultSnippet: "# Python 3\ndef handle_optimistic_update(state, action):\n    # Instant state update with rollback fallback\n    pass" },
+  { id: "java", name: "Java", defaultSnippet: "// Java\nclass Solution {\n    public void handleOptimisticUpdate(Object state, Object action) {\n        // Instant state update with rollback fallback\n    }\n}" },
+  { id: "cpp", name: "C++", defaultSnippet: "// C++\n#include <iostream>\nusing namespace std;\n\nvoid handleOptimisticUpdate() {\n    // Instant state update with rollback fallback\n}" },
+  { id: "sql", name: "SQL Schema", defaultSnippet: "-- SQL Schema & Query\nCREATE TABLE state_events (\n  id SERIAL PRIMARY KEY,\n  action_type VARCHAR(64),\n  payload JSONB\n);" },
+  { id: "go", name: "Go", defaultSnippet: "// Go (Golang)\npackage main\n\nfunc HandleOptimisticUpdate() {\n    // Implementation here\n}" },
+  { id: "pseudocode", name: "Pseudocode", defaultSnippet: "// High-Level Architecture / Algorithm Pseudocode\n// Step 1: Record initial state\n// Step 2: Apply speculative mutation\n// Step 3: Catch async rejection & revert" },
+] as const;
+
+const COMPANY_JD_PRESETS = [
+  {
+    name: "Razorpay",
+    role: "Backend Engineer",
+    company: "Razorpay",
+    desc: "Build scalable payment gateway microservices. Requires high-throughput API design, idempotency keys, MySQL transaction isolation, Redis caching, Kafka distributed event queues, and zero-downtime database migrations.",
+  },
+  {
+    name: "Google",
+    role: "Systems SDE",
+    company: "Google",
+    desc: "Design globally distributed systems and real-time data pipelines. Requires deep understanding of Big-O complexity, RPCs, Paxos/Raft consensus, memory layout, lock-free concurrency, and fault tolerance at 100k+ QPS.",
+  },
+  {
+    name: "Swiggy / Flipkart",
+    role: "Full-Stack SDE",
+    company: "Swiggy",
+    desc: "Build low-latency delivery & checkout pipelines. Strong focus on Next.js/React frontend performance, WebSockets for live driver geolocation, Redis geospatial indexes, rate limiting, and elastic worker queues.",
+  },
+  {
+    name: "Goldman Sachs",
+    role: "Low-Latency / Quant SDE",
+    company: "Goldman Sachs",
+    desc: "Engineer ultra-low latency order matching engines and risk analytics. Demands C++/Java memory management, cache locality, lock-free ring buffers, multithreading, and microsecond latency optimization.",
+  },
+  {
+    name: "Zepto / Zomato",
+    role: "Full-Stack SDE",
+    company: "Zepto",
+    desc: "10-minute quick-commerce logistics stack. High concurrent inventory reservation locks, p99 latency optimization, optimistic UI updates, PostgreSQL connection pooling, and distributed tracing.",
+  },
+];
+
 function isConceptCovered(concept: string, text: string, code: string): boolean {
   if (!concept) return false;
   const combined = `${text} ${code}`.toLowerCase().replace(/[^a-z0-9]/g, " ");
@@ -283,6 +347,15 @@ function isConceptCovered(concept: string, text: string, code: string): boolean 
     .replace(/\s+/g, " ")
     .trim();
   if (normalizedConcept && combined.includes(normalizedConcept)) return true;
+
+  // Check synonym dictionary
+  for (const [key, synonyms] of Object.entries(CONCEPT_SYNONYM_DICTIONARY)) {
+    if (normalizedConcept.includes(key) || key.includes(normalizedConcept)) {
+      if (synonyms.some((syn) => combined.includes(syn.toLowerCase().replace(/[^a-z0-9]/g, " ")))) {
+        return true;
+      }
+    }
+  }
 
   const tokens = concept
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -309,11 +382,14 @@ function isConceptCovered(concept: string, text: string, code: string): boolean 
       ].includes(t)
   );
   const toCheck = significant.length > 0 ? significant : tokens;
-
-  return toCheck.some((token) => {
+  let matches = 0;
+  for (const token of toCheck) {
     const stem = token.length > 5 ? token.slice(0, token.length - 2) : token;
-    return combined.includes(token) || combined.includes(stem);
-  });
+    if (combined.includes(token) || combined.includes(stem)) {
+      matches++;
+    }
+  }
+  return matches / toCheck.length >= 0.6;
 }
 
 export default function InterviewPage() {
@@ -383,6 +459,9 @@ export default function InterviewPage() {
   const [hesitationGaps, setHesitationGaps] = useState(0);
   const [recordingStatusBadge, setRecordingStatusBadge] = useState<string | null>(null);
   const [micActiveLevel, setMicActiveLevel] = useState<number>(0);
+  const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
+  const [isRecordingPaused, setIsRecordingPaused] = useState<boolean>(false);
+  const [scratchpadLang, setScratchpadLang] = useState<string>("typescript");
 
   // ─── Multi-Turn Conversation State ──────────────────────────────────────────
   const [sessionTurns, setSessionTurns] = useState<InterviewTurn[]>([]);
@@ -464,14 +543,21 @@ export default function InterviewPage() {
       if (!ttsEnabled) return;
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.02;
+      utterance.rate = 1.03;
       utterance.pitch = 1.0;
       const voices = window.speechSynthesis.getVoices();
-      const enVoice = voices.find(
-        (v) =>
-          v.lang.startsWith("en") &&
-          (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha"))
-      );
+      const enVoice =
+        voices.find(
+          (v) =>
+            v.lang.startsWith("en") &&
+            (v.name.includes("Aria") ||
+              v.name.includes("Guy") ||
+              v.name.includes("Google US English") ||
+              v.name.includes("Natural") ||
+              v.name.includes("Neural"))
+        ) ||
+        voices.find((v) => v.lang.startsWith("en")) ||
+        voices[0];
       if (enVoice) utterance.voice = enVoice;
 
       utterance.onstart = () => setIsSpeakingTTS(true);
@@ -1127,6 +1213,7 @@ export default function InterviewPage() {
     stopTTS();
     setError(null);
     setIsRecording(true);
+    setIsRecordingPaused(false);
     isRecordingRef.current = true;
     setRecordingStatusBadge(null);
     setMicActiveLevel(0);
@@ -1331,6 +1418,7 @@ export default function InterviewPage() {
 
   const stopRecording = async (): Promise<string> => {
     setIsRecording(false);
+    setIsRecordingPaused(false);
     isRecordingRef.current = false;
     setRecordingStatusBadge(null);
     setMicActiveLevel(0);
@@ -1408,6 +1496,9 @@ export default function InterviewPage() {
             .filter(Boolean)
             .join(" ");
           formData.append("questionContext", questionContext);
+          if (activeQuestion?.keyConceptsToCover && activeQuestion.keyConceptsToCover.length > 0) {
+            formData.append("keyConcepts", activeQuestion.keyConceptsToCover.join(", "));
+          }
 
           const res = await fetch("/api/interview/transcribe", {
             method: "POST",
@@ -1454,6 +1545,45 @@ export default function InterviewPage() {
     setWpmHistory([120, 125, 130, 128]);
     countFillers(sample);
     setShowSample(true);
+  };
+
+  const handleTogglePauseRecording = () => {
+    if (!isRecording) return;
+    if (!isRecordingPaused) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        try {
+          mediaRecorderRef.current.pause();
+        } catch {}
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsRecordingPaused(true);
+      setRecordingStatusBadge("⏸️ Paused (Think Time)");
+    } else {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+        try {
+          mediaRecorderRef.current.resume();
+        } catch {}
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {}
+      }
+      setIsRecordingPaused(false);
+      setRecordingStatusBadge("🎙️ Transcribing live...");
+    }
+  };
+
+  const handleSelectScratchpadLang = (langId: string) => {
+    setScratchpadLang(langId);
+    const found = CODE_LANGUAGES.find((l) => l.id === langId);
+    if (found && (!codeSnippet.trim() || CODE_LANGUAGES.some((l) => l.defaultSnippet === codeSnippet.trim()))) {
+      setCodeSnippet(found.defaultSnippet);
+    }
   };
 
   // ─── Evaluation Submission ──────────────────────────────────────────────────
@@ -1699,8 +1829,10 @@ export default function InterviewPage() {
           hint: `${gq.whatInterviewerLooksFor} · Hint: ${gq.hint}`,
           sampleAnswer: `Architectural breakdown for ${analysis.repoName}`,
           followUps: [],
-          keyConceptsToCover: gq.referencedFiles,
+          keyConceptsToCover: gq.keyConcepts && gq.keyConcepts.length > 0 ? gq.keyConcepts : gq.referencedFiles,
           referencedFiles: gq.referencedFiles,
+          codeExcerpt: gq.codeExcerpt,
+          whyAskThis: gq.whatInterviewerLooksFor,
         }));
 
         setQuestions((prev) => [...convertedQuestions, ...prev]);
@@ -2193,6 +2325,26 @@ export default function InterviewPage() {
                 Paste responsibilities, required stack, or key qualifications
               </span>
             </div>
+
+            {/* 1-Click Company Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap mb-2">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Presets:</span>
+              {COMPANY_JD_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => {
+                    setCustomCompany(preset.company);
+                    setCustomRole(preset.role);
+                    setCustomJdText(preset.desc);
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/25 text-[11px] text-indigo-300 font-medium transition-all"
+                >
+                  🏢 {preset.name}
+                </button>
+              ))}
+            </div>
+
             <textarea
               rows={4}
               placeholder="Paste target Job Description, required competencies, or tech stack expectations (e.g. 'Must have experience with Next.js, Kafka, microservices, and high-concurrency database indexing')..."
@@ -3700,6 +3852,62 @@ export default function InterviewPage() {
 
             {/* ─── RIGHT PANEL: Prompt, Live Telemetry Strip & Input (7 cols) ─── */}
             <div className="lg:col-span-7 space-y-4">
+              {/* Conversation Thread Timeline for Multi-Turn Sessions */}
+              {sessionTurns.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-black/40 border border-indigo-500/20 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-indigo-300 flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                      Interview Conversation Thread ({sessionTurns.length} Previous Turn{sessionTurns.length > 1 ? "s" : ""})
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-mono">Multi-Turn Active</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {sessionTurns.map((turn, idx) => (
+                      <div key={turn.id || idx} className="p-2 rounded-lg bg-white/5 border border-white/5 text-xs flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-bold text-slate-300 truncate">
+                            Turn {turn.turnOrder || idx + 1}: {turn.questionText}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate italic">
+                            You: &ldquo;{turn.userAnswer}&rdquo;
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-mono font-semibold text-emerald-400 shrink-0">
+                          {turn.score ? `${turn.score}/100` : "Answered"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Interviewer Persona Bar & Speaking Visualizer */}
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-black/40 border border-indigo-500/20 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 block animate-pulse" />
+                  <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span>🎙️ AI Bar-Raiser</span>
+                    <span className="text-[10px] text-indigo-400 font-mono">· Staff SDE Interviewer Panel</span>
+                  </span>
+                </div>
+                {isSpeakingTTS ? (
+                  <div className="flex items-center gap-1 text-[11px] text-indigo-300 font-mono">
+                    <span className="text-[10px] text-indigo-400">Interviewer Speaking</span>
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <span className="w-1 h-3 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1 h-4 bg-indigo-300 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1 h-2.5 bg-indigo-400 rounded-full animate-bounce" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <span className="text-amber-400/90 font-mono">⏱️ 15s Think Time</span>
+                    <span className="hidden sm:inline text-slate-500">· Formulate your approach</span>
+                  </div>
+                )}
+              </div>
+
               <Card className="p-5 bg-[#0e1424] border-white/8 shadow-xl">
                 {/* Header: Turn order, category, difficulty */}
                 <div className="flex items-center justify-between pb-3 border-b border-white/6 mb-4">
@@ -3733,6 +3941,7 @@ export default function InterviewPage() {
                         setCurrentIdx((i) => Math.max(0, i - 1));
                         setResponse("");
                         setEvalResult(null);
+                        setRevealedHintsCount(0);
                       }}
                       disabled={currentIdx === 0}
                       className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
@@ -3749,6 +3958,7 @@ export default function InterviewPage() {
                         setCurrentIdx((i) => Math.min(availableQuestions.length - 1, i + 1));
                         setResponse("");
                         setEvalResult(null);
+                        setRevealedHintsCount(0);
                       }}
                       disabled={currentIdx >= availableQuestions.length - 1}
                       className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
@@ -3759,9 +3969,70 @@ export default function InterviewPage() {
                 </div>
 
                 {/* Main Question Text */}
-                <h2 className="text-base sm:text-lg font-bold text-white mb-3 leading-relaxed">
+                <h2 className="text-base sm:text-lg font-bold text-white mb-2 leading-relaxed">
                   {activeQuestion?.question}
                 </h2>
+
+                {/* Why Interviewers Ask This */}
+                {activeQuestion?.whyAskThis && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 leading-relaxed flex items-start gap-2">
+                    <Target className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-indigo-300">Why Interviewers Ask This: </strong>
+                      {activeQuestion.whyAskThis}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bridge Tag if synthesized */}
+                {activeQuestion?.bridgeTag && (
+                  <div className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-500/30 text-[11px] text-purple-300 font-mono">
+                    <span>🔗 {activeQuestion.bridgeTag}</span>
+                  </div>
+                )}
+
+                {/* Code Excerpt Under Review (GitHub Grill & Technical Case Questions) */}
+                {activeQuestion?.codeExcerpt && (
+                  <div className="mb-3 rounded-xl bg-[#070b14] border border-indigo-500/30 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-950/40 border-b border-indigo-500/20 text-[11px] font-mono text-indigo-300">
+                      <span className="flex items-center gap-1.5">
+                        <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                        📄 Code Under Review {activeQuestion.referencedFiles?.[0] ? `(${activeQuestion.referencedFiles[0]})` : ""}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Analyze architecture &amp; edge cases</span>
+                    </div>
+                    <pre className="p-3 text-[11px] font-mono text-emerald-300/90 overflow-x-auto leading-relaxed whitespace-pre">
+                      <code>{activeQuestion.codeExcerpt}</code>
+                    </pre>
+                  </div>
+                )}
+
+                {/* Progressive Hints Button & List */}
+                {activeQuestion?.progressiveHints && activeQuestion.progressiveHints.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setRevealedHintsCount((c) => Math.min(activeQuestion.progressiveHints?.length || 0, c + 1))}
+                        disabled={revealedHintsCount >= (activeQuestion.progressiveHints?.length || 0)}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                        <span>💡 Progressive Hint ({revealedHintsCount}/{activeQuestion.progressiveHints.length})</span>
+                      </button>
+                    </div>
+                    {revealedHintsCount > 0 && (
+                      <div className="space-y-1.5 animate-fadeIn">
+                        {activeQuestion.progressiveHints.slice(0, revealedHintsCount).map((hint, idx) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-2">
+                            <span className="font-mono text-amber-400 font-bold shrink-0">H{idx + 1}:</span>
+                            <span>{hint}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Referenced Files Pill (if available, e.g. in GitHub Grill mode) */}
                 {activeQuestion?.referencedFiles && activeQuestion.referencedFiles.length > 0 && (
@@ -3998,13 +4269,30 @@ export default function InterviewPage() {
                     />
                   </div>
                 ) : (
-                  /* Code & Architecture Workspace */
+                  /* Code & Architecture Workspace with Language Switcher */
                   <div className="space-y-2 mb-4">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[11px] text-indigo-300 font-semibold flex items-center gap-1.5">
-                        <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-                        Code / Schema / SQL / Architecture (Evaluated concurrently)
-                      </span>
+                    <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] text-indigo-300 font-semibold flex items-center gap-1 mr-1">
+                          <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                          Language:
+                        </span>
+                        {CODE_LANGUAGES.map((lang) => (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            onClick={() => handleSelectScratchpadLang(lang.id)}
+                            className={clsx(
+                              "px-2 py-0.5 rounded text-[11px] font-mono transition-all",
+                              scratchpadLang === lang.id
+                                ? "bg-indigo-600 text-white font-bold shadow-sm"
+                                : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                            )}
+                          >
+                            {lang.name}
+                          </button>
+                        ))}
+                      </div>
                       {codeSnippet.trim() && (
                         <button
                           type="button"
@@ -4014,6 +4302,10 @@ export default function InterviewPage() {
                           Clear Code
                         </button>
                       )}
+                    </div>
+
+                    <div className="text-[10px] text-emerald-400/90 font-mono px-1">
+                      ✓ Any language supported: Python, Java, C++, TypeScript, SQL, Go, or Pseudocode — evaluated concurrently with verbal response
                     </div>
 
                     <div className="flex bg-[#0b0f19] border border-white/10 rounded-xl overflow-hidden font-mono text-xs">
@@ -4027,7 +4319,7 @@ export default function InterviewPage() {
                         value={codeSnippet}
                         onChange={(e) => setCodeSnippet(e.target.value)}
                         onKeyDown={(e) => handleEditorKeyDown(e, codeSnippet, setCodeSnippet)}
-                        placeholder={`// Write implementation, SQL schema, or architecture pseudocode here...\nfunction handleOptimisticUpdate(state, action) {\n  // Instant state update with rollback fallback\n}`}
+                        placeholder={`// Write ${CODE_LANGUAGES.find((l) => l.id === scratchpadLang)?.name || "code"} implementation, schema, or architecture here...\n${CODE_LANGUAGES.find((l) => l.id === scratchpadLang)?.defaultSnippet || ""}`}
                         className="flex-1 p-3 bg-transparent text-emerald-300 font-mono text-xs leading-6 focus:outline-none resize-none overflow-auto whitespace-pre"
                         spellCheck={false}
                       />
@@ -4037,7 +4329,7 @@ export default function InterviewPage() {
 
                 {/* Action Buttons: Voice Record & Evaluation */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                     {!isRecording ? (
                       <Button
                         variant="primary"
@@ -4049,15 +4341,25 @@ export default function InterviewPage() {
                         Start Speaking
                       </Button>
                     ) : (
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<MicOff className="w-4 h-4 animate-pulse" />}
-                        onClick={stopRecording}
-                        className="w-full sm:w-auto"
-                      >
-                        Stop Recording
-                      </Button>
+                      <>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<MicOff className="w-4 h-4 animate-pulse" />}
+                          onClick={stopRecording}
+                          className="w-full sm:w-auto"
+                        >
+                          Stop Recording
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleTogglePauseRecording}
+                          className="text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                        >
+                          {isRecordingPaused ? "▶ Resume" : "⏸ Pause to Think"}
+                        </Button>
+                      </>
                     )}
 
                     <Button
@@ -4185,6 +4487,24 @@ export default function InterviewPage() {
           {/* ─── POST-ANSWER DEEP DIAGNOSTIC DASHBOARD ───────────────────────── */}
           {evalResult && (
             <div ref={evaluationRef} className="space-y-6 pt-4 animate-fadeIn">
+              {/* Interviewer Conversational Reaction Bubble */}
+              {evalResult.interviewerReaction && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/50 to-black/60 border border-indigo-500/40 flex items-start gap-3.5 shadow-xl">
+                  <div className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-base shrink-0 mt-0.5">
+                    🎙️
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-indigo-300">AI Bar-Raiser · Staff Interviewer</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Conversational Feedback</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed italic">
+                      &ldquo;{evalResult.interviewerReaction}&rdquo;
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* 3-Gauge Score Header */}
               <Card className="p-6 bg-gradient-to-br from-[#0e1424] via-[#11182c] to-[#0e1424] border-indigo-500/30 shadow-2xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-white/8 gap-4 mb-6">

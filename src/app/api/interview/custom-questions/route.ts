@@ -68,6 +68,8 @@ function generateDeterministicQuestions(
       category: "resume-grill",
       difficulty: "hard",
       question: `On your resume, you built "${p1}". Since ${company} requires ${jd.slice(0, 70)}, walk me through the single point of failure (SPOF) in this project and how you would re-architect it for 10x scale.`,
+      whyAskThis: "Evaluates ability to critically analyze own code for single points of failure and scale limits.",
+      bridgeTag: `🔗 Bridges Your Project [${p1}] ↔ ${company} Scale Requirement`,
       hint: `Address stateless application horizontal scaling, database connection pooling (PgBouncer), read replicas, and caching layer eviction policies.`,
       sampleAnswer: `In "${p1}", the primary vulnerability is the single relational database instance under sudden write surges. To adapt this for ${company}'s scale requirements, I would decouple ingress traffic using an Apache Kafka message broker for asynchronous processing, introduce Redis cluster for sub-5ms cached reads, and implement read-replicas with automated failover via AWS Aurora.`,
       keyConceptsToCover: ["Single Point of Failure", "Horizontal Scaling", "Read Replicas", "Write Buffering"],
@@ -81,6 +83,8 @@ function generateDeterministicQuestions(
       category: "core-technical",
       difficulty: "medium",
       question: `Our team at ${company} relies heavily on ${skills.slice(0, 3).join(", ")}. How do you manage connection pooling, transaction boundaries, and deadlock prevention in your backend services?`,
+      whyAskThis: "Tests deep understanding of connection lifecycle, ACID transactions, and deadlock prevention.",
+      bridgeTag: `🔗 Bridges Resume Skills [${skills.slice(0, 2).join(", ")}] ↔ ${company} Production Stack`,
       hint: `Discuss database isolation levels (READ COMMITTED vs SERIALIZABLE), row-level locks (SELECT FOR UPDATE), and keeping transaction blocks as brief as possible.`,
       sampleAnswer: `I manage connection pooling using PgBouncer in transaction pooling mode to prevent connection exhaustion. For transaction boundaries, I keep ACID transactions strictly limited to state mutations, moving external API calls and heavy computation outside the transaction block. To prevent deadlocks, all concurrent transactions acquire row locks in a strictly consistent global ordering.`,
       keyConceptsToCover: ["ACID Isolation Levels", "Row-Level Locking", "Connection Pool Tuning", "Deadlock Graph"],
@@ -94,6 +98,8 @@ function generateDeterministicQuestions(
       category: "system-design",
       difficulty: "hard",
       question: `Design an end-to-end ingestion and rate-limiting pipeline for ${company}'s public API, handling 50,000 requests per second with strict per-user quotas.`,
+      whyAskThis: "Evaluates distributed systems architecture, token bucket algorithms, and API gateway protection.",
+      bridgeTag: `⚡ Direct ${company} Requirement: High-Concurrency Rate Limiting`,
       hint: `Compare Token Bucket vs Leaky Bucket vs Sliding Window Counter algorithms using Redis in-memory atomic operations (INCRBY + EXPIRE or Lua scripts).`,
       sampleAnswer: `I would implement the Sliding Window Counter algorithm using Redis and a Lua script for atomic multi-step execution. At API gateway level (Kong / Envoy), each incoming request hashes the client's API key. If the counter in the current rolling 60-second window exceeds the quota, we return HTTP 429 Too Many Requests with a Retry-After header. For high availability, local in-memory token buckets act as a secondary fallback if the Redis cluster experiences transient latency.`,
       keyConceptsToCover: ["Token Bucket / Sliding Window", "Redis Lua Scripting", "HTTP 429 Retry-After", "Rate Limiter Fail-Open vs Fail-Closed"],
@@ -107,6 +113,8 @@ function generateDeterministicQuestions(
       category: "debugging",
       difficulty: "hard",
       question: `After deploying a new feature in "${p2 || p1}", customer support reports that 2% of users experience intermittent checkout timeouts, but server CPU and memory usage remain below 30%. How do you isolate the root cause?`,
+      whyAskThis: "Tests systematic root cause analysis when CPU/memory metrics look normal but latency spikes.",
+      bridgeTag: `⚠️ Probes Production Debugging on [${p2 || p1}] under ${company} Scale`,
       hint: `Low CPU + high latency indicates I/O blocking: third-party payment gateway timeouts, database connection starvation, unindexed foreign key queries, or thread pool exhaustion.`,
       sampleAnswer: `Since CPU and memory are healthy, the root cause is external I/O blocking or resource contention. First, I would inspect distributed traces in OpenTelemetry/Datadog to trace the p99 latency waterfall for the 2% affected requests. If the delay occurs at the database tier, I examine active locks via pg_stat_activity and slow query logs. If it originates from an external payment gateway, I verify connection timeout thresholds and check whether synchronous calls are blocking the worker thread pool.`,
       keyConceptsToCover: ["Distributed Tracing", "p99 Latency Breakdown", "Database Lock Contention", "I/O Thread Starvation"],
@@ -120,6 +128,8 @@ function generateDeterministicQuestions(
       category: "behavioral",
       difficulty: "medium",
       question: `Tell me about a time you had a strong technical disagreement with a team member or lead regarding an architectural decision on your resume projects. How did you resolve it?`,
+      whyAskThis: "Assesses data-driven decision making and maintaining engineering velocity despite disagreements.",
+      bridgeTag: `🤝 Behavioral: Technical Disagreement on [${p1}]`,
       hint: `Use the STAR format (Situation, Task, Action, Result). Focus on empirical benchmarking, proof-of-concept (POC), objective criteria, and commitment to the team outcome.`,
       sampleAnswer: `In "${p1}", my peer proposed MongoDB for our primary datastore, while I advocated for PostgreSQL. The requirement involved financial ledger entries requiring strict transactional ACID guarantees. Rather than arguing conceptually, I built a rapid benchmark testing relational foreign-key consistency and multi-document transactions under simulated race conditions. The data demonstrated PostgreSQL eliminated edge-case double-credit bugs. My teammate concurred, and we successfully shipped with zero accounting reconciliation errors.`,
       keyConceptsToCover: ["Objective Benchmarking", "Proof of Concept", "Data-Driven Consensus", "Disagree and Commit"],
@@ -133,6 +143,8 @@ function generateDeterministicQuestions(
       category: "custom-jd",
       difficulty: "medium",
       question: `Reviewing the job requirement: "${jd.slice(0, 100)}...". Which required technical competency do you have the least production experience with, and how will you bridge that gap during your first 30 days?`,
+      whyAskThis: "Tests honest self-awareness and structured 30-day onboarding strategy for unfamiliar tech.",
+      bridgeTag: `🎯 Bridges JD Requirement Gap: ${jd.slice(0, 30)}`,
       hint: `Demonstrate self-awareness, deep foundational knowledge transfer, proactive documentation review, and building sandbox spike projects.`,
       sampleAnswer: `While I have strong core expertise across ${skills.slice(0, 2).join(" and ")}, my hands-on exposure to ${jd.slice(0, 40)} has primarily been through architectural study and sandbox implementations rather than multi-region scale. To bridge this gap, in my first 30 days I will deep-dive into ${company}'s production runbooks, review merged pull requests from senior staff, and build a prototype service to internalize team conventions.`,
       keyConceptsToCover: ["Self-Awareness", "Rapid Ramp-Up Plan", "Production Runbook Study", "Accelerated Learning Curve"],
@@ -252,10 +264,12 @@ Each question MUST include:
 3. category: one of ["core-technical", "system-design", "dsa", "debugging", "behavioral", "culture", "resume-grill", "custom-jd"]
 4. difficulty: "easy" | "medium" | "hard"
 5. question: string (must explicitly reference the candidate's resume projects, tools, or bullet points alongside the job requirements!)
-6. hint: string (actionable guidance)
-7. sampleAnswer: string (a 90-120 word 95/100 model answer utilizing the STAR methodology)
-8. keyConceptsToCover: string[] (3-5 technical keywords)
-9. followUps: string[] (2 probing cross-questions)
+6. whyAskThis: string (1-line engineering signal being tested)
+7. bridgeTag: string (e.g. "🔗 Bridges Your Project [Name] ↔ [Company] Requirement: [Skill]" or "⚠️ Probes Missing JD Skill: [Skill]")
+8. hint: string (actionable guidance)
+9. sampleAnswer: string (a 90-120 word 95/100 model answer utilizing the STAR methodology)
+10. keyConceptsToCover: string[] (3-5 technical keywords)
+11. followUps: string[] (2 probing cross-questions)
 
 Return ONLY valid JSON matching this schema:
 {
@@ -266,6 +280,8 @@ Return ONLY valid JSON matching this schema:
       "category": "core-technical",
       "difficulty": "hard",
       "question": "...",
+      "whyAskThis": "1-line engineering signal being tested",
+      "bridgeTag": "🔗 Bridges Your Project [Name] ↔ [Company] Requirement",
       "hint": "...",
       "sampleAnswer": "...",
       "keyConceptsToCover": ["..."],
@@ -320,6 +336,8 @@ Generate ${count} questions that specifically cross-examine their resume claims 
               ...q,
               id: q.id || `custom-${Date.now()}-${idx + 1}`,
               role: payload.targetRole,
+              whyAskThis: q.whyAskThis || "Evaluates candidate's capability to bridge previous experience with target job scale.",
+              bridgeTag: q.bridgeTag || `🔗 Bridges Resume ↔ ${payload.targetCompany || "Role"} Requirements`,
             }));
           }
         }
@@ -368,6 +386,8 @@ Return ONLY a JSON object matching this schema:
       "category": "core-technical",
       "difficulty": "medium",
       "question": "<string probing resume project vs JD>",
+      "whyAskThis": "<1-line engineering signal being tested>",
+      "bridgeTag": "<e.g. 🔗 Bridges Your Project [Name] ↔ [Company] Requirement>",
       "hint": "<string>",
       "sampleAnswer": "<string>",
       "keyConceptsToCover": ["<string>"],
@@ -404,6 +424,8 @@ Return ONLY a JSON object matching this schema:
             ...q,
             id: q.id || `custom-${Date.now()}-${idx + 1}`,
             role: payload.targetRole,
+            whyAskThis: q.whyAskThis || "Evaluates candidate's capability to bridge previous experience with target job scale.",
+            bridgeTag: q.bridgeTag || `🔗 Bridges Resume ↔ ${payload.targetCompany || "Role"} Requirements`,
           }));
         }
       }
