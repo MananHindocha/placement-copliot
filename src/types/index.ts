@@ -392,3 +392,5 @@ export type ReadinessDomain = {
   color: string;
   icon: string;
 };
+
+export type { DsaOaProblem, DsaTopic, DsaTestCase } from "@/lib/dsa-oa-questions";
