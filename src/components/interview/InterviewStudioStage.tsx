@@ -54,6 +54,9 @@ import {
   AlertCircle,
   Activity,
   FileCode,
+  ArrowRight,
+  BrainCircuit,
+  Flame,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { VisualTelemetryAnalyzer, type VisualPostureState } from "@/lib/visual-telemetry";
@@ -83,6 +86,11 @@ interface InterviewStudioStageProps {
   headerSlot?: React.ReactNode;
   showRoleSelector?: boolean;
   showCategoryFilters?: boolean;
+  requireManualStart?: boolean;
+  startCardIcon?: "brain" | "flame";
+  startCardTitle?: string;
+  startCardDescription?: string;
+  startCardIndicators?: Array<{ label: string; dotColor: string }>;
   onQuestionsChange?: (questions: StudioQuestion[]) => void;
 }
 
@@ -99,6 +107,11 @@ export default function InterviewStudioStage({
   headerSlot,
   showRoleSelector = true,
   showCategoryFilters = true,
+  requireManualStart = false,
+  startCardIcon,
+  startCardTitle,
+  startCardDescription,
+  startCardIndicators,
   onQuestionsChange,
 }: InterviewStudioStageProps) {
   // ─── Core Data State ────────────────────────────────────────────────────────
@@ -113,6 +126,9 @@ export default function InterviewStudioStage({
   // ─── Studio Configuration State ─────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"practice" | "history">("practice");
   const [selectedRole, setSelectedRole] = useState<string>(initialRole);
+  const [interviewLifecycle, setInterviewLifecycle] = useState<"preparing" | "initializing" | "active" | "completed">(
+    requireManualStart ? "preparing" : "active"
+  );
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isSpeakingTTS, setIsSpeakingTTS] = useState(false);
   const [filterCategory, setFilterCategory] = useState<"all" | InterviewCategory>(initialCategory);
@@ -264,13 +280,25 @@ export default function InterviewStudioStage({
 
   // Auto-speak question on question change
   useEffect(() => {
+    if (requireManualStart && interviewLifecycle !== "active") return;
     if (activeQuestion && !evalResult && ttsEnabled) {
       speakText(activeQuestion.question);
     }
     return () => {
       stopTTS();
     };
-  }, [activeQuestion, evalResult, ttsEnabled, speakText, stopTTS]);
+  }, [activeQuestion, evalResult, ttsEnabled, speakText, stopTTS, requireManualStart, interviewLifecycle]);
+
+  // Handle explicit manual start
+  const handleStartInterview = useCallback(() => {
+    setInterviewLifecycle("initializing");
+    setTimeout(() => {
+      setInterviewLifecycle("active");
+      if (activeQuestion && ttsEnabled) {
+        speakText(`Welcome to your ${selectedRole} interview. Let's begin with your first question: ${activeQuestion.question}`);
+      }
+    }, 200);
+  }, [activeQuestion, ttsEnabled, selectedRole, speakText]);
 
   // ─── Camera & Virtual Avatar Control ─────────────────────────────────────────
   const stopCamera = useCallback(() => {
@@ -830,21 +858,46 @@ export default function InterviewStudioStage({
 
   const totalFillersSpoken = Object.values(fillerCounts).reduce((a, b) => a + b, 0);
 
+  const isPreStart = requireManualStart && interviewLifecycle === "preparing";
+  const isGrillMode = mode === "grill" || startCardIcon === "flame";
+  const activeStartCardTitle = startCardTitle || (isGrillMode ? "Ready for Your Technical Grill?" : "Ready to Begin Your Interview?");
+  const activeStartCardDesc = startCardDescription || (isGrillMode ? "Your AI interviewer is ready to challenge your engineering decisions, architecture, and implementation choices." : "Your AI interviewer is ready. Make sure your camera and microphone are available before starting.");
+  const activeStartCardIndicators = startCardIndicators || (isGrillMode ? [
+    { label: "AI Technical Interviewer", dotColor: "bg-amber-400" },
+    { label: "Repository-Aware Questions", dotColor: "bg-emerald-400" },
+    { label: "Voice & Video Analysis", dotColor: "bg-indigo-400" },
+    { label: "Architecture Trade-offs", dotColor: "bg-violet-400" },
+  ] : [
+    { label: "AI Interviewer (TTS)", dotColor: "bg-emerald-400" },
+    { label: "Voice & WPM Telemetry", dotColor: "bg-indigo-400" },
+    { label: "STAR AI Evaluation", dotColor: "bg-violet-400" },
+    { label: "Visual Telemetry", dotColor: "bg-amber-400" },
+  ]);
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
+    <div className="max-w-7xl mx-auto pb-16 relative">
+      {/* ─── HEADER BAR (Unblurred so navigation & history are always accessible) ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4 mb-5">
         <div>
           <Link
             href={backHref}
             className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2 group font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-            <span>Back to Interview Modes</span>
+            <span>
+              {backHref.includes("customize")
+                ? "Back to Configuration"
+                : backHref.includes("question-bank") || backHref.includes("resume-grill")
+                ? "Back to Role Selection"
+                : "Back to Interview Modes"}
+            </span>
           </Link>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
-            <div className="p-1.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/25">
-              <Brain className="w-6 h-6" />
+            <div className={clsx(
+              "p-1.5 rounded-xl border",
+              isGrillMode ? "bg-amber-500/15 text-amber-400 border-amber-500/25" : "bg-indigo-500/15 text-indigo-400 border-indigo-500/25"
+            )}>
+              {isGrillMode ? <Flame className="w-6 h-6 text-amber-400" /> : <Brain className="w-6 h-6 text-indigo-400" />}
             </div>
             <span>{pageTitle}</span>
           </h1>
@@ -893,7 +946,7 @@ export default function InterviewStudioStage({
 
       {error && <ErrorBanner message={error} onRetry={() => setError(null)} />}
       {saveSuccessMsg && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs flex items-center justify-between">
+        <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs flex items-center justify-between">
           <span className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {saveSuccessMsg}
           </span>
@@ -903,10 +956,18 @@ export default function InterviewStudioStage({
         </div>
       )}
 
-      {/* Optional Mode Header Slot (e.g. GitHub Analyzer or Customizer Summary) */}
-      {headerSlot}
+      {/* Optional Mode Header Slot (e.g. GitHub Analyzer - UNBLURRED so candidate can analyze repo before starting) */}
+      {headerSlot && <div className="mb-6">{headerSlot}</div>}
 
-      {/* ─── STUDIO CONTROLS BAR ─────────────────────────────────────────────── */}
+      {/* ─── MAIN INTERVIEW WORKSPACE (BLURRED DURING PRE-START) ─────────────── */}
+      <div className="relative">
+        <div
+          className={clsx(
+            "space-y-6 transition-all duration-300",
+            isPreStart && "filter blur-md opacity-35 pointer-events-none select-none"
+          )}
+        >
+          {/* ─── STUDIO CONTROLS BAR ─────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-3 rounded-2xl bg-black/40 border border-white/6">
         <div className="flex items-center gap-2 flex-wrap">
           {badgeLabel && (
@@ -915,7 +976,7 @@ export default function InterviewStudioStage({
             </Badge>
           )}
 
-          {showRoleSelector && (
+          {showRoleSelector ? (
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-slate-400 font-medium">Role:</span>
               <select
@@ -938,6 +999,13 @@ export default function InterviewStudioStage({
                   </option>
                 ))}
               </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-slate-400 font-medium">Role:</span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-mono">
+                {selectedRole}
+              </span>
             </div>
           )}
         </div>
@@ -1659,6 +1727,92 @@ export default function InterviewStudioStage({
           </div>
         </div>
       )}
+      </div>
+
+      {/* ─── PRE-INTERVIEW START OVERLAY ─────────────────────────────────────── */}
+      {isPreStart && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 min-h-[480px] bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <Card className={clsx(
+            "max-w-lg w-full bg-[#0d1324]/95 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6 relative overflow-hidden backdrop-blur-xl border",
+            isGrillMode ? "border-amber-500/35" : "border-indigo-500/35"
+          )}>
+            {/* Ambient background glows */}
+            <div className={clsx(
+              "absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none",
+              isGrillMode ? "bg-amber-500/15" : "bg-indigo-500/15"
+            )} />
+            <div className={clsx(
+              "absolute -bottom-24 -left-24 w-48 h-48 rounded-full blur-3xl pointer-events-none",
+              isGrillMode ? "bg-orange-500/15" : "bg-violet-500/15"
+            )} />
+
+            {/* Large BrainCircuit / Flame Icon */}
+            <div className={clsx(
+              "relative mx-auto w-20 h-20 rounded-2xl border flex items-center justify-center shadow-xl",
+              isGrillMode
+                ? "bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border-amber-500/35 text-amber-400 shadow-amber-500/10"
+                : "bg-gradient-to-tr from-indigo-500/20 to-violet-500/20 border-indigo-500/35 text-indigo-400 shadow-indigo-500/10"
+            )}>
+              {isGrillMode ? (
+                <Flame className="w-10 h-10 animate-pulse text-amber-400" />
+              ) : (
+                <BrainCircuit className="w-10 h-10 animate-pulse text-indigo-400" />
+              )}
+            </div>
+
+            {/* Role Badge & Headings */}
+            <div className="space-y-2">
+              <div className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase font-mono border",
+                isGrillMode
+                  ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                  : "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+              )}>
+                {isGrillMode ? <Flame className="w-3.5 h-3.5 text-amber-400" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-400" />}
+                <span>{selectedRole} Interview</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white tracking-tight">
+                {activeStartCardTitle}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
+                {activeStartCardDesc}
+              </p>
+            </div>
+
+            {/* Feature Indicators */}
+            <div className="grid grid-cols-2 gap-2 text-left">
+              {activeStartCardIndicators.map((ind, i) => (
+                <div key={i} className="p-2.5 rounded-xl bg-white/5 border border-white/6 flex items-center gap-2">
+                  <div className={clsx("w-2 h-2 rounded-full shrink-0", ind.dotColor)} />
+                  <span className="text-[11px] text-slate-300 font-medium">{ind.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Start Button & Note */}
+            <div className="space-y-2.5 pt-1">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleStartInterview}
+                icon={<ArrowRight className="w-4 h-4" />}
+                className={clsx(
+                  "w-full py-3.5 text-white font-bold text-sm shadow-xl rounded-xl justify-center group",
+                  isGrillMode
+                    ? "bg-gradient-to-r from-amber-600 via-orange-500 to-indigo-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30"
+                    : "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-indigo-600/30"
+                )}
+              >
+                <span>Start Interview</span>
+              </Button>
+              <p className="text-[11px] text-slate-500">
+                Camera and microphone access may be requested after starting.
+              </p>
+            </div>
+          </Card>
+        </div>
+      )}
+      </div>
     </div>
   );
 }

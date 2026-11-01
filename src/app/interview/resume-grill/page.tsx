@@ -1,285 +1,219 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
 import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import {
+  ArrowLeft,
+  ArrowRight,
   Flame,
-  Search,
-  Loader2,
-  FileCode,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
+  Layers,
+  Layout,
+  Server,
+  Brain,
+  Cloud,
+  Activity,
+  BarChart3,
+  Smartphone,
+  ShieldAlert,
 } from "lucide-react";
-import InterviewStudioStage from "@/components/interview/InterviewStudioStage";
-import { GithubIcon, type StudioQuestion } from "@/components/interview/interview-common";
-import type { GitHubGrillAnalysis, InterviewQuestion } from "@/types";
+import { clsx } from "clsx";
+import { QUESTION_BANK_ROLES, type InterviewRoleMeta } from "@/lib/interview-roles";
 
-export default function ResumeGrillPage() {
-  const [githubUrl, setGithubUrl] = useState("");
-  const [githubFocusNotes, setGithubFocusNotes] = useState("");
-  const [isAnalyzingRepo, setIsAnalyzingRepo] = useState(false);
-  const [githubAnalysis, setGithubAnalysis] = useState<GitHubGrillAnalysis | null>(null);
-  const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>([]);
-  const [error, setError] = useState<string | null>(null);
+// Map string icon names to Lucide icon components
+const ROLE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Layers,
+  Layout,
+  Server,
+  Brain,
+  Cloud,
+  Activity,
+  BarChart3,
+  Smartphone,
+  ShieldAlert,
+};
 
-  // Read detected resume from localStorage
-  const [detectedResume, setDetectedResume] = useState<{
-    fileName: string;
-    candidateName?: string;
-    skills: string[];
-    projects: Array<{ title: string; subtitle?: string; bullets: string[] }>;
-    experience: Array<{ title: string; subtitle?: string; bullets: string[] }>;
-  } | null>(null);
+const ACCENT_STYLES: Record<
+  InterviewRoleMeta["accent"],
+  {
+    iconBg: string;
+    iconColor: string;
+    borderHover: string;
+    glowHover: string;
+    badgeVariant: "indigo" | "emerald" | "amber" | "violet" | "rose";
+  }
+> = {
+  indigo: {
+    iconBg: "bg-indigo-500/15 border-indigo-500/30",
+    iconColor: "text-indigo-400",
+    borderHover: "hover:border-indigo-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(99,102,241,0.18)]",
+    badgeVariant: "indigo",
+  },
+  cyan: {
+    iconBg: "bg-cyan-500/15 border-cyan-500/30",
+    iconColor: "text-cyan-400",
+    borderHover: "hover:border-cyan-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(6,182,212,0.18)]",
+    badgeVariant: "indigo",
+  },
+  blue: {
+    iconBg: "bg-blue-500/15 border-blue-500/30",
+    iconColor: "text-blue-400",
+    borderHover: "hover:border-blue-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(59,130,246,0.18)]",
+    badgeVariant: "indigo",
+  },
+  purple: {
+    iconBg: "bg-purple-500/15 border-purple-500/30",
+    iconColor: "text-purple-400",
+    borderHover: "hover:border-purple-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(168,85,247,0.18)]",
+    badgeVariant: "violet",
+  },
+  sky: {
+    iconBg: "bg-sky-500/15 border-sky-500/30",
+    iconColor: "text-sky-400",
+    borderHover: "hover:border-sky-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(14,165,233,0.18)]",
+    badgeVariant: "indigo",
+  },
+  rose: {
+    iconBg: "bg-rose-500/15 border-rose-500/30",
+    iconColor: "text-rose-400",
+    borderHover: "hover:border-rose-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(244,63,94,0.18)]",
+    badgeVariant: "rose",
+  },
+  amber: {
+    iconBg: "bg-amber-500/15 border-amber-500/30",
+    iconColor: "text-amber-400",
+    borderHover: "hover:border-amber-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(245,158,11,0.18)]",
+    badgeVariant: "amber",
+  },
+  emerald: {
+    iconBg: "bg-emerald-500/15 border-emerald-500/30",
+    iconColor: "text-emerald-400",
+    borderHover: "hover:border-emerald-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(16,185,129,0.18)]",
+    badgeVariant: "emerald",
+  },
+  violet: {
+    iconBg: "bg-violet-500/15 border-violet-500/30",
+    iconColor: "text-violet-400",
+    borderHover: "hover:border-violet-500/50",
+    glowHover: "group-hover:shadow-[0_0_28px_rgba(139,92,246,0.18)]",
+    badgeVariant: "violet",
+  },
+};
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem("copilot_latest_resume_analysis");
-      if (raw) {
-        const workspace = JSON.parse(raw);
-        const skills: string[] =
-          workspace.editableResume?.skills?.length
-            ? workspace.editableResume.skills
-            : workspace.analysis?.skills || [];
-        const rawProjects = workspace.editableResume?.projects || [];
-        const projects = rawProjects.map((p: { title?: string; subtitle?: string; bullets?: Array<string | { text?: string }> }) => ({
-          title: p.title || "Project",
-          subtitle: p.subtitle,
-          bullets: Array.isArray(p.bullets)
-            ? p.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
-            : [],
-        }));
-        const rawExperience = workspace.editableResume?.experience || [];
-        const experience = rawExperience.map((e: { title?: string; subtitle?: string; bullets?: Array<string | { text?: string }> }) => ({
-          title: e.title || "Experience",
-          subtitle: e.subtitle,
-          bullets: Array.isArray(e.bullets)
-            ? e.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
-            : [],
-        }));
-        const candidateName = workspace.editableResume?.contactInfo?.fullName || "Candidate";
-        const fileName = workspace.fileName || "Uploaded Resume.pdf";
-
-        setDetectedResume({
-          fileName,
-          candidateName,
-          skills,
-          projects,
-          experience,
-        });
-      }
-    } catch {
-      // Safe fallback
-    }
-  }, []);
-
-  const handleAnalyzeGitHubRepo = async () => {
-    if (!githubUrl.trim()) {
-      setError("Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo or owner/repo).");
-      return;
-    }
-
-    setIsAnalyzingRepo(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/interview/github-grill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repoUrl: githubUrl.trim(),
-          focusNotes: githubFocusNotes.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to analyze GitHub repository");
-      }
-
-      const data = await res.json();
-      if (data.analysis) {
-        const analysis: GitHubGrillAnalysis = data.analysis;
-        setGithubAnalysis(analysis);
-
-        const convertedQuestions: StudioQuestion[] = analysis.grillQuestions.map((gq, i) => ({
-          id: gq.id || `gh-grill-${Date.now()}-${i + 1}`,
-          role: `${analysis.owner}/${analysis.repoName}`,
-          category: "resume-grill",
-          difficulty: gq.difficulty === "Medium" ? "medium" : "hard",
-          question: gq.question,
-          hint: `${gq.whatInterviewerLooksFor} · Hint: ${gq.hint}`,
-          sampleAnswer: `Architectural breakdown for ${analysis.repoName}`,
-          followUps: [],
-          keyConceptsToCover: gq.keyConcepts && gq.keyConcepts.length > 0 ? gq.keyConcepts : gq.referencedFiles,
-          referencedFiles: gq.referencedFiles,
-          codeExcerpt: gq.codeExcerpt,
-          whyAskThis: gq.whatInterviewerLooksFor,
-          isCustom: true,
-        }));
-
-        setGrillQuestions(convertedQuestions);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to analyze repository");
-    } finally {
-      setIsAnalyzingRepo(false);
-    }
-  };
-
-  const headerSlot = (
-    <div className="space-y-4">
-      {/* Resume Detection Quick Badge */}
-      {detectedResume && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-amber-950/20 border border-amber-500/25 text-xs animate-fadeIn">
-          <div className="flex items-center gap-2 text-amber-300">
-            <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <span>
-              Loaded Resume Context: <strong className="text-white font-mono">{detectedResume.fileName}</strong> ({detectedResume.projects.length} Projects, {detectedResume.skills.length} Skills detected)
-            </span>
-          </div>
-          <span className="text-[11px] text-amber-400/80">
-            Available for deep project grilling questions
-          </span>
-        </div>
-      )}
-
-      {/* GitHub Repository Deep-Grill Analyzer Card */}
-      <Card className="p-6 bg-gradient-to-br from-[#160b14] via-[#1a0f1d] to-[#120a16] border-amber-500/30 shadow-2xl animate-fadeIn">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-amber-500/20 mb-4 gap-3">
-          <div className="flex items-center gap-2.5">
-            <GithubIcon className="w-6 h-6 text-amber-400" />
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                GitHub Repository Deep-Grill Analyzer
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  CODEBASE DEFENSE
-                </span>
-              </h3>
-              <p className="text-xs text-amber-300/80">
-                Provide your project repo to analyze file trees, dependencies, and commit history for file-specific grilling on trade-offs &amp; scale.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-          <div className="lg:col-span-7">
-            <label className="text-xs font-semibold text-slate-300 block mb-1">
-              GitHub Repository URL (or owner/repo) <span className="text-amber-400">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="https://github.com/facebook/react or username/project-name"
-              value={githubUrl}
-              onChange={(e) => setGithubUrl(e.target.value)}
-              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-            />
-          </div>
-
-          <div className="lg:col-span-5">
-            <label className="text-xs font-semibold text-slate-300 block mb-1">
-              Focus Notes / Key Modules (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Focus on WebSocket engine, Redis lock, auth JWT"
-              value={githubFocusNotes}
-              onChange={(e) => setGithubFocusNotes(e.target.value)}
-              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-[11px] text-slate-400">
-            ⚡ Inspects README.md, package.json, file tree, and git commits to formulate deep architectural cross-questions.
-          </span>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={isAnalyzingRepo ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Search className="w-4 h-4" />}
-            onClick={handleAnalyzeGitHubRepo}
-            disabled={isAnalyzingRepo || !githubUrl.trim()}
-            className="bg-amber-600 hover:bg-amber-500 text-white font-medium shadow-md shadow-amber-600/20"
+export default function ResumeGrillRoleSelectionPage() {
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
+        <div>
+          <Link
+            href="/interview"
+            className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2 group font-medium"
           >
-            {isAnalyzingRepo ? "Inspecting Codebase & Formulating Questions..." : "Analyze Repo & Generate Grill Questions"}
-          </Button>
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Interview Modes</span>
+          </Link>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/25">
+              <Flame className="w-6 h-6" />
+            </div>
+            <span>Choose Your Interview Role</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
+            Select your target engineering role to experience an in-depth technical interview based on your projects, architecture, and engineering decisions.
+          </p>
         </div>
 
-        {/* Repository Intelligence Result Card */}
-        {githubAnalysis && (
-          <div className="mt-5 pt-4 border-t border-amber-500/20 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-white flex items-center gap-2">
-                <FileCode className="w-4 h-4 text-amber-400" />
-                Repository Intelligence: {githubAnalysis.owner}/{githubAnalysis.repoName}
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {githubAnalysis.detectedStack.map((tech) => (
-                  <span
-                    key={tech}
-                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/30"
-                  >
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-300 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/6">
-              {githubAnalysis.summary}
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <span className="font-bold text-emerald-400 block mb-1">Architecture Highlights</span>
-                <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
-                  {githubAnalysis.architectureStrengths.map((s, idx) => (
-                    <li key={idx}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                <span className="font-bold text-rose-400 block mb-1">Risk Areas Under Grill</span>
-                <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
-                  {githubAnalysis.potentialWeaknessesOrRisks.map((w, idx) => (
-                    <li key={idx}>{w}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="amber" size="md">
+            RESUME &amp; PROJECT GRILL
+          </Badge>
+          <div className="px-3 py-1 rounded-full bg-white/5 border border-white/8 text-slate-300 text-xs font-mono font-medium">
+            {QUESTION_BANK_ROLES.length} ROLES AVAILABLE
           </div>
-        )}
-      </Card>
+        </div>
+      </div>
+
+      {/* ─── ROLES RESPONSIVE GRID (2 OR 3 COLS DESKTOP, 1 COL MOBILE) ───────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {QUESTION_BANK_ROLES.map((role) => {
+          const IconComponent = ROLE_ICONS[role.iconName] || Layers;
+          const styling = ACCENT_STYLES[role.accent] || ACCENT_STYLES.amber;
+
+          return (
+            <Link
+              key={role.slug}
+              href={`/interview/resume-grill/${role.slug}`}
+              className="block group focus:outline-none"
+            >
+              <Card
+                className={clsx(
+                  "h-full p-5 sm:p-6 bg-[#0a0f1d] border border-white/10 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4",
+                  styling.borderHover,
+                  styling.glowHover,
+                  "group-hover:-translate-y-0.5"
+                )}
+              >
+                {/* Top Section: Icon & Category */}
+                <div className="space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div
+                      className={clsx(
+                        "w-12 h-12 rounded-xl border flex items-center justify-center transition-transform group-hover:scale-105",
+                        styling.iconBg,
+                        styling.iconColor
+                      )}
+                    >
+                      <IconComponent className="w-6 h-6" />
+                    </div>
+
+                    <Badge variant={styling.badgeVariant} size="sm">
+                      {role.category}
+                    </Badge>
+                  </div>
+
+                  {/* Role Title & Description */}
+                  <div>
+                    <h3 className="text-lg font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {role.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed line-clamp-3">
+                      {role.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bottom Section: Topic Tags & Explore Indicator */}
+                <div className="pt-3 border-t border-white/6 space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {role.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-white/6 group-hover:border-white/10 transition-colors"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 text-xs font-semibold text-amber-400 group-hover:text-amber-300">
+                    <span>Explore Interview</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
-
-  return (
-    <InterviewStudioStage
-      mode="grill"
-      initialRole="Full-Stack SDE"
-      initialCategory="resume-grill"
-      initialQuestions={grillQuestions.length > 0 ? grillQuestions : undefined}
-      backHref="/interview"
-      pageTitle="Resume & Project Grill"
-      pageSubtitle="Experience an in-depth technical interview based on your resume, projects, architecture, implementation decisions, and engineering trade-offs."
-      badgeLabel="🔥 Deep Grill Mode"
-      badgeVariant="amber"
-      showRoleSelector={true}
-      showCategoryFilters={false}
-      headerSlot={headerSlot}
-      onQuestionsChange={(qs) => setGrillQuestions(qs)}
-    />
-  );
 }
-

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -11,16 +12,21 @@ import {
   AlertCircle,
   Plus,
   Loader2,
+  ArrowLeft,
   Building2,
 } from "lucide-react";
 import { clsx } from "clsx";
-import InterviewStudioStage from "@/components/interview/InterviewStudioStage";
 import {
   type StudioQuestion,
   COMPANY_JD_PRESETS,
 } from "@/components/interview/interview-common";
 import { INTERVIEW_ROLES } from "@/lib/interview-questions";
 import type { InterviewQuestion } from "@/types";
+import {
+  saveCustomInterviewSession,
+  saveDraftCustomConfig,
+  getDraftCustomConfig,
+} from "@/lib/custom-interview-storage";
 
 interface RawResumeProject {
   title?: string;
@@ -35,6 +41,8 @@ interface RawResumeExperience {
 }
 
 export default function CustomizePage() {
+  const router = useRouter();
+
   const [customRole, setCustomRole] = useState("Full-Stack SDE");
   const [customCompany, setCustomCompany] = useState("");
   const [customJdText, setCustomJdText] = useState("");
@@ -48,9 +56,7 @@ export default function CustomizePage() {
   ]);
   const [includeResumeContext, setIncludeResumeContext] = useState(true);
   const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
-  const [customSuccessMsg, setCustomSuccessMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [customQuestions, setCustomQuestions] = useState<StudioQuestion[]>([]);
 
   // LocalStorage Resume Detection
   const [detectedResume, setDetectedResume] = useState<{
@@ -61,6 +67,19 @@ export default function CustomizePage() {
     experience: Array<{ title: string; subtitle?: string; bullets: string[] }>;
   } | null>(null);
 
+  // Restore draft configuration if available
+  useEffect(() => {
+    const draft = getDraftCustomConfig();
+    if (draft) {
+      if (draft.targetRole) setCustomRole(draft.targetRole);
+      if (draft.targetCompany) setCustomCompany(draft.targetCompany);
+      if (draft.jobDescription) setCustomJdText(draft.jobDescription);
+      if (draft.difficulty) setCustomDifficulty(draft.difficulty);
+      if (draft.selectedFocusAreas?.length) setCustomFocusCategories(draft.selectedFocusAreas);
+    }
+  }, []);
+
+  // Detect resume from local storage
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -130,7 +149,15 @@ export default function CustomizePage() {
 
     setIsGeneratingCustom(true);
     setError(null);
-    setCustomSuccessMsg(null);
+
+    // Save draft configuration for future edits
+    saveDraftCustomConfig({
+      targetRole: role,
+      targetCompany: customCompany.trim() || undefined,
+      difficulty: customDifficulty,
+      selectedFocusAreas: customFocusCategories,
+      jobDescription: requirement,
+    });
 
     try {
       const payload = {
@@ -164,60 +191,103 @@ export default function CustomizePage() {
 
       const data = await res.json();
       if (Array.isArray(data.questions) && data.questions.length > 0) {
-        const taggedQuestions: StudioQuestion[] = data.questions.map((q: InterviewQuestion) => ({
+        const taggedQuestions: StudioQuestion[] = data.questions.map((q: InterviewQuestion, idx: number) => ({
           ...q,
+          id: q.id || `custom-q-${Date.now()}-${idx + 1}`,
           isCustom: true,
         }));
 
-        if (appendMode) {
-          setCustomQuestions((prev) => [...prev, ...taggedQuestions]);
-          setCustomSuccessMsg(
-            `Added ${taggedQuestions.length} more custom questions to queue! (${data.source || "AI engine"})`
-          );
-        } else {
-          setCustomQuestions(taggedQuestions);
-          setCustomSuccessMsg(
-            `Generated ${taggedQuestions.length} questions tailored to your resume & requirements! (${data.source || "AI engine"})`
-          );
-        }
+        // Generate unique session identifier
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+        // Save session to persistence store
+        saveCustomInterviewSession({
+          sessionId,
+          targetRole: role,
+          targetCompany: customCompany.trim() || undefined,
+          difficulty: customDifficulty,
+          selectedFocusAreas: customFocusCategories,
+          jobDescription: requirement,
+          resumeContext:
+            includeResumeContext && detectedResume
+              ? {
+                  candidateName: detectedResume.candidateName,
+                  skills: detectedResume.skills,
+                  projects: detectedResume.projects,
+                  experience: detectedResume.experience,
+                }
+              : undefined,
+          generatedQuestions: taggedQuestions,
+          createdAt: Date.now(),
+        });
+
+        // Navigate to the dedicated mock interview workspace
+        router.push(`/interview/customize/session/${sessionId}`);
       } else {
         throw new Error("No interview questions were generated. Please refine your requirements.");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate custom interview questions.");
-    } finally {
       setIsGeneratingCustom(false);
     }
   };
 
-  const headerSlot = (
-    <div className="space-y-4">
-      {/* ─── CUSTOM RESUME + JOB REQUIREMENT PANEL ───────────────────────── */}
-      <Card className="p-5 md:p-6 bg-gradient-to-br from-[#0c1222] via-[#0f172a] to-[#0c1222] border-emerald-500/30 shadow-2xl rounded-2xl animate-fadeIn space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between pb-3 border-b border-white/8">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
+        <div>
+          <Link
+            href="/interview"
+            className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2 group font-medium"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Interview Modes</span>
+          </Link>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <span>Customize by Resume &amp; JD</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Generate personalized interview questions matching your resume and target role.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge variant="emerald" size="md">
+            DUAL-SYNTHESIZER AI
+          </Badge>
+        </div>
+      </div>
+
+      {/* ─── DUAL-SYNTHESIZER AI QUESTION GENERATOR CARD ─────────────────────── */}
+      <Card className="p-5 md:p-8 bg-gradient-to-br from-[#0c1222] via-[#0f172a] to-[#0c1222] border-emerald-500/30 shadow-2xl rounded-3xl space-y-6">
+        {/* Card Header */}
+        <div className="flex items-start justify-between pb-4 border-b border-white/8">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h2 className="text-lg font-bold text-white tracking-tight">
                 Dual-Synthesizer AI Question Generator
-              </h3>
+              </h2>
               <Badge variant="emerald" size="sm">
                 Resume &amp; JD Matched
               </Badge>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
               Synthesizes your uploaded resume projects &amp; skills with target company requirements to generate tailored, bar-raiser interview questions.
             </p>
           </div>
         </div>
 
-        {/* Resume Integration Status Card */}
+        {/* Section A: Resume Integration Status Card */}
         <div
           className={clsx(
-            "p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
+            "p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
             detectedResume
               ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
               : "bg-slate-900/60 border-white/8 text-slate-400"
@@ -249,7 +319,7 @@ export default function CustomizePage() {
           </div>
 
           {detectedResume && (
-            <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-slate-300 hover:text-white bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/10">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-slate-300 hover:text-white bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/10 shrink-0">
               <input
                 type="checkbox"
                 checked={includeResumeContext}
@@ -261,9 +331,9 @@ export default function CustomizePage() {
           )}
         </div>
 
-        {/* Inputs Grid */}
+        {/* Section B, C, D: Inputs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Target Role */}
+          {/* Section B: Target Role */}
           <div>
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Target Role <span className="text-emerald-400">*</span>
@@ -271,7 +341,7 @@ export default function CustomizePage() {
             <select
               value={customRole}
               onChange={(e) => setCustomRole(e.target.value)}
-              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               {INTERVIEW_ROLES.map((r) => (
                 <option key={r} value={r} className="bg-slate-900 text-slate-200">
@@ -281,7 +351,7 @@ export default function CustomizePage() {
             </select>
           </div>
 
-          {/* Target Company */}
+          {/* Section C: Target Company */}
           <div>
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Target Company (Optional)
@@ -291,11 +361,11 @@ export default function CustomizePage() {
               placeholder="e.g. Google, Stripe, Zepto, Swiggy"
               value={customCompany}
               onChange={(e) => setCustomCompany(e.target.value)}
-              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
             />
           </div>
 
-          {/* Difficulty */}
+          {/* Section D: Difficulty */}
           <div>
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Difficulty Bar
@@ -303,7 +373,7 @@ export default function CustomizePage() {
             <select
               value={customDifficulty}
               onChange={(e) => setCustomDifficulty(e.target.value as "Easy" | "Medium" | "Hard" | "Mixed")}
-              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="Mixed" className="bg-slate-900">Mixed (Bar-Raiser &amp; Core)</option>
               <option value="Hard" className="bg-slate-900">Hard (Senior / Staff)</option>
@@ -313,7 +383,7 @@ export default function CustomizePage() {
           </div>
         </div>
 
-        {/* Question Mix Focus Categories */}
+        {/* Section E: Question Mix Focus Categories */}
         <div>
           <label className="text-xs font-semibold text-slate-300 block mb-1.5">
             Target Question Focus Areas
@@ -342,9 +412,9 @@ export default function CustomizePage() {
                     }
                   }}
                   className={clsx(
-                    "px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all select-none",
+                    "px-3 py-1.5 text-xs font-medium rounded-lg border transition-all select-none cursor-pointer",
                     selected
-                      ? "bg-emerald-600/30 border-emerald-500/60 text-emerald-200 font-semibold"
+                      ? "bg-emerald-600/30 border-emerald-500/60 text-emerald-200 font-semibold shadow-sm shadow-emerald-500/10"
                       : "bg-white/5 border-white/8 text-slate-400 hover:text-white"
                   )}
                 >
@@ -355,9 +425,9 @@ export default function CustomizePage() {
           </div>
         </div>
 
-        {/* Job Description & Requirements Textarea */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
+        {/* Section F: Job Description & Requirements Textarea */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-300">
               Job Description &amp; Technical Requirements <span className="text-emerald-400">*</span>
             </label>
@@ -367,8 +437,8 @@ export default function CustomizePage() {
           </div>
 
           {/* 1-Click Company Presets */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-2">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Presets:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mr-1">Presets:</span>
             {COMPANY_JD_PRESETS.map((preset) => (
               <button
                 key={preset.name}
@@ -378,7 +448,7 @@ export default function CustomizePage() {
                   setCustomRole(preset.role);
                   setCustomJdText(preset.desc);
                 }}
-                className="px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[11px] text-emerald-300 font-medium transition-all"
+                className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs text-emerald-300 font-medium transition-all cursor-pointer"
               >
                 🏢 {preset.name}
               </button>
@@ -386,46 +456,29 @@ export default function CustomizePage() {
           </div>
 
           <textarea
-            rows={4}
+            rows={5}
             placeholder="Paste target Job Description, required competencies, or tech stack expectations (e.g. 'Must have experience with Next.js, Kafka, microservices, and high-concurrency database indexing')..."
             value={customJdText}
             onChange={(e) => setCustomJdText(e.target.value)}
-            className="w-full text-xs bg-black/40 border border-white/10 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 leading-relaxed font-sans"
+            className="w-full text-xs bg-black/40 border border-white/10 rounded-xl p-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 leading-relaxed font-sans"
           />
         </div>
 
         {/* Error Feedback */}
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Success Feedback */}
-        {customSuccessMsg && (
-          <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between animate-fadeIn">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <span>{customSuccessMsg}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCustomSuccessMsg(null)}
-              className="text-emerald-400/70 hover:text-white text-xs"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        {/* Section G: Question Generation Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/8">
           <span className="text-[11px] text-slate-500">
-            {customQuestions.length > 0 ? `${customQuestions.length} custom questions currently in queue.` : "Configure parameters above and generate questions."}
+            Configure parameters above and generate your personalized bar-raiser interview questions.
           </span>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               variant="secondary"
               size="sm"
@@ -439,11 +492,11 @@ export default function CustomizePage() {
 
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               icon={isGeneratingCustom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-300" />}
               onClick={() => handleGenerateCustomQuestions(false)}
               disabled={isGeneratingCustom || (!customJdText.trim() && !customRole)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 px-4 py-2"
             >
               {isGeneratingCustom ? "Synthesizing Profile & Generating..." : "⚡ Generate Tailored Questions (12)"}
             </Button>
@@ -452,23 +505,4 @@ export default function CustomizePage() {
       </Card>
     </div>
   );
-
-  return (
-    <InterviewStudioStage
-      mode="custom"
-      initialRole={customRole}
-      initialCategory="custom-jd"
-      initialQuestions={customQuestions.length > 0 ? customQuestions : undefined}
-      backHref="/interview"
-      pageTitle="Customize by Resume & JD"
-      pageSubtitle="Generate personalized interview questions by analyzing your resume, target company, job description, and technical requirements."
-      badgeLabel="✨ Custom Tailored Mode"
-      badgeVariant="emerald"
-      showRoleSelector={false}
-      showCategoryFilters={false}
-      headerSlot={headerSlot}
-      onQuestionsChange={(qs) => setCustomQuestions(qs)}
-    />
-  );
 }
-

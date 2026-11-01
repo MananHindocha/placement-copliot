@@ -64,11 +64,11 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   },
   "/interview/question-bank": {
     title: "Standard Question Bank",
-    subtitle: "Practice technical, behavioral, and HR questions tailored to your engineering role",
+    subtitle: "Select your engineering role to practice curated technical & behavioral questions",
   },
   "/interview/resume-grill": {
     title: "Resume & Project Grill",
-    subtitle: "In-depth technical interview on architecture, implementation, and trade-offs",
+    subtitle: "Select your engineering role for in-depth codebase & project defense",
   },
   "/interview/dsa": {
     title: "OA & DSA Problemset",
@@ -119,6 +119,24 @@ export default function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   let page = PAGE_TITLES[pathname];
+  if (!page && pathname.startsWith("/interview/customize/session/")) {
+    page = {
+      title: "Custom Tailored Mock Interview",
+      subtitle: "AI-powered personalized interview session aligned to your resume and target JD",
+    };
+  }
+  if (!page && pathname.startsWith("/interview/resume-grill/")) {
+    page = {
+      title: "Resume & Project Grill Workspace",
+      subtitle: "Deep-dive codebase defense, architectural trade-offs, and failure scenarios",
+    };
+  }
+  if (!page && pathname.startsWith("/interview/question-bank/")) {
+    page = {
+      title: "Role Interview Workspace",
+      subtitle: "AI-powered technical, behavioral, and architectural mock interview",
+    };
+  }
   if (!page && pathname.startsWith("/interview/dsa/")) {
     page = {
       title: "OA & DSA Problem Workspace",
