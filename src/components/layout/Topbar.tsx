@@ -62,6 +62,22 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Mock Interview Coach",
     subtitle: "Practice with AI-powered questions and feedback",
   },
+  "/interview/question-bank": {
+    title: "Standard Question Bank",
+    subtitle: "Practice technical, behavioral, and HR questions tailored to your engineering role",
+  },
+  "/interview/resume-grill": {
+    title: "Resume & Project Grill",
+    subtitle: "In-depth technical interview on architecture, implementation, and trade-offs",
+  },
+  "/interview/dsa": {
+    title: "OA & DSA Coding Arena",
+    subtitle: "Solve coding challenges, run test cases, and analyze Big-O complexity",
+  },
+  "/interview/customize": {
+    title: "Customize by Resume & JD",
+    subtitle: "Generate personalized interview questions matching your resume and target role",
+  },
   "/readiness": {
     title: "Placement Readiness Plan",
     subtitle: "Your personalised roadmap to landing the offer",
