@@ -231,6 +231,10 @@ export type InterviewQuestion = {
   difficulty: "easy" | "medium" | "hard";
   question: string;
   hint: string;
+  whyAskThis?: string;
+  bridgeTag?: string;
+  codeExcerpt?: string;
+  progressiveHints?: string[];
   sampleAnswer?: string;
   idealAnswer?: string;
   followUps?: string[];
@@ -244,6 +248,8 @@ export interface GitHubGrillQuestion {
   difficulty: "Medium" | "Hard";
   question: string;
   referencedFiles: string[];
+  codeExcerpt?: string;
+  keyConcepts?: string[];
   whatInterviewerLooksFor: string;
   hint: string;
 }
@@ -294,12 +300,16 @@ export interface InterviewEvaluationResponse {
   strengths: string[];
   improvements: string[];
   rewrittenIdealAnswer: string;
+  interviewerReaction?: string;
   followUpQuestion: {
     prompt: string;
     intent: string;
     keyConcepts?: string[];
   };
   evaluationSource: "ai" | "heuristic";
+  coveredConcepts?: string[];
+  missedConcepts?: string[];
+  codeReviewCritique?: string;
 }
 
 export interface InterviewTelemetry {
@@ -323,6 +333,8 @@ export interface InterviewEvaluationRequest {
   resumeContext?: string;
   githubRepoContext?: string;
   customJdContext?: string;
+  codeSnippet?: string;
+  keyConceptsToCover?: string[];
 }
 
 export interface InterviewTurn {
@@ -344,6 +356,9 @@ export interface InterviewTurn {
   followUpQuestion?: string;
   turnOrder: number;
   createdAt?: string;
+  coveredConcepts?: string[];
+  missedConcepts?: string[];
+  codeSnippet?: string;
 }
 
 export type InterviewSession = {
@@ -363,6 +378,7 @@ export type InterviewSession = {
   rewrittenAnswer?: string;
   followUpQuestion?: string;
   turns?: InterviewTurn[];
+  missedConcepts?: string[];
 };
 
 // ─── Readiness ───────────────────────────────────────────────────────────────
@@ -383,3 +399,5 @@ export type ReadinessDomain = {
   color: string;
   icon: string;
 };
+
+export type { DsaOaProblem, DsaTopic, DsaTestCase } from "@/lib/dsa-oa-questions";

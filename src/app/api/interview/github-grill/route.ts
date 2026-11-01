@@ -6,6 +6,33 @@ interface GitHubGrillRequestBody {
   focusNotes?: string;
 }
 
+interface SourceSnippet {
+  path: string;
+  content: string;
+}
+
+interface RawGrillQuestion {
+  id?: string;
+  category?: "Architecture" | "Code Implementation" | "Scalability & Edge Cases" | "Trade-offs & Debugging" | "Security & Deployment";
+  difficulty?: "Medium" | "Hard";
+  question?: string;
+  referencedFiles?: string[];
+  codeExcerpt?: string;
+  keyConcepts?: string[];
+  whatInterviewerLooksFor?: string;
+  hint?: string;
+}
+
+interface RepoCacheEntry {
+  timestamp: number;
+  analysis: GitHubGrillAnalysis;
+  source: string;
+}
+
+// 15-Minute In-Memory Server Cache to avoid GitHub 60 req/hr unauthenticated rate limit
+const repoGrillCache = new Map<string, RepoCacheEntry>();
+const CACHE_TTL_MS = 15 * 60 * 1000;
+
 function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
   const cleaned = url.trim().replace(/\/$/, "");
   // Matches https://github.com/owner/repo or github.com/owner/repo or owner/repo
@@ -20,23 +47,44 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
   return null;
 }
 
+function getExcerpt(snippets: SourceSnippet[], filePath: string, fallback: string): string {
+  const match = snippets.find((s) => s.path === filePath) || snippets[0];
+  if (!match || !match.content) return fallback;
+  const lines = match.content.split("\n").filter((l) => l.trim().length > 0);
+  return lines.slice(0, 9).join("\n") || fallback;
+}
+
 function generateDeterministicGitHubGrill(
   owner: string,
   repo: string,
   detectedStack: string[],
   keyFiles: string[],
-  notes: string
+  notes: string,
+  sourceSnippets: SourceSnippet[] = []
 ): GitHubGrillAnalysis {
   const stack = detectedStack.length > 0 ? detectedStack : ["TypeScript", "Next.js", "Node.js", "REST APIs"];
-  const files = keyFiles.length > 0 ? keyFiles : ["src/index.ts", "package.json", "README.md", "src/lib/api.ts"];
+  const files = sourceSnippets.length > 0
+    ? sourceSnippets.map((s) => s.path)
+    : keyFiles.length > 0
+    ? keyFiles
+    : ["src/index.ts", "package.json", "README.md", "src/lib/api.ts"];
+  const f0 = files[0] || "src/index.ts";
+  const f1 = files[1] || files[0] || "src/app/page.tsx";
+  const f2 = files[2] || files[0] || "src/lib/utils.ts";
+
+  const exc0 = getExcerpt(sourceSnippets, f0, `export async function handleRequest(req: Request) {\n  const session = await auth();\n  if (!session) return new Response("Unauthorized", { status: 401 });\n  const data = await db.query();\n  return Response.json({ success: true, data });\n}`);
+  const exc1 = getExcerpt(sourceSnippets, f1, `export default function DashboardPage({ params }: { params: { id: string } }) {\n  const [state, setState] = useState<Item[]>([]);\n  useEffect(() => {\n    fetchData(params.id).then(setState);\n  }, [params.id]);\n}`);
+  const exc2 = getExcerpt(sourceSnippets, f2, `export const cache = new Map<string, unknown>();\nexport function getCached(key: string) {\n  if (cache.has(key)) return cache.get(key);\n  const fresh = computeExpensive(key);\n  cache.set(key, fresh);\n  return fresh;\n}`);
 
   const questions: GitHubGrillQuestion[] = [
     {
       id: `gh-grill-${Date.now()}-1`,
       category: "Architecture",
       difficulty: "Hard",
-      question: `In ${repo}, how did you separate state management, data mutations, and rendering? If you had to refactor this architecture today, what would you decouple?`,
-      referencedFiles: files.slice(0, 2),
+      question: `In ${f0}, how did you separate state management, asynchronous mutations, and data access? If you had to refactor this architecture today, what would you decouple?`,
+      referencedFiles: [f0, f1],
+      codeExcerpt: exc0,
+      keyConcepts: ["Separation of Concerns", "State Decoupling", "Asynchronous Mutations", "Single Point of Failure"],
       whatInterviewerLooksFor: "Ability to critically evaluate own architectural boundaries, modularity, and separation of concerns.",
       hint: "Explain data flow boundaries, caching strategies, and how components interact without tight coupling.",
     },
@@ -44,8 +92,10 @@ function generateDeterministicGitHubGrill(
       id: `gh-grill-${Date.now()}-2`,
       category: "Scalability & Edge Cases",
       difficulty: "Hard",
-      question: `Looking at ${files[0] || "your core entrypoint"}, what happens if 5,000 users trigger simultaneous operations? Walk me through where the system hits memory or concurrency bottlenecks.`,
-      referencedFiles: [files[0] || "src/index.ts"],
+      question: `Looking at ${f0}, what happens if 5,000 users trigger simultaneous operations? Walk me through where the system hits memory or concurrency bottlenecks.`,
+      referencedFiles: [f0],
+      codeExcerpt: exc0,
+      keyConcepts: ["Connection Pool Exhaustion", "Event Loop Blocking", "Rate Limiting", "Backpressure"],
       whatInterviewerLooksFor: "Understanding memory leaks, connection pool exhaustion, event-loop blocking, and scaling limits.",
       hint: "Analyze asynchronous queueing, DB connection limits, and horizontal scaling capabilities.",
     },
@@ -53,8 +103,10 @@ function generateDeterministicGitHubGrill(
       id: `gh-grill-${Date.now()}-3`,
       category: "Code Implementation",
       difficulty: "Medium",
-      question: `Walk me through your error handling and validation logic in ${repo}. How do you ensure user-provided inputs don't crash the server or leak sensitive error stack traces?`,
-      referencedFiles: files.slice(1, 3),
+      question: `In ${f1}, walk me through your input validation, boundary error handling, and null safety. How do you ensure bad payloads don't crash workers or leak internal stack traces?`,
+      referencedFiles: [f1, f2],
+      codeExcerpt: exc1,
+      keyConcepts: ["Input Validation", "Boundary Error Handling", "Null Safety", "Defense in Depth"],
       whatInterviewerLooksFor: "Input sanitization (e.g. Zod/Joi), centralized error handlers, and defense against malicious payloads.",
       hint: "Discuss runtime schema validation, HTTP error code mapping, and masking internal database errors.",
     },
@@ -62,8 +114,10 @@ function generateDeterministicGitHubGrill(
       id: `gh-grill-${Date.now()}-4`,
       category: "Trade-offs & Debugging",
       difficulty: "Hard",
-      question: `What was the hardest bug or race condition you encountered while developing ${repo}, and how did you isolate and fix it?`,
-      referencedFiles: files.slice(0, 3),
+      question: `What was the hardest bug, race condition, or performance bottleneck in ${f0} during development, and how did you isolate and patch it?`,
+      referencedFiles: [f0, f2],
+      codeExcerpt: exc0,
+      keyConcepts: ["Race Condition Isolation", "Root Cause Analysis", "Telemetry Profiling", "Regression Prevention"],
       whatInterviewerLooksFor: "Systematic root cause analysis, telemetry, reproducing bugs, and adding regression tests.",
       hint: "Use STAR format: Describe the symptom, profiling tool used, the unexpected race condition, and the permanent patch.",
     },
@@ -71,10 +125,45 @@ function generateDeterministicGitHubGrill(
       id: `gh-grill-${Date.now()}-5`,
       category: "Security & Deployment",
       difficulty: "Medium",
-      question: `How are secrets, environment variables, and authentication tokens handled in ${repo} during development vs production CI/CD?`,
-      referencedFiles: ["package.json", ".env.example"],
+      question: `How are secrets, environment variables, and authentication tokens handled in ${repo} (${f2}) during development vs production CI/CD?`,
+      referencedFiles: [f2, "package.json"],
+      codeExcerpt: exc2,
+      keyConcepts: ["Secret Rotation", "Environment Isolation", "Token Expiry", "Least Privilege"],
       whatInterviewerLooksFor: "Zero hardcoded secrets, automated secret scanners, and secure token lifecycle management.",
       hint: "Highlight environment variable validation at startup and secret management in CI pipelines.",
+    },
+    {
+      id: `gh-grill-${Date.now()}-6`,
+      category: "Scalability & Edge Cases",
+      difficulty: "Hard",
+      question: `In ${f2}, if state or cache is stored locally in-memory, what breaks when deploying across 3 distributed serverless containers, and how do you achieve idempotency?`,
+      referencedFiles: [f2],
+      codeExcerpt: exc2,
+      keyConcepts: ["Distributed Caching", "Stateless Architecture", "Idempotency Keys", "Redis Cluster"],
+      whatInterviewerLooksFor: "Understanding distributed state, distributed lock race conditions, and idempotent API design.",
+      hint: "Transition in-memory state to Redis or a shared key-value store with distributed locks.",
+    },
+    {
+      id: `gh-grill-${Date.now()}-7`,
+      category: "Code Implementation",
+      difficulty: "Medium",
+      question: `Examining your component rendering logic in ${f1}, how do you prevent unnecessary re-renders or hydration mismatches between server and client?`,
+      referencedFiles: [f1],
+      codeExcerpt: exc1,
+      keyConcepts: ["Hydration Mismatch", "Render Optimization", "Memoization", "Virtual DOM Diffing"],
+      whatInterviewerLooksFor: "Proficiency in framework internals, DOM diffing, and eliminating redundant cycles.",
+      hint: "Explain hydration lifecycle, useEffect dependencies, and pure component boundaries.",
+    },
+    {
+      id: `gh-grill-${Date.now()}-8`,
+      category: "Architecture",
+      difficulty: "Hard",
+      question: `If ${repo} had to support zero-downtime database schema migrations with backwards compatibility, how would you stage the rollout?`,
+      referencedFiles: [f0, "package.json"],
+      codeExcerpt: exc0,
+      keyConcepts: ["Expand-Contract Migration", "Backwards Compatibility", "Zero Downtime", "Blue-Green Deployment"],
+      whatInterviewerLooksFor: "Knowledge of expand-contract pattern, dual-writing, and safe rollback procedures.",
+      hint: "Discuss adding new nullable columns, dual-writing in code, backfilling records, and safely dropping old columns.",
     },
   ];
 
@@ -87,7 +176,7 @@ function generateDeterministicGitHubGrill(
     architectureStrengths: [
       "Modular file organization with clear entrypoint separation",
       "Modern dependency configuration",
-      "Clean TypeScript / component-based separation of concerns",
+      "Clean component-based separation of concerns",
     ],
     potentialWeaknessesOrRisks: [
       "Potential memory / concurrency contention under high load",
@@ -101,21 +190,22 @@ function generateDeterministicGitHubGrill(
 async function analyzeWithGroq(
   owner: string,
   repo: string,
-  meta: any,
+  meta: Record<string, unknown>,
   fileTree: string[],
   readmeText: string,
   packageJson: string,
   commits: string[],
-  notes: string
+  notes: string,
+  sourceSnippets: SourceSnippet[] = []
 ): Promise<GitHubGrillAnalysis | null> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey || apiKey.includes("your_groq")) return null;
 
   const systemPrompt = `You are a Principal Software Engineer and Bar-Raiser conducting a deep, rigorous "Project Grill" technical interview.
-You are given real repository metadata, file paths, README text, and dependencies from a candidate's GitHub project (${owner}/${repo}).
+You are given real repository metadata, file paths, README text, dependencies, and actual inspected source code from a candidate's GitHub project (${owner}/${repo}).
 
 Generate a deeply technical, file-specific interrogation analysis that will test if the candidate actually built the project themselves or simply copied a template.
-Cite actual file paths from the file tree in the questions!
+CITE ACTUAL FILE PATHS AND SPECIFIC FUNCTIONS/PATTERNS FROM THE INSPECTED SOURCE CODE IN THE QUESTIONS!
 
 Return strictly valid JSON matching this schema:
 {
@@ -129,19 +219,25 @@ Return strictly valid JSON matching this schema:
   "grillQuestions": [
     {
       "id": "gh-1",
-      "category": "Architecture" | "Code Implementation" | "Scalability & Edge Cases" | "Trade-offs & Debugging" | "Security & Deployment",
-      "difficulty": "Medium" | "Hard",
+      "category": "Architecture",
+      "difficulty": "Hard",
       "question": "Sharp question referencing actual files and decisions from the repo",
       "referencedFiles": ["path/to/file.ts"],
+      "codeExcerpt": "5-10 line code snippet from that file under review",
+      "keyConcepts": ["Concept 1", "Concept 2", "Concept 3", "Concept 4"],
       "whatInterviewerLooksFor": "What signals competence vs superficial knowledge",
       "hint": "Guidance on trade-offs"
     }
   ]
 }`;
 
+  const sourceFilesText = sourceSnippets.length > 0
+    ? `\n\nTop Inspected Source Code Files:\n${sourceSnippets.map((s) => `=== FILE: ${s.path} ===\n${s.content}\n`).join("\n")}`
+    : "";
+
   const userPrompt = `Repository: ${owner}/${repo}
-Description: ${meta?.description || "No description provided"}
-Primary Language: ${meta?.language || "Unknown"}
+Description: ${meta?.description ? String(meta.description) : "No description provided"}
+Primary Language: ${meta?.language ? String(meta.language) : "Unknown"}
 Recent Commits: ${commits.join(" | ") || "None"}
 
 Candidate's Project Focus Notes:
@@ -154,7 +250,7 @@ Package / Dependency Manifest (Sample):
 ${packageJson ? packageJson.slice(0, 1500) : "No package.json"}
 
 README (Excerpt):
-${readmeText ? readmeText.slice(0, 2000) : "No README"}`;
+${readmeText ? readmeText.slice(0, 2000) : "No README"}${sourceFilesText}`;
 
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -191,15 +287,23 @@ ${readmeText ? readmeText.slice(0, 2000) : "No README"}`;
       keyFilesAnalyzed: Array.isArray(parsed.keyFilesAnalyzed) ? parsed.keyFilesAnalyzed.map(String) : fileTree.slice(0, 5),
       architectureStrengths: Array.isArray(parsed.architectureStrengths) ? parsed.architectureStrengths.map(String) : ["Clean code organization"],
       potentialWeaknessesOrRisks: Array.isArray(parsed.potentialWeaknessesOrRisks) ? parsed.potentialWeaknessesOrRisks.map(String) : ["Scalability bottlenecks"],
-      grillQuestions: parsed.grillQuestions.map((q: any, i: number) => ({
-        id: `gh-grill-${Date.now()}-${i + 1}`,
-        category: q.category || "Architecture",
-        difficulty: ["Medium", "Hard"].includes(q.difficulty) ? q.difficulty : "Hard",
-        question: String(q.question),
-        referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
-        whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
-        hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
-      })),
+      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => {
+        const primaryFile = Array.isArray(q.referencedFiles) && q.referencedFiles[0] ? q.referencedFiles[0] : "";
+        const fallbackSnippet = primaryFile ? getExcerpt(sourceSnippets, primaryFile, "") : "";
+        return {
+          id: `gh-grill-${Date.now()}-${i + 1}`,
+          category: q.category || "Architecture",
+          difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
+          question: String(q.question || ""),
+          referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
+          codeExcerpt: String(q.codeExcerpt || fallbackSnippet || "").trim() || undefined,
+          keyConcepts: Array.isArray(q.keyConcepts) && q.keyConcepts.length > 0
+            ? q.keyConcepts.map(String)
+            : ["Architecture Trade-offs", "Edge Case Handling", "Concurrency", "Error Handling"],
+          whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
+          hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
+        };
+      }),
     };
   } catch {
     return null;
@@ -209,22 +313,28 @@ ${readmeText ? readmeText.slice(0, 2000) : "No README"}`;
 async function analyzeWithGemini(
   owner: string,
   repo: string,
-  meta: any,
+  meta: Record<string, unknown>,
   fileTree: string[],
   readmeText: string,
   packageJson: string,
   commits: string[],
-  notes: string
+  notes: string,
+  sourceSnippets: SourceSnippet[] = []
 ): Promise<GitHubGrillAnalysis | null> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey || apiKey.includes("your_gemini")) return null;
 
+  const sourceFilesText = sourceSnippets.length > 0
+    ? `\n\nTop Inspected Source Code Files:\n${sourceSnippets.map((s) => `=== FILE: ${s.path} ===\n${s.content}\n`).join("\n")}`
+    : "";
+
   const prompt = `You are a Principal Software Engineer and Bar-Raiser conducting a deep, rigorous "Project Grill" technical interview on GitHub repository ${owner}/${repo}.
-Review the file tree, dependencies, and README. Generate a JSON response with deep, file-referencing interview questions that test whether the candidate deeply understands the design decisions and trade-offs.
+Review the file tree, dependencies, README, and the actual source code files provided.
+CRITICAL: Ground your questions in the real source code implementation. Cite specific files, functions, error handling logic, and architectural boundaries in your questions.
 
 Metadata:
-Language: ${meta?.language}
-Description: ${meta?.description}
+Language: ${meta?.language ? String(meta.language) : "Unknown"}
+Description: ${meta?.description ? String(meta.description) : "None"}
 Notes: ${notes}
 
 Key Files:
@@ -234,7 +344,7 @@ Dependencies:
 ${packageJson.slice(0, 1000)}
 
 README Excerpt:
-${readmeText.slice(0, 1500)}
+${readmeText.slice(0, 1500)}${sourceFilesText}
 
 Respond strictly in valid JSON:
 {
@@ -252,6 +362,8 @@ Respond strictly in valid JSON:
       "difficulty": "Hard",
       "question": "string citing specific files",
       "referencedFiles": ["string"],
+      "codeExcerpt": "5-10 line code snippet from that file",
+      "keyConcepts": ["string", "string", "string", "string"],
       "whatInterviewerLooksFor": "string",
       "hint": "string"
     }
@@ -292,15 +404,23 @@ Respond strictly in valid JSON:
       keyFilesAnalyzed: Array.isArray(parsed.keyFilesAnalyzed) ? parsed.keyFilesAnalyzed.map(String) : fileTree.slice(0, 5),
       architectureStrengths: Array.isArray(parsed.architectureStrengths) ? parsed.architectureStrengths.map(String) : ["Clean architecture"],
       potentialWeaknessesOrRisks: Array.isArray(parsed.potentialWeaknessesOrRisks) ? parsed.potentialWeaknessesOrRisks.map(String) : ["Edge case resilience"],
-      grillQuestions: parsed.grillQuestions.map((q: any, i: number) => ({
-        id: `gh-grill-${Date.now()}-${i + 1}`,
-        category: q.category || "Architecture",
-        difficulty: ["Medium", "Hard"].includes(q.difficulty) ? q.difficulty : "Hard",
-        question: String(q.question),
-        referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
-        whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
-        hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
-      })),
+      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => {
+        const primaryFile = Array.isArray(q.referencedFiles) && q.referencedFiles[0] ? q.referencedFiles[0] : "";
+        const fallbackSnippet = primaryFile ? getExcerpt(sourceSnippets, primaryFile, "") : "";
+        return {
+          id: `gh-grill-${Date.now()}-${i + 1}`,
+          category: q.category || "Architecture",
+          difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
+          question: String(q.question || ""),
+          referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
+          codeExcerpt: String(q.codeExcerpt || fallbackSnippet || "").trim() || undefined,
+          keyConcepts: Array.isArray(q.keyConcepts) && q.keyConcepts.length > 0
+            ? q.keyConcepts.map(String)
+            : ["Architecture Trade-offs", "Edge Case Handling", "Concurrency", "Error Handling"],
+          whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
+          hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
+        };
+      }),
     };
   } catch {
     return null;
@@ -329,6 +449,17 @@ export async function POST(req: NextRequest) {
     const { owner, repo } = parsedRepo;
     const notes = (body.focusNotes || "").trim();
 
+    // 0. Check 15-minute in-memory server cache
+    const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${notes.toLowerCase()}`;
+    const cached = repoGrillCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return NextResponse.json({
+        success: true,
+        source: `${cached.source} (cached)`,
+        analysis: cached.analysis,
+      });
+    }
+
     // 1. Fetch Repository Metadata from GitHub API
     const headers: Record<string, string> = {
       Accept: "application/vnd.github.v3+json",
@@ -338,7 +469,7 @@ export async function POST(req: NextRequest) {
       headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
     }
 
-    let meta: any = { name: repo, language: "TypeScript" };
+    let meta: Record<string, unknown> = { name: repo, language: "TypeScript" };
     let fileTree: string[] = [];
     let readmeText = "";
     let packageJson = "";
@@ -350,13 +481,13 @@ export async function POST(req: NextRequest) {
         signal: AbortSignal.timeout(6000),
       });
       if (metaRes.ok) {
-        meta = await metaRes.json();
+        meta = (await metaRes.json()) as Record<string, unknown>;
       }
     } catch {
       // Ignore network timeout on GitHub API
     }
 
-    const defaultBranch = meta?.default_branch || "main";
+    const defaultBranch = typeof meta?.default_branch === "string" ? meta.default_branch : "main";
 
     // 2. Fetch Git Tree
     try {
@@ -365,12 +496,12 @@ export async function POST(req: NextRequest) {
         { headers, signal: AbortSignal.timeout(6000) }
       );
       if (treeRes.ok) {
-        const treeData = await treeRes.json();
+        const treeData = (await treeRes.json()) as { tree?: Array<{ type?: string; path?: string }> };
         if (Array.isArray(treeData?.tree)) {
           fileTree = treeData.tree
-            .filter((node: any) => node.type === "blob")
-            .map((node: any) => node.path as string)
-            .slice(0, 120);
+            .filter((node) => node.type === "blob" && typeof node.path === "string")
+            .map((node) => node.path as string)
+            .slice(0, 150);
         }
       }
     } catch {
@@ -384,7 +515,7 @@ export async function POST(req: NextRequest) {
         signal: AbortSignal.timeout(6000),
       });
       if (readmeRes.ok) {
-        const readmeData = await readmeRes.json();
+        const readmeData = (await readmeRes.json()) as { content?: string };
         if (readmeData?.content) {
           readmeText = Buffer.from(readmeData.content, "base64").toString("utf-8");
         }
@@ -402,7 +533,7 @@ export async function POST(req: NextRequest) {
           { headers, signal: AbortSignal.timeout(5000) }
         );
         if (pkgRes.ok) {
-          const pkgData = await pkgRes.json();
+          const pkgData = (await pkgRes.json()) as { content?: string };
           if (pkgData?.content) {
             packageJson = Buffer.from(pkgData.content, "base64").toString("utf-8");
           }
@@ -419,14 +550,67 @@ export async function POST(req: NextRequest) {
         { headers, signal: AbortSignal.timeout(5000) }
       );
       if (commitRes.ok) {
-        const commitData = await commitRes.json();
+        const commitData = (await commitRes.json()) as Array<{ commit?: { message?: string } }>;
         if (Array.isArray(commitData)) {
-          commits = commitData.map((c: any) => c?.commit?.message?.split("\n")[0] || "").filter(Boolean);
+          commits = commitData
+            .map((c) => c?.commit?.message?.split("\n")[0] || "")
+            .filter(Boolean);
         }
       }
     } catch {
       // commits fallback
     }
+
+    // 6. Inspect Top 3 Actual Source Code Files (Routes, Models, Services, User-Specified Modules)
+    const EXCLUDED_EXTENSIONS = [".md", ".json", ".lock", ".svg", ".png", ".jpg", ".jpeg", ".ico", ".css", ".scss", ".d.ts", ".map", ".html", ".txt"];
+    const EXCLUDED_DIRS = ["node_modules", ".git", ".next", "dist", "build", ".husky", "coverage"];
+
+    const candidateFiles = fileTree.filter((path) => {
+      const lower = path.toLowerCase();
+      if (EXCLUDED_DIRS.some((dir) => lower.includes(dir))) return false;
+      if (EXCLUDED_EXTENSIONS.some((ext) => lower.endsWith(ext))) return false;
+      return /\.(ts|tsx|js|jsx|py|go|rs|java|cpp|c|rb|php|sql|prisma)$/i.test(path);
+    });
+
+    const scoredFiles = candidateFiles.map((path) => {
+      let score = 0;
+      const lower = path.toLowerCase();
+      if (notes) {
+        const noteWords = notes.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+        for (const word of noteWords) {
+          if (lower.includes(word)) score += 10;
+        }
+      }
+      if (lower.includes("route.") || lower.includes("api/") || lower.includes("server.") || lower.includes("main.") || lower.includes("app.")) score += 8;
+      if (lower.includes("model") || lower.includes("schema") || lower.includes("entity") || lower.includes("db/")) score += 6;
+      if (lower.includes("service") || lower.includes("controller") || lower.includes("lib/")) score += 5;
+      if (lower.includes("page.") || lower.includes("component")) score += 3;
+      return { path, score };
+    });
+
+    scoredFiles.sort((a, b) => b.score - a.score);
+    const topFilesToFetch = scoredFiles.slice(0, 3).map((f) => f.path);
+
+    const sourceSnippets: SourceSnippet[] = [];
+    await Promise.all(
+      topFilesToFetch.map(async (filePath) => {
+        try {
+          const rawRes = await fetch(
+            `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filePath}`,
+            { headers, signal: AbortSignal.timeout(5000) }
+          );
+          if (rawRes.ok) {
+            const text = await rawRes.text();
+            sourceSnippets.push({
+              path: filePath,
+              content: text.slice(0, 2000),
+            });
+          }
+        } catch {
+          // ignore single file fetch timeout
+        }
+      })
+    );
 
     // Extract tech stack clues from files
     const detectedStack: string[] = [];
@@ -436,7 +620,7 @@ export async function POST(req: NextRequest) {
     if (fileTree.some((f) => f.endsWith(".py"))) detectedStack.push("Python");
     if (fileTree.some((f) => f.endsWith(".go"))) detectedStack.push("Go");
     if (fileTree.some((f) => f.includes("docker") || f.includes("Dockerfile"))) detectedStack.push("Docker");
-    if (detectedStack.length === 0 && meta?.language) detectedStack.push(meta.language);
+    if (detectedStack.length === 0 && meta?.language) detectedStack.push(String(meta.language));
 
     // AI Analysis via Groq
     const groqAnalysis = await analyzeWithGroq(
@@ -447,9 +631,11 @@ export async function POST(req: NextRequest) {
       readmeText,
       packageJson,
       commits,
-      notes
+      notes,
+      sourceSnippets
     );
     if (groqAnalysis) {
+      repoGrillCache.set(cacheKey, { timestamp: Date.now(), analysis: groqAnalysis, source: "groq-llama-3.3-70b" });
       return NextResponse.json({
         success: true,
         source: "groq-llama-3.3-70b",
@@ -466,9 +652,11 @@ export async function POST(req: NextRequest) {
       readmeText,
       packageJson,
       commits,
-      notes
+      notes,
+      sourceSnippets
     );
     if (geminiAnalysis) {
+      repoGrillCache.set(cacheKey, { timestamp: Date.now(), analysis: geminiAnalysis, source: "gemini-2.0-flash" });
       return NextResponse.json({
         success: true,
         source: "gemini-2.0-flash",
@@ -482,8 +670,10 @@ export async function POST(req: NextRequest) {
       repo,
       detectedStack,
       fileTree.slice(0, 10),
-      notes
+      notes,
+      sourceSnippets
     );
+    repoGrillCache.set(cacheKey, { timestamp: Date.now(), analysis: fallbackAnalysis, source: "heuristic" });
     return NextResponse.json({
       success: true,
       source: "heuristic",

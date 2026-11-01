@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -15,7 +15,6 @@ import {
   INTERVIEW_ROLES,
   EXPANDED_CATEGORIES,
   getRoleInterviewQuestions,
-  type InterviewRole,
 } from "@/lib/interview-questions";
 import type {
   InterviewQuestion,
@@ -31,7 +30,6 @@ import {
   ChevronLeft,
   Lightbulb,
   Eye,
-  EyeOff,
   Mic,
   MicOff,
   Star,
@@ -54,14 +52,120 @@ import {
   Activity,
   Award,
   CheckCircle2,
-  XCircle,
-  GitBranch,
   FileCode,
-  Layers,
   Search,
-  RefreshCw,
+  Plus,
+  Target,
+  Trophy,
+  X,
+  Code2,
+  Play,
+  Terminal,
+  XCircle,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { VisualTelemetryAnalyzer, type VisualPostureState } from "@/lib/visual-telemetry";
+import {
+  DSA_OA_PROBLEMS,
+  DSA_OA_TOPICS,
+  type DsaOaProblem,
+} from "@/lib/dsa-oa-questions";
+
+interface DsaTestResultItem {
+  caseId: string;
+  passed: boolean;
+  input: string;
+  expectedOutput: string;
+  actualOutput: string;
+  executionTrace?: string;
+}
+
+interface DsaCodeReviewItem {
+  overallScore: number;
+  detectedTimeComplexity: string;
+  detectedSpaceComplexity: string;
+  complexityMatch: boolean;
+  edgeCasesHandled: string[];
+  edgeCasesMissed: string[];
+  bugsOrBottlenecks: string[];
+  optimalCodeSuggestion: string;
+  followUpQuestion: { prompt: string; intent: string };
+}
+
+interface DsaRunCodeResponse {
+  status: "Accepted" | "Wrong Answer" | "Time Limit Exceeded" | "Compilation Error";
+  passedCount: number;
+  totalCount: number;
+  runtimeMs: number;
+  memoryMb: number;
+  compilerMessage?: string;
+  testResults: DsaTestResultItem[];
+  codeReview?: DsaCodeReviewItem;
+}
+
+function handleEditorKeyDown(
+  e: React.KeyboardEvent<HTMLTextAreaElement>,
+  code: string,
+  onChange: (val: string) => void
+) {
+  const textarea = e.currentTarget;
+  const { selectionStart, selectionEnd } = textarea;
+
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const before = code.substring(0, selectionStart);
+    const after = code.substring(selectionEnd);
+    const nextCode = before + "  " + after;
+    onChange(nextCode);
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = selectionStart + 2;
+    }, 0);
+    return;
+  }
+
+  const pairs: Record<string, string> = {
+    "(": ")",
+    "[": "]",
+    "{": "}",
+    '"': '"',
+    "'": "'",
+  };
+  if (pairs[e.key] && selectionStart === selectionEnd) {
+    const closing = pairs[e.key];
+    const before = code.substring(0, selectionStart);
+    const after = code.substring(selectionEnd);
+    const nextChar = after[0];
+    if (!nextChar || /\s|[),\]}]/.test(nextChar)) {
+      e.preventDefault();
+      const nextCode = before + e.key + closing + after;
+      onChange(nextCode);
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+      }, 0);
+      return;
+    }
+  }
+
+  if (e.key === "Enter") {
+    const before = code.substring(0, selectionStart);
+    const after = code.substring(selectionEnd);
+    const lines = before.split("\n");
+    const currentLine = lines[lines.length - 1] || "";
+    const match = currentLine.match(/^\s*/);
+    let indent = match ? match[0] : "";
+    const trimmed = currentLine.trim();
+    if (trimmed.endsWith("{") || trimmed.endsWith(":") || trimmed.endsWith("(")) {
+      indent += "  ";
+    }
+    e.preventDefault();
+    const nextCode = before + "\n" + indent + after;
+    onChange(nextCode);
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = selectionStart + 1 + indent.length;
+    }, 0);
+    return;
+  }
+}
 
 function GithubIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -134,28 +238,203 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 
 const FILLER_WORDS_LIST = ["um", "uh", "like", "basically", "actually", "literally", "you know"] as const;
 
+export interface StudioQuestion extends InterviewQuestion {
+  isCustom?: boolean;
+}
+
+interface RawResumeProject {
+  title?: string;
+  subtitle?: string;
+  bullets?: Array<string | { text?: string }>;
+}
+
+interface RawResumeExperience {
+  title?: string;
+  subtitle?: string;
+  bullets?: Array<string | { text?: string }>;
+}
+
+function getQuestionExpectedConcepts(question?: StudioQuestion): string[] {
+  if (!question) return [];
+  if (Array.isArray(question.keyConceptsToCover) && question.keyConceptsToCover.length > 0) {
+    return question.keyConceptsToCover;
+  }
+  if (question.hint) {
+    const hintClean = question.hint.replace(/^Interviewer Expectations?:\s*/i, "");
+    const parts = hintClean
+      .split(/[,;•|]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 2 && s.length < 35);
+    if (parts.length >= 2) return parts.slice(0, 5);
+  }
+  const words = question.question
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 4);
+  return Array.from(new Set(words)).slice(0, 4);
+}
+
+const CONCEPT_SYNONYM_DICTIONARY: Record<string, string[]> = {
+  "o(1)": ["constant time", "hash map", "direct index", "o 1", "constant complexity"],
+  "optimistic ui": ["optimistic update", "rollback", "instant feedback", "speculative update", "useoptimistic"],
+  "redis": ["in-memory", "cache", "pub/sub", "key value store", "ttl", "eviction"],
+  "kafka": ["event stream", "message queue", "partition", "broker", "consumer group", "offset"],
+  "connection pool": ["pooling", "active connections", "pgbouncer", "pool size", "db pool"],
+  "deadlock": ["lock contention", "mutex", "circular wait", "two phase locking", "race condition"],
+  "crdt": ["conflict free", "eventual consistency", "vector clock", "state based replication"],
+  "rate limiting": ["token bucket", "leaky bucket", "sliding window", "429", "throttle"],
+  "idempotency": ["idempotent", "unique key", "retry safe", "at most once", "deduplication"],
+  "sharding": ["horizontal partition", "shard key", "consistent hashing", "database partition"],
+  "websocket": ["real time", "full duplex", "socket", "long polling", "bidirectional"],
+  "graphql": ["schema", "resolver", "overfetching", "query mutation", "dataloader"],
+  "jwt": ["token", "bearer", "claims", "stateless auth", "signature", "refresh token"],
+  "acid": ["atomicity", "consistency", "isolation", "durability", "transaction"],
+  "b-tree": ["b tree", "index scan", "clustered index", "binary search tree", "leaf nodes"],
+  "lru": ["least recently used", "cache eviction", "doubly linked list", "eviction policy"],
+  "sliding window": ["two pointer", "window size", "subarray", "rolling window"],
+  "dynamic programming": ["memoization", "tabulation", "optimal substructure", "overlapping subproblems", "dp"],
+};
+
+const CODE_LANGUAGES = [
+  { id: "typescript", name: "TypeScript / JS", defaultSnippet: "// TypeScript / JavaScript\nfunction handleOptimisticUpdate(state, action) {\n  // Instant state update with rollback fallback\n}" },
+  { id: "python", name: "Python 3", defaultSnippet: "# Python 3\ndef handle_optimistic_update(state, action):\n    # Instant state update with rollback fallback\n    pass" },
+  { id: "java", name: "Java", defaultSnippet: "// Java\nclass Solution {\n    public void handleOptimisticUpdate(Object state, Object action) {\n        // Instant state update with rollback fallback\n    }\n}" },
+  { id: "cpp", name: "C++", defaultSnippet: "// C++\n#include <iostream>\nusing namespace std;\n\nvoid handleOptimisticUpdate() {\n    // Instant state update with rollback fallback\n}" },
+  { id: "sql", name: "SQL Schema", defaultSnippet: "-- SQL Schema & Query\nCREATE TABLE state_events (\n  id SERIAL PRIMARY KEY,\n  action_type VARCHAR(64),\n  payload JSONB\n);" },
+  { id: "go", name: "Go", defaultSnippet: "// Go (Golang)\npackage main\n\nfunc HandleOptimisticUpdate() {\n    // Implementation here\n}" },
+  { id: "pseudocode", name: "Pseudocode", defaultSnippet: "// High-Level Architecture / Algorithm Pseudocode\n// Step 1: Record initial state\n// Step 2: Apply speculative mutation\n// Step 3: Catch async rejection & revert" },
+] as const;
+
+const COMPANY_JD_PRESETS = [
+  {
+    name: "Razorpay",
+    role: "Backend Engineer",
+    company: "Razorpay",
+    desc: "Build scalable payment gateway microservices. Requires high-throughput API design, idempotency keys, MySQL transaction isolation, Redis caching, Kafka distributed event queues, and zero-downtime database migrations.",
+  },
+  {
+    name: "Google",
+    role: "Systems SDE",
+    company: "Google",
+    desc: "Design globally distributed systems and real-time data pipelines. Requires deep understanding of Big-O complexity, RPCs, Paxos/Raft consensus, memory layout, lock-free concurrency, and fault tolerance at 100k+ QPS.",
+  },
+  {
+    name: "Swiggy / Flipkart",
+    role: "Full-Stack SDE",
+    company: "Swiggy",
+    desc: "Build low-latency delivery & checkout pipelines. Strong focus on Next.js/React frontend performance, WebSockets for live driver geolocation, Redis geospatial indexes, rate limiting, and elastic worker queues.",
+  },
+  {
+    name: "Goldman Sachs",
+    role: "Low-Latency / Quant SDE",
+    company: "Goldman Sachs",
+    desc: "Engineer ultra-low latency order matching engines and risk analytics. Demands C++/Java memory management, cache locality, lock-free ring buffers, multithreading, and microsecond latency optimization.",
+  },
+  {
+    name: "Zepto / Zomato",
+    role: "Full-Stack SDE",
+    company: "Zepto",
+    desc: "10-minute quick-commerce logistics stack. High concurrent inventory reservation locks, p99 latency optimization, optimistic UI updates, PostgreSQL connection pooling, and distributed tracing.",
+  },
+];
+
+function isConceptCovered(concept: string, text: string, code: string): boolean {
+  if (!concept) return false;
+  const combined = `${text} ${code}`.toLowerCase().replace(/[^a-z0-9]/g, " ");
+  const normalizedConcept = concept
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalizedConcept && combined.includes(normalizedConcept)) return true;
+
+  // Check synonym dictionary
+  for (const [key, synonyms] of Object.entries(CONCEPT_SYNONYM_DICTIONARY)) {
+    if (normalizedConcept.includes(key) || key.includes(normalizedConcept)) {
+      if (synonyms.some((syn) => combined.includes(syn.toLowerCase().replace(/[^a-z0-9]/g, " ")))) {
+        return true;
+      }
+    }
+  }
+
+  const tokens = concept
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[\s\-_/]+/)
+    .filter((t) => t.length > 2);
+  if (tokens.length === 0) return false;
+
+  const significant = tokens.filter(
+    (t) =>
+      ![
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "using",
+        "state",
+        "pattern",
+        "handling",
+        "model",
+        "approach",
+        "strategy",
+      ].includes(t)
+  );
+  const toCheck = significant.length > 0 ? significant : tokens;
+  let matches = 0;
+  for (const token of toCheck) {
+    const stem = token.length > 5 ? token.slice(0, token.length - 2) : token;
+    if (combined.includes(token) || combined.includes(stem)) {
+      matches++;
+    }
+  }
+  return matches / toCheck.length >= 0.6;
+}
+
 export default function InterviewPage() {
   // ─── Core Data State ────────────────────────────────────────────────────────
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [questions, setQuestions] = useState<StudioQuestion[]>([]);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // ─── Studio Configuration State ─────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"practice" | "history">("practice");
-  const [studioMode, setStudioMode] = useState<"bank" | "grill">("bank");
+  const [studioMode, setStudioMode] = useState<"bank" | "grill" | "dsa">("bank");
   const [selectedRole, setSelectedRole] = useState<string>("Full-Stack SDE");
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isSpeakingTTS, setIsSpeakingTTS] = useState(false);
   const [filterCategory, setFilterCategory] = useState<"all" | InterviewCategory>("all");
   const [currentIdx, setCurrentIdx] = useState(0);
 
+  // ─── Non-DSA Workspace Tab (Verbal vs Code IDE) ─────────────────────────────
+  const [nonDsaWorkspaceTab, setNonDsaWorkspaceTab] = useState<"verbal" | "ide">("verbal");
+
+  // ─── OA & DSA Coding Arena State ───────────────────────────────────────────
+  const [dsaProblemIdx, setDsaProblemIdx] = useState(0);
+  const [dsaTopicFilter, setDsaTopicFilter] = useState<string>("all");
+  const [dsaDifficultyFilter, setDsaDifficultyFilter] = useState<string>("all");
+  const [selectedLanguage, setSelectedLanguage] = useState<"cpp" | "java" | "python" | "typescript">("python");
+  const [sourceCodeMap, setSourceCodeMap] = useState<Record<string, Record<string, string>>>({});
+  const [claimedTimeComplexity, setClaimedTimeComplexity] = useState("O(N)");
+  const [claimedSpaceComplexity, setClaimedSpaceComplexity] = useState("O(1)");
+  const [consoleTab, setConsoleTab] = useState<"testcases" | "results" | "review">("testcases");
+  const [selectedCaseIdx, setSelectedCaseIdx] = useState(0);
+  const [customTestInput, setCustomTestInput] = useState("");
+  const [isRunningCode, setIsRunningCode] = useState(false);
+  const [runCodeResult, setRunCodeResult] = useState<DsaRunCodeResponse | null>(null);
+  const [runCodeError, setRunCodeError] = useState<string | null>(null);
+  const [showHintModal, setShowHintModal] = useState(false);
+  const [activeHintIdx, setActiveHintIdx] = useState(0);
+  const [showOaVerbalBar, setShowOaVerbalBar] = useState(true);
+  const [copiedCode, setCopiedCode] = useState(false);
+
   // ─── Custom JD State ────────────────────────────────────────────────────────
   const [showCustomJdModal, setShowCustomJdModal] = useState(false);
   const [jdCompany, setJdCompany] = useState("");
   const [jdTitle, setJdTitle] = useState("");
   const [jdText, setJdText] = useState("");
-  const [isGeneratingJd, setIsGeneratingJd] = useState(false);
   const [jdSuccessMsg, setJdSuccessMsg] = useState<string | null>(null);
 
   // ─── GitHub Link Analyzer (Resume Grill) State ──────────────────────────────
@@ -166,6 +445,8 @@ export default function InterviewPage() {
 
   // ─── Active Turn & Response State ───────────────────────────────────────────
   const [response, setResponse] = useState("");
+  const [codeSnippet, setCodeSnippet] = useState("");
+  const [showScorecardModal, setShowScorecardModal] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribingWithWhisper, setIsTranscribingWithWhisper] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -176,6 +457,11 @@ export default function InterviewPage() {
   const [fillerCounts, setFillerCounts] = useState<Record<string, number>>({});
   const [isHesitating, setIsHesitating] = useState(false);
   const [hesitationGaps, setHesitationGaps] = useState(0);
+  const [recordingStatusBadge, setRecordingStatusBadge] = useState<string | null>(null);
+  const [micActiveLevel, setMicActiveLevel] = useState<number>(0);
+  const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
+  const [isRecordingPaused, setIsRecordingPaused] = useState<boolean>(false);
+  const [scratchpadLang, setScratchpadLang] = useState<string>("typescript");
 
   // ─── Multi-Turn Conversation State ──────────────────────────────────────────
   const [sessionTurns, setSessionTurns] = useState<InterviewTurn[]>([]);
@@ -192,7 +478,35 @@ export default function InterviewPage() {
   const [showTroubleshootHelp, setShowTroubleshootHelp] = useState(false);
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const [liveEyeContact, setLiveEyeContact] = useState<number>(-1);
-  const [livePosture, setLivePosture] = useState<"Stable" | "Centering" | "Shifting">("Stable");
+  const [livePosture, setLivePosture] = useState<VisualPostureState>("Stable");
+  const [reticleColor, setReticleColor] = useState<"green" | "amber" | "rose">("green");
+  const [visualToast, setVisualToast] = useState<string | null>(null);
+
+  // ─── Custom Resume + JD Question Generator State ─────────────────────────────
+  const [showCustomizerPanel, setShowCustomizerPanel] = useState(false);
+  const [customRole, setCustomRole] = useState("Full-Stack SDE");
+  const [customCompany, setCustomCompany] = useState("");
+  const [customJdText, setCustomJdText] = useState("");
+  const [customDifficulty, setCustomDifficulty] = useState<"Easy" | "Medium" | "Hard" | "Mixed">("Mixed");
+  const [customFocusCategories, setCustomFocusCategories] = useState<string[]>([
+    "core-technical",
+    "resume-grill",
+    "system-design",
+    "behavioral",
+    "debugging",
+  ]);
+  const [includeResumeContext, setIncludeResumeContext] = useState(true);
+  const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
+  const [customSuccessMsg, setCustomSuccessMsg] = useState<string | null>(null);
+
+  // ─── LocalStorage Resume Detection ──────────────────────────────────────────
+  const [detectedResume, setDetectedResume] = useState<{
+    fileName: string;
+    candidateName?: string;
+    skills: string[];
+    projects: Array<{ title: string; subtitle?: string; bullets: string[] }>;
+    experience: Array<{ title: string; subtitle?: string; bullets: string[] }>;
+  } | null>(null);
 
   // ─── Evaluation State ───────────────────────────────────────────────────────
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -205,6 +519,7 @@ export default function InterviewPage() {
   const audioCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
   const virtualAnimRef = useRef<number | null>(null);
+  const visualAnalyzerRef = useRef<VisualTelemetryAnalyzer | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -214,9 +529,11 @@ export default function InterviewPage() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isRecordingRef = useRef<boolean>(false);
+  const maxAudioRmsRef = useRef<number>(0);
   const lastSpokenTimestampRef = useRef<number>(0);
   const eyeSamplesRef = useRef<{ center: number; total: number }>({ center: 0, total: 0 });
   const recentDistancesRef = useRef<number[]>([]);
+  const evaluationRef = useRef<HTMLDivElement | null>(null);
 
   // ─── Speech Synthesis (TTS) Helper ──────────────────────────────────────────
   const speakText = useCallback(
@@ -226,14 +543,21 @@ export default function InterviewPage() {
       if (!ttsEnabled) return;
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.02;
+      utterance.rate = 1.03;
       utterance.pitch = 1.0;
       const voices = window.speechSynthesis.getVoices();
-      const enVoice = voices.find(
-        (v) =>
-          v.lang.startsWith("en") &&
-          (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha"))
-      );
+      const enVoice =
+        voices.find(
+          (v) =>
+            v.lang.startsWith("en") &&
+            (v.name.includes("Aria") ||
+              v.name.includes("Guy") ||
+              v.name.includes("Google US English") ||
+              v.name.includes("Natural") ||
+              v.name.includes("Neural"))
+        ) ||
+        voices.find((v) => v.lang.startsWith("en")) ||
+        voices[0];
       if (enVoice) utterance.voice = enVoice;
 
       utterance.onstart = () => setIsSpeakingTTS(true);
@@ -254,8 +578,6 @@ export default function InterviewPage() {
 
   // ─── Initial Data Loading ───────────────────────────────────────────────────
   const loadData = useCallback(() => {
-    setLoading(true);
-    setError(null);
     Promise.all([getInterviewQuestions(selectedRole), getPastInterviewSessions()])
       .then(([qs, past]) => {
         setQuestions(qs);
@@ -272,22 +594,81 @@ export default function InterviewPage() {
     loadData();
   }, [loadData]);
 
+  // Read resume from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timer = setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem("copilot_latest_resume_analysis");
+        if (raw) {
+          const workspace = JSON.parse(raw);
+          const skills: string[] = (
+            workspace.editableResume?.skills?.length
+              ? (workspace.editableResume.skills as string[])
+              : (workspace.analysis?.skills as string[]) || []
+          );
+          const rawProjects = (workspace.editableResume?.projects as RawResumeProject[] | undefined) || [];
+          const projects: Array<{ title: string; subtitle?: string; bullets: string[] }> = rawProjects.map((p) => ({
+            title: p.title || "Project",
+            subtitle: p.subtitle,
+            bullets: Array.isArray(p.bullets)
+              ? p.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
+              : [],
+          }));
+          const rawExperience = (workspace.editableResume?.experience as RawResumeExperience[] | undefined) || [];
+          const experience: Array<{ title: string; subtitle?: string; bullets: string[] }> = rawExperience.map((e) => ({
+            title: e.title || "Experience",
+            subtitle: e.subtitle,
+            bullets: Array.isArray(e.bullets)
+              ? e.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
+              : [],
+          }));
+          const candidateName = workspace.editableResume?.contactInfo?.fullName || "Candidate";
+          const fileName = workspace.fileName || "Uploaded Resume.pdf";
+
+          setDetectedResume({
+            fileName,
+            candidateName,
+            skills,
+            projects,
+            experience,
+          });
+        }
+      } catch (e) {
+        console.warn("Could not read resume analysis from localStorage:", e);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Read cross-module handoff from /jobs or /tracker
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const handoffRaw = sessionStorage.getItem("copilot_interview_handoff");
-      if (handoffRaw) {
-        const handoff = JSON.parse(handoffRaw);
-        sessionStorage.removeItem("copilot_interview_handoff");
-        if (handoff.company) setJdCompany(handoff.company);
-        if (handoff.title) setJdTitle(handoff.title);
-        if (handoff.jobDescription) setJdText(handoff.jobDescription);
-        setShowCustomJdModal(true);
+    const timer = setTimeout(() => {
+      try {
+        const handoffRaw = sessionStorage.getItem("copilot_interview_handoff");
+        if (handoffRaw) {
+          const handoff = JSON.parse(handoffRaw);
+          sessionStorage.removeItem("copilot_interview_handoff");
+          if (handoff.company) {
+            setJdCompany(handoff.company);
+            setCustomCompany(handoff.company);
+          }
+          if (handoff.title) {
+            setJdTitle(handoff.title);
+            setCustomRole(handoff.title);
+          }
+          if (handoff.jobDescription) {
+            setJdText(handoff.jobDescription);
+            setCustomJdText(handoff.jobDescription);
+          }
+          setShowCustomizerPanel(true);
+        }
+      } catch (e) {
+        console.warn("Could not parse interview handoff", e);
       }
-    } catch (e) {
-      console.warn("Could not parse interview handoff", e);
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // ─── Filtered Questions Based on Mode & Category ────────────────────────────
@@ -295,18 +676,253 @@ export default function InterviewPage() {
     if (studioMode === "grill") {
       return q.category === "resume-grill";
     }
-    // Match role (if question has role specified)
-    const roleMatches = !q.role || q.role.toLowerCase() === selectedRole.toLowerCase();
+    // Match role (if question has role specified or is custom tagged)
+    const roleMatches =
+      q.isCustom ||
+      !q.role ||
+      q.role.toLowerCase() === selectedRole.toLowerCase();
     if (!roleMatches) return false;
 
     if (filterCategory === "all") {
-      return q.category !== "resume-grill";
+      return q.isCustom || q.category !== "resume-grill";
     }
     return q.category === filterCategory;
   });
 
-  const activeQuestion: InterviewQuestion | undefined =
+  const activeQuestion: StudioQuestion | undefined =
     availableQuestions[currentIdx] || availableQuestions[0] || questions[0];
+
+  const activeExpectedConcepts = useMemo<string[]>(() => {
+    return getQuestionExpectedConcepts(activeQuestion);
+  }, [activeQuestion]);
+
+  const coveredConceptsCount = useMemo(() => {
+    return activeExpectedConcepts.filter((c: string) => isConceptCovered(c, response, codeSnippet)).length;
+  }, [activeExpectedConcepts, response, codeSnippet]);
+
+  const allRoundTurns: InterviewTurn[] = useMemo(() => {
+    const list: InterviewTurn[] = [...sessionTurns];
+    if (evalResult && activeQuestion) {
+      const alreadyPresent = list.some((t) => t.questionText === activeQuestion.question);
+      if (!alreadyPresent) {
+        list.push({
+          id: `eval-current-${activeQuestion.id || "turn"}`,
+          questionText: activeQuestion.question,
+          category: activeQuestion.category,
+          userAnswer: response,
+          aiFeedback: evalResult.deliveryCritique.pacingAdvice,
+          score: evalResult.overallScore,
+          contentScore: evalResult.contentScore,
+          deliveryScore: evalResult.deliveryScore,
+          avgWpm: liveWpm,
+          fillerWordCount: Object.values(fillerCounts).reduce((a, b) => a + b, 0),
+          eyeContactScore: liveEyeContact >= 0 ? liveEyeContact : undefined,
+          starBreakdown: evalResult.starBreakdown,
+          rewrittenAnswer: evalResult.rewrittenIdealAnswer,
+          followUpQuestion: evalResult.followUpQuestion.prompt,
+          turnOrder: currentTurnOrder,
+          coveredConcepts: evalResult.coveredConcepts,
+          missedConcepts: evalResult.missedConcepts,
+          codeSnippet: codeSnippet.trim() || undefined,
+        });
+      }
+    }
+    return list;
+  }, [
+    sessionTurns,
+    evalResult,
+    activeQuestion,
+    response,
+    liveWpm,
+    fillerCounts,
+    liveEyeContact,
+    currentTurnOrder,
+    codeSnippet,
+  ]);
+
+  const scorecardStats = useMemo(() => {
+    const turnsCount = allRoundTurns.length;
+    if (turnsCount === 0) {
+      return {
+        turnsCount: 0,
+        avgScore: 0,
+        avgContent: 0,
+        avgDelivery: 0,
+        avgWpm: 0,
+        totalFillers: 0,
+        avgEyeContact: -1,
+        verdict: "Needs Practice",
+        verdictVariant: "rose" as const,
+        verdictDescription: "Start answering questions to generate your round performance scorecard.",
+        missedConcepts: [] as string[],
+      };
+    }
+
+    const avgScore = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.score || 0), 0) / turnsCount
+    );
+    const avgContent = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.contentScore || 0), 0) / turnsCount
+    );
+    const avgDelivery = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.deliveryScore || 0), 0) / turnsCount
+    );
+    const avgWpm = Math.round(
+      allRoundTurns.reduce((acc, t) => acc + (t.avgWpm || 120), 0) / turnsCount
+    );
+    const totalFillers = allRoundTurns.reduce((acc, t) => acc + (t.fillerWordCount || 0), 0);
+    const validEye = allRoundTurns.filter(
+      (t) => typeof t.eyeContactScore === "number" && t.eyeContactScore >= 0
+    );
+    const avgEyeContact =
+      validEye.length > 0
+        ? Math.round(validEye.reduce((acc, t) => acc + (t.eyeContactScore || 0), 0) / validEye.length)
+        : -1;
+
+    let verdict: string;
+    let verdictVariant: "emerald" | "blue" | "amber" | "rose";
+    let verdictDescription: string;
+
+    if (avgScore >= 85) {
+      verdict = "Strong Hire";
+      verdictVariant = "emerald";
+      verdictDescription =
+        "Exceptional technical depth, structured STAR articulation, and commanding executive delivery. Strong candidate recommendation for L4/L5 engineering loops.";
+    } else if (avgScore >= 72) {
+      verdict = "Hire";
+      verdictVariant = "blue";
+      verdictDescription =
+        "Solid production engineering intuition, clean communication, and reliable problem-solving. Meets the bar for production software engineering.";
+    } else if (avgScore >= 60) {
+      verdict = "Leaning Hire";
+      verdictVariant = "amber";
+      verdictDescription =
+        "Shows foundational domain grasp, but lacked quantified impact metrics in STAR results or missed critical edge-case architecture nuances.";
+    } else {
+      verdict = "Needs Practice";
+      verdictVariant = "rose";
+      verdictDescription =
+        "Responses were either too brief or missed core architectural concepts. Review the missed concept checklist below before real interview loops.";
+    }
+
+    const missed = Array.from(
+      new Set(allRoundTurns.flatMap((t) => t.missedConcepts || []))
+    );
+
+    return {
+      turnsCount,
+      avgScore,
+      avgContent,
+      avgDelivery,
+      avgWpm,
+      totalFillers,
+      avgEyeContact,
+      verdict,
+      verdictVariant,
+      verdictDescription,
+      missedConcepts: missed,
+    };
+  }, [allRoundTurns]);
+
+  // ─── OA & DSA Problem Arena Memo & Handlers ────────────────────────────────
+  const filteredDsaProblems = useMemo(() => {
+    let list = DSA_OA_PROBLEMS;
+    if (dsaTopicFilter !== "all") {
+      list = list.filter((p) => p.topic.toLowerCase() === dsaTopicFilter.toLowerCase());
+    }
+    if (dsaDifficultyFilter !== "all") {
+      list = list.filter((p) => p.difficulty.toLowerCase() === dsaDifficultyFilter.toLowerCase());
+    }
+    return list;
+  }, [dsaTopicFilter, dsaDifficultyFilter]);
+
+  const activeDsaProblem: DsaOaProblem =
+    filteredDsaProblems[dsaProblemIdx] || filteredDsaProblems[0] || DSA_OA_PROBLEMS[0];
+
+  const currentDsaCode: string =
+    sourceCodeMap[activeDsaProblem.id]?.[selectedLanguage] ??
+    activeDsaProblem.starterCode[selectedLanguage];
+
+  const handleDsaCodeChange = (newCode: string) => {
+    setSourceCodeMap((prev) => ({
+      ...prev,
+      [activeDsaProblem.id]: {
+        ...(prev[activeDsaProblem.id] || {}),
+        [selectedLanguage]: newCode,
+      },
+    }));
+  };
+
+  const handleResetDsaTemplate = () => {
+    setSourceCodeMap((prev) => ({
+      ...prev,
+      [activeDsaProblem.id]: {
+        ...(prev[activeDsaProblem.id] || {}),
+        [selectedLanguage]: activeDsaProblem.starterCode[selectedLanguage],
+      },
+    }));
+  };
+
+  const handleRunCode = async (mode: "run" | "submit") => {
+    if (!activeDsaProblem) return;
+    setIsRunningCode(true);
+    setRunCodeError(null);
+    setConsoleTab(mode === "run" ? "results" : "review");
+
+    try {
+      const res = await fetch("/api/interview/run-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problemId: activeDsaProblem.id,
+          problemTitle: `#${activeDsaProblem.number}. ${activeDsaProblem.title}`,
+          problemStatement: activeDsaProblem.problemStatement,
+          language: selectedLanguage,
+          sourceCode: currentDsaCode,
+          testCases: activeDsaProblem.testCases,
+          mode,
+          claimedTimeComplexity,
+          claimedSpaceComplexity,
+          verbalTranscript: response.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setRunCodeError(data.error || "Failed to execute code");
+      } else {
+        setRunCodeResult(data);
+        if (mode === "run") {
+          setConsoleTab("results");
+        } else {
+          setConsoleTab("review");
+          const dsaTurn: InterviewTurn = {
+            id: `dsa-${activeDsaProblem.id}-${Date.now()}`,
+            questionText: `#${activeDsaProblem.number}. ${activeDsaProblem.title}`,
+            category: "dsa",
+            userAnswer:
+              response.trim() ||
+              `[Submitted ${selectedLanguage} solution: ${currentDsaCode.split("\n").length} lines]`,
+            codeSnippet: currentDsaCode,
+            score: data.codeReview?.overallScore || (data.status === "Accepted" ? 95 : 60),
+            aiFeedback:
+              data.compilerMessage ||
+              `Passed ${data.passedCount}/${data.totalCount} test cases. Detected Big-O: ${
+                data.codeReview?.detectedTimeComplexity || "O(N)"
+              }`,
+            createdAt: new Date().toISOString(),
+            turnOrder: currentTurnOrder,
+          };
+          setSessionTurns((prev) => [...prev, dsaTurn]);
+          setCurrentTurnOrder((prev) => prev + 1);
+        }
+      }
+    } catch (err) {
+      setRunCodeError(err instanceof Error ? err.message : "Network error executing code");
+    } finally {
+      setIsRunningCode(false);
+    }
+  };
 
   // Auto-speak question when question changes if TTS is active
   useEffect(() => {
@@ -403,7 +1019,8 @@ export default function InterviewPage() {
     drawVirtualFrame();
 
     try {
-      const stream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
+      const canvasEl = canvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream };
+      const stream = canvasEl.captureStream ? canvasEl.captureStream(30) : null;
       if (stream) {
         videoStreamRef.current = stream;
         if (videoRef.current) {
@@ -417,6 +1034,8 @@ export default function InterviewPage() {
 
     setLiveEyeContact(88);
     setLivePosture("Stable");
+    setReticleColor("green");
+    setVisualToast("Avatar Stream Active (Calibrated)");
   };
 
   // ─── Camera Start / Stop Lifecycle (Reliable Hardware Release) ───────────────
@@ -452,9 +1071,10 @@ export default function InterviewPage() {
         vStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 } },
         });
-      } catch (firstErr: any) {
+      } catch (firstErr: unknown) {
+        const firstErrName = (firstErr as { name?: string })?.name;
         // If permission explicitly denied by user, do not re-request immediately
-        if (firstErr?.name === "NotAllowedError" || firstErr?.name === "PermissionDeniedError") {
+        if (firstErrName === "NotAllowedError" || firstErrName === "PermissionDeniedError") {
           throw firstErr;
         }
         // Fallback to basic unconstrained video
@@ -471,71 +1091,40 @@ export default function InterviewPage() {
         videoRef.current.play().catch(() => {});
       }
 
-      // Start Gaze & Stability Tracking (10Hz)
-      const offscreen = document.createElement("canvas");
-      offscreen.width = 64;
-      offscreen.height = 48;
-      const offCtx = offscreen.getContext("2d", { willReadFrequently: true });
+      // Start Real-Time Computer-Vision Telemetry Tracking (100ms / 10 FPS)
+      if (visualAnalyzerRef.current) {
+        visualAnalyzerRef.current.reset();
+      } else {
+        visualAnalyzerRef.current = new VisualTelemetryAnalyzer();
+      }
 
       if (gazeIntervalRef.current) clearInterval(gazeIntervalRef.current);
       gazeIntervalRef.current = setInterval(() => {
-        if (!videoRef.current || !offCtx || videoRef.current.readyState < 2) return;
-        offCtx.drawImage(videoRef.current, 0, 0, 64, 48);
-        const imgData = offCtx.getImageData(0, 0, 64, 48);
-        const data = imgData.data;
-
-        let totalLum = 0;
-        let weightedX = 0;
-        let weightedY = 0;
-
-        for (let y = 0; y < 48; y += 2) {
-          for (let x = 0; x < 64; x += 2) {
-            const idx = (y * 64 + x) * 4;
-            const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-            if (lum > 35) {
-              totalLum += lum;
-              weightedX += x * lum;
-              weightedY += y * lum;
-            }
-          }
-        }
-
-        if (totalLum > 0) {
-          const cx = weightedX / totalLum;
-          const cy = weightedY / totalLum;
-
-          const inCenter = cx >= 20 && cx <= 44 && cy >= 14 && cy <= 34;
-          eyeSamplesRef.current.total += 1;
-          if (inCenter) eyeSamplesRef.current.center += 1;
-
-          const ratio = Math.round((eyeSamplesRef.current.center / eyeSamplesRef.current.total) * 100);
-          setLiveEyeContact(ratio);
-
-          const dist = Math.hypot(cx - 32, cy - 24);
-          recentDistancesRef.current.push(dist);
-          if (recentDistancesRef.current.length > 12) recentDistancesRef.current.shift();
-          const avgDist =
-            recentDistancesRef.current.reduce((a, b) => a + b, 0) / recentDistancesRef.current.length;
-          setLivePosture(avgDist < 5.5 ? "Stable" : avgDist < 10 ? "Centering" : "Shifting");
-        }
-      }, 120);
-    } catch (err: any) {
+        if (!videoRef.current || !visualAnalyzerRef.current) return;
+        const frame = visualAnalyzerRef.current.analyzeFrame(videoRef.current);
+        setLiveEyeContact(frame.smoothEyeContactPct);
+        setLivePosture(frame.posture);
+        setReticleColor(frame.hudStatusColor);
+        setVisualToast(frame.hudToast);
+      }, 100);
+    } catch (err: unknown) {
       console.warn("[Webcam Notice] Camera access error:", err);
       let reason: "denied" | "in_use" | "not_found" | "unsupported" = "denied";
       let msg = "Camera permission was denied in your browser or Windows Privacy Settings.";
+      const errorObj = err as { name?: string; message?: string };
 
-      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+      if (errorObj?.name === "NotAllowedError" || errorObj?.name === "PermissionDeniedError") {
         reason = "denied";
         msg = "Camera permission was denied in your browser or Windows Privacy Settings.";
-      } else if (err?.name === "NotReadableError" || err?.name === "TrackStartError") {
+      } else if (errorObj?.name === "NotReadableError" || errorObj?.name === "TrackStartError") {
         reason = "in_use";
         msg = "Your webcam is currently locked by another application (e.g. Zoom, Teams, Skype, or Discord).";
-      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+      } else if (errorObj?.name === "NotFoundError" || errorObj?.name === "DevicesNotFoundError") {
         reason = "not_found";
         msg = "No webcam device was detected. Please plug in or enable your camera.";
       } else {
         reason = "unsupported";
-        msg = err?.message || "Unable to initialize video stream.";
+        msg = errorObj?.message || "Unable to initialize video stream.";
       }
 
       setCameraErrorInfo({ type: reason, message: msg });
@@ -566,6 +1155,10 @@ export default function InterviewPage() {
       videoRef.current.pause();
     }
 
+    if (visualAnalyzerRef.current) {
+      visualAnalyzerRef.current.reset();
+    }
+
     if (gazeIntervalRef.current) {
       clearInterval(gazeIntervalRef.current);
       gazeIntervalRef.current = null;
@@ -576,6 +1169,9 @@ export default function InterviewPage() {
     setCameraPermissionDenied(false);
     setCameraErrorInfo(null);
     setLiveEyeContact(-1);
+    setLivePosture("Stable");
+    setReticleColor("green");
+    setVisualToast(null);
   };
 
   // Cleanup media tracks on unmount
@@ -615,8 +1211,12 @@ export default function InterviewPage() {
   // ─── Dual-Engine Speech Recording (Web Speech + Groq Whisper) ───────────────
   const startRecording = async () => {
     stopTTS();
+    setError(null);
     setIsRecording(true);
+    setIsRecordingPaused(false);
     isRecordingRef.current = true;
+    setRecordingStatusBadge(null);
+    setMicActiveLevel(0);
     setDurationSeconds(0);
     setWpmHistory([]);
     eyeSamplesRef.current = { center: 0, total: 0 };
@@ -625,48 +1225,66 @@ export default function InterviewPage() {
     setIsHesitating(false);
     setHesitationGaps(0);
     audioChunksRef.current = [];
+    maxAudioRmsRef.current = 0;
 
-    // 1. Acquire Microphone Audio Stream for MediaRecorder and Audio Visualizer
+    // 1. Acquire Single Clean Microphone Audio Stream
+    let audioStream: MediaStream;
     try {
-      if (!audioStreamRef.current || audioStreamRef.current.getAudioTracks().length === 0) {
-        const aStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStreamRef.current = aStream;
+      if (audioStreamRef.current && audioStreamRef.current.getAudioTracks().length > 0) {
+        audioStream = audioStreamRef.current;
+      } else {
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        audioStreamRef.current = audioStream;
       }
+    } catch (micErr) {
+      console.warn("[Microphone Notice] Mic stream error:", micErr);
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      setError("Microphone permission denied or hardware unavailable. Please allow microphone access.");
+      return;
+    }
 
-      const audioStream = audioStreamRef.current;
+    // 2. Initialize MediaRecorder for parallel audio capture (Whisper backup)
+    if (typeof MediaRecorder !== "undefined" && audioStream) {
+      try {
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/mp4";
 
-      // Initialize MediaRecorder for parallel audio capture (Whisper backup)
-      if (typeof MediaRecorder !== "undefined" && audioStream) {
-        try {
-          const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-            ? "audio/webm;codecs=opus"
-            : MediaRecorder.isTypeSupported("audio/webm")
-            ? "audio/webm"
-            : "audio/mp4";
+        const recorder = new MediaRecorder(audioStream, {
+          mimeType,
+          audioBitsPerSecond: 32000,
+        });
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
 
-          const recorder = new MediaRecorder(audioStream, { mimeType });
-          mediaRecorderRef.current = recorder;
-          audioChunksRef.current = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
 
-          recorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) {
-              audioChunksRef.current.push(e.data);
-            }
-          };
-
-          recorder.start(250); // Slice chunks every 250ms
-        } catch (recErr) {
-          console.warn("[MediaRecorder] Failed to start recorder:", recErr);
-        }
+        recorder.start(250); // Slice chunks every 250ms
+      } catch (recErr) {
+        console.warn("[MediaRecorder] Failed to start recorder:", recErr);
       }
+    }
 
-      // AudioContext & AnalyserNode for live 60-bar waveform
+    // 3. AudioContext & AnalyserNode for live volume meter & waveform
+    try {
       if (audioStream && audioStream.getAudioTracks().length > 0) {
         const AudioCtx =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) {
           const audioCtx = new AudioCtx();
+          if (audioCtx.state === "suspended") {
+            await audioCtx.resume();
+          }
           audioCtxRef.current = audioCtx;
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
@@ -674,42 +1292,53 @@ export default function InterviewPage() {
           source.connect(analyser);
 
           const canvas = audioCanvasRef.current;
-          if (canvas) {
-            const ctx = canvas.getContext("2d");
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
 
-            const renderWaveform = () => {
-              if (!ctx || !isRecordingRef.current) return;
-              analyser.getByteFrequencyData(dataArray);
+          const renderWaveform = () => {
+            if (!isRecordingRef.current) return;
+            analyser.getByteFrequencyData(dataArray);
 
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              const barWidth = (canvas.width / bufferLength) * 1.6;
-              let x = 0;
+            // Compute live average volume for meter and peak volume
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+            const avg = sum / (bufferLength || 1);
+            setMicActiveLevel(Math.min(100, Math.round((avg / 128) * 100)));
+            if (avg > maxAudioRmsRef.current) {
+              maxAudioRmsRef.current = avg;
+            }
 
-              for (let i = 0; i < bufferLength; i++) {
-                const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
-                const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-                gradient.addColorStop(0, "rgba(99, 102, 241, 0.2)");
-                gradient.addColorStop(1, "rgba(16, 185, 129, 0.9)");
+            if (canvas) {
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const barWidth = (canvas.width / bufferLength) * 1.6;
+                let x = 0;
 
-                ctx.fillStyle = gradient;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                x += barWidth + 2;
+                for (let i = 0; i < bufferLength; i++) {
+                  const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+                  const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+                  gradient.addColorStop(0, "rgba(99, 102, 241, 0.2)");
+                  gradient.addColorStop(1, "rgba(16, 185, 129, 0.9)");
+
+                  ctx.fillStyle = gradient;
+                  ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                  x += barWidth + 2;
+                }
               }
+            }
 
-              animFrameRef.current = requestAnimationFrame(renderWaveform);
-            };
+            animFrameRef.current = requestAnimationFrame(renderWaveform);
+          };
 
-            renderWaveform();
-          }
+          renderWaveform();
         }
       }
-    } catch (micErr) {
-      console.warn("[Microphone Notice] Mic stream error:", micErr);
+    } catch (ctxErr) {
+      console.warn("[AudioContext] Waveform setup error:", ctxErr);
     }
 
-    // 2. Initialize Browser Web SpeechRecognition with Auto-Restart
+    // 4. Non-Blocking Browser Web SpeechRecognition
     const SpeechRec =
       (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition;
@@ -730,22 +1359,22 @@ export default function InterviewPage() {
             currentTranscript += event.results[i][0].transcript + " ";
           }
           const clean = currentTranscript.trim();
-          setResponse(clean);
-          countFillers(clean);
+          if (clean) {
+            setResponse(clean);
+            countFillers(clean);
+          }
         };
 
         recognition.onerror = (err) => {
-          console.warn("[SpeechRecognition Error]:", err);
+          console.warn("[SpeechRecognition Non-Blocking Error]:", err);
+          setRecordingStatusBadge("● Recording Audio (Groq Whisper AI will transcribe on Stop)...");
         };
 
         recognition.onend = () => {
-          // If the browser terminated listening due to 3-5 seconds of silence, automatically restart!
-          if (isRecordingRef.current) {
+          if (isRecordingRef.current && !recordingStatusBadge) {
             try {
               recognition.start();
-            } catch {
-              // Ignore if already active
-            }
+            } catch {}
           }
         };
 
@@ -753,10 +1382,13 @@ export default function InterviewPage() {
         recognitionRef.current = recognition;
       } catch (sttErr) {
         console.warn("[SpeechRec] Web Speech could not start:", sttErr);
+        setRecordingStatusBadge("● Recording Audio (Groq Whisper AI will transcribe on Stop)...");
       }
+    } else {
+      setRecordingStatusBadge("● Recording Audio (Groq Whisper AI will transcribe on Stop)...");
     }
 
-    // 3. Interval: Timer, WPM calculator, and Hesitation Silence detector (>2.5s)
+    // 5. Interval: Timer, WPM calculator, and Hesitation Silence detector (>2.5s)
     let elapsed = 0;
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
 
@@ -772,10 +1404,10 @@ export default function InterviewPage() {
         setIsHesitating(false);
       }
 
-      if (elapsed % 4 === 0) {
+      if (elapsed % 3 === 0) {
         setResponse((currentText) => {
           const words = currentText.trim().split(/\s+/).filter(Boolean).length;
-          const currentWpm = Math.round((words / elapsed) * 60);
+          const currentWpm = Math.round((words / Math.max(elapsed, 3)) * 60);
           setLiveWpm(currentWpm);
           setWpmHistory((prev) => [...prev, currentWpm]);
           return currentText;
@@ -784,13 +1416,21 @@ export default function InterviewPage() {
     }, 1000);
   };
 
-  const stopRecording = async () => {
+  const stopRecording = async (): Promise<string> => {
     setIsRecording(false);
+    setIsRecordingPaused(false);
     isRecordingRef.current = false;
+    setRecordingStatusBadge(null);
+    setMicActiveLevel(0);
 
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
+    }
+
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
     }
 
     if (recognitionRef.current) {
@@ -800,26 +1440,65 @@ export default function InterviewPage() {
       recognitionRef.current = null;
     }
 
-    // Stop MediaRecorder and evaluate Groq Whisper transcription if needed
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    // Stop audio context
+    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
       try {
-        mediaRecorderRef.current.stop();
+        audioCtxRef.current.close();
       } catch {}
+      audioCtxRef.current = null;
     }
 
-    const words = response.trim().split(/\s+/).filter(Boolean).length;
-    const finalWpm = durationSeconds > 0 ? Math.round((words / Math.max(1, durationSeconds)) * 60) : 120;
-    setLiveWpm(finalWpm);
-    countFillers(response);
-
-    // If Web Speech produced very little or candidate recorded audio, send to Groq Whisper for 100% precision
-    if (audioChunksRef.current.length > 0 && (words < 4 || durationSeconds >= 3)) {
-      setTimeout(async () => {
+    // Flush & stop MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        if (!mediaRecorderRef.current) return resolve();
+        mediaRecorderRef.current.onstop = () => resolve();
         try {
-          setIsTranscribingWithWhisper(true);
-          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          mediaRecorderRef.current.stop();
+        } catch {
+          resolve();
+        }
+      });
+    }
+
+    // Release microphone tracks to turn off hardware LED
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
+    }
+
+    let audioBlob: Blob | null = null;
+    if (audioChunksRef.current.length > 0) {
+      const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+      audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+    }
+
+    let currentTranscript = response.trim();
+
+    // Send audio blob to Groq Whisper if available and vocal energy detected (Silence Guard)
+    const detectedVoice = maxAudioRmsRef.current > 2.0;
+
+    if (audioBlob && audioBlob.size > 0) {
+      if (!detectedVoice && !currentTranscript) {
+        setError("No vocal audio detected. Please check your microphone volume and speak clearly.");
+      } else {
+        setIsTranscribingWithWhisper(true);
+        try {
           const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
+          const ext = audioBlob.type.includes("mp4") ? "mp4" : "webm";
+          formData.append("audio", audioBlob, `recording.${ext}`);
+          formData.append("role", selectedRole);
+          const questionContext = [
+            activeQuestion?.question || "",
+            activeQuestion?.hint || "",
+            (activeQuestion?.keyConceptsToCover || []).join(", "),
+          ]
+            .filter(Boolean)
+            .join(" ");
+          formData.append("questionContext", questionContext);
+          if (activeQuestion?.keyConceptsToCover && activeQuestion.keyConceptsToCover.length > 0) {
+            formData.append("keyConcepts", activeQuestion.keyConceptsToCover.join(", "));
+          }
 
           const res = await fetch("/api/interview/transcribe", {
             method: "POST",
@@ -827,32 +1506,107 @@ export default function InterviewPage() {
           });
 
           if (res.ok) {
-            const data = await res.json();
-            if (data.text && data.text.trim().length > response.trim().length) {
-              setResponse(data.text.trim());
-              countFillers(data.text.trim());
+            const data = (await res.json()) as { ok?: boolean; text?: string; wordsPerMinute?: number };
+            if (data.ok && data.text && data.text.trim()) {
+              currentTranscript = data.text.trim();
+              setResponse(currentTranscript);
+              countFillers(currentTranscript);
               if (data.wordsPerMinute) {
                 setLiveWpm(data.wordsPerMinute);
               }
             }
           }
-        } catch (transcribeErr) {
-          console.warn("[Whisper Transcribe Error]:", transcribeErr);
+        } catch (whisperErr) {
+          console.warn("[Groq Whisper Transcription error]:", whisperErr);
         } finally {
           setIsTranscribingWithWhisper(false);
         }
-      }, 350);
+      }
+    }
+
+    // Final calculations
+    const words = currentTranscript.split(/\s+/).filter(Boolean).length;
+    const finalWpm = Math.round((words / Math.max(durationSeconds, 5)) * 60);
+    setLiveWpm(finalWpm || 120);
+    countFillers(currentTranscript);
+
+    return currentTranscript;
+  };
+
+  // ─── 1-Click Sample Answer Loader ───────────────────────────────────────────
+  const handleApplySampleAnswer = () => {
+    const sample =
+      activeQuestion?.sampleAnswer ||
+      activeQuestion?.idealAnswer ||
+      "In my previous engineering project, we faced critical latency spikes under peak load. As the primary backend engineer, I profiled database bottlenecks, indexed foreign keys in PostgreSQL, and introduced a Redis caching tier for session data. This reduced p99 query latency from 850ms down to 42ms and successfully handled 10x traffic during product launch.";
+    setResponse(sample);
+    setDurationSeconds(42);
+    setLiveWpm(128);
+    setWpmHistory([120, 125, 130, 128]);
+    countFillers(sample);
+    setShowSample(true);
+  };
+
+  const handleTogglePauseRecording = () => {
+    if (!isRecording) return;
+    if (!isRecordingPaused) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        try {
+          mediaRecorderRef.current.pause();
+        } catch {}
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsRecordingPaused(true);
+      setRecordingStatusBadge("⏸️ Paused (Think Time)");
+    } else {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+        try {
+          mediaRecorderRef.current.resume();
+        } catch {}
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {}
+      }
+      setIsRecordingPaused(false);
+      setRecordingStatusBadge("🎙️ Transcribing live...");
+    }
+  };
+
+  const handleSelectScratchpadLang = (langId: string) => {
+    setScratchpadLang(langId);
+    const found = CODE_LANGUAGES.find((l) => l.id === langId);
+    if (found && (!codeSnippet.trim() || CODE_LANGUAGES.some((l) => l.defaultSnippet === codeSnippet.trim()))) {
+      setCodeSnippet(found.defaultSnippet);
     }
   };
 
   // ─── Evaluation Submission ──────────────────────────────────────────────────
   const handleEvaluate = async () => {
-    if (!response.trim() || !activeQuestion) return;
-    if (isRecording) stopRecording();
+    if (!activeQuestion) return;
+
+    let textToEvaluate = response.trim();
+
+    // If currently recording, stop recording and await Whisper transcript!
+    if (isRecording || isRecordingRef.current) {
+      textToEvaluate = await stopRecording();
+    }
+
+    if (!textToEvaluate) {
+      setError("No answer transcript found. Please record or type your response first.");
+      return;
+    }
+
     setIsEvaluating(true);
+    setError(null);
     setSaveSuccessMsg(null);
 
-    const words = response.trim().split(/\s+/).filter(Boolean).length;
+    const words = textToEvaluate.split(/\s+/).filter(Boolean).length;
     const calculatedWpm = durationSeconds > 0 ? Math.round((words / durationSeconds) * 60) : 125;
     const totalFillers = Object.values(fillerCounts).reduce((a, b) => a + b, 0);
 
@@ -862,8 +1616,10 @@ export default function InterviewPage() {
         questionText: activeQuestion.question,
         category: activeQuestion.category,
         role: selectedRole,
-        userTranscript: response.trim(),
+        userTranscript: textToEvaluate,
         durationSeconds: Math.max(10, durationSeconds),
+        codeSnippet: codeSnippet.trim() || undefined,
+        keyConceptsToCover: activeExpectedConcepts.length > 0 ? activeExpectedConcepts : undefined,
         telemetry: {
           avgWpm: liveWpm || calculatedWpm,
           wpmTimeSeries: wpmHistory.length > 0 ? wpmHistory : [calculatedWpm],
@@ -871,20 +1627,45 @@ export default function InterviewPage() {
           totalFillerCount: totalFillers,
           hesitationGapsCount: hesitationGaps,
           eyeContactPct: cameraActive && !cameraPermissionDenied ? liveEyeContact : -1,
-          postureStabilityPct: livePosture === "Stable" ? 92 : livePosture === "Centering" ? 78 : 65,
+          postureStabilityPct:
+            livePosture === "Stable"
+              ? 92
+              : livePosture === "Calibrating..."
+              ? 85
+              : livePosture === "Off-Center"
+              ? 74
+              : livePosture === "Shifting"
+              ? 62
+              : 45,
         },
-        resumeContext: studioMode === "grill" ? `Project Architect: ${selectedRole}` : undefined,
+        resumeContext:
+          detectedResume
+            ? `Candidate: ${detectedResume.candidateName || "Candidate"}. Skills: ${detectedResume.skills.slice(0, 8).join(", ")}. Projects: ${detectedResume.projects.map((p) => p.title).join(", ")}`
+            : studioMode === "grill"
+            ? `Project Architect: ${selectedRole}`
+            : undefined,
         githubRepoContext: githubAnalysis ? JSON.stringify(githubAnalysis.summary) : undefined,
-        customJdContext: jdText ? `${jdCompany} - ${jdTitle}: ${jdText.slice(0, 500)}` : undefined,
+        customJdContext: customJdText
+          ? `${customCompany} - ${customRole}: ${customJdText.slice(0, 500)}`
+          : jdText
+          ? `${jdCompany} - ${jdTitle}: ${jdText.slice(0, 500)}`
+          : undefined,
       });
 
       setEvalResult(evaluation);
       setIsEvaluating(false);
 
+      // Auto-scroll to evaluation report smoothly
+      setTimeout(() => {
+        evaluationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+
       if (ttsEnabled && evaluation.followUpQuestion?.prompt) {
         setTimeout(() => {
-          speakText(`Follow-up probe: ${evaluation.followUpQuestion.prompt}`);
-        }, 1200);
+          speakText(
+            `Evaluation complete. Score: ${evaluation.overallScore} out of 100. Follow-up cross question: ${evaluation.followUpQuestion.prompt}`
+          );
+        }, 1000);
       }
     } catch (err: unknown) {
       setIsEvaluating(false);
@@ -912,24 +1693,29 @@ export default function InterviewPage() {
       rewrittenAnswer: evalResult.rewrittenIdealAnswer,
       followUpQuestion: evalResult.followUpQuestion.prompt,
       turnOrder: currentTurnOrder,
+      coveredConcepts: evalResult.coveredConcepts,
+      missedConcepts: evalResult.missedConcepts,
+      codeSnippet: codeSnippet.trim() || undefined,
     };
 
     setSessionTurns((prev) => [...prev, completedTurn]);
     setCurrentTurnOrder((prev) => prev + 1);
 
-    const followUpQuestionObj: InterviewQuestion = {
+    const followUpQuestionObj: StudioQuestion = {
       id: `iq-followup-${Date.now()}`,
       category: activeQuestion.category,
       difficulty: "hard",
       question: evalResult.followUpQuestion.prompt,
       hint: `Interviewer Cross-Question Intent: ${evalResult.followUpQuestion.intent}`,
       sampleAnswer: evalResult.rewrittenIdealAnswer,
+      keyConceptsToCover: evalResult.followUpQuestion.keyConcepts || activeExpectedConcepts.slice(0, 3),
       followUps: [],
     };
 
     setQuestions((prev) => [followUpQuestionObj, ...prev]);
     setCurrentIdx(0);
     setResponse("");
+    setCodeSnippet("");
     setEvalResult(null);
     setDurationSeconds(0);
     setLiveWpm(0);
@@ -940,48 +1726,67 @@ export default function InterviewPage() {
     }
   };
 
-  // ─── Custom JD Question Generation ──────────────────────────────────────────
-  const handleGenerateCustomJd = async () => {
-    if (!jdText.trim() || jdText.trim().length < 20) {
-      setError("Please paste a job description of at least 20 characters.");
-      return;
-    }
+  // ─── Dual-Synthesizer Custom Question Generation (Resume + JD) ─────────────
+  const handleGenerateCustomQuestions = async (appendMode: boolean = false) => {
+    const role = customRole || selectedRole;
+    const requirement = customJdText.trim() || `${role} engineering competencies, clean architecture, and production scale`;
 
-    setIsGeneratingJd(true);
+    setIsGeneratingCustom(true);
     setError(null);
-    setJdSuccessMsg(null);
+    setCustomSuccessMsg(null);
 
     try {
-      const res = await fetch("/api/interview/custom-jd", {
+      const payload = {
+        targetRole: role,
+        targetCompany: customCompany.trim() || undefined,
+        jobRequirement: requirement,
+        resumeContext: (includeResumeContext && detectedResume) ? {
+          candidateName: detectedResume.candidateName,
+          skills: detectedResume.skills,
+          projects: detectedResume.projects,
+          experience: detectedResume.experience,
+        } : undefined,
+        focusCategories: customFocusCategories,
+        difficulty: customDifficulty,
+        count: appendMode ? 10 : 12,
+      };
+
+      const res = await fetch("/api/interview/custom-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetCompany: jdCompany.trim(),
-          jobTitle: jdTitle.trim() || selectedRole,
-          jobDescription: jdText.trim(),
-          count: 8,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to generate questions from JD");
+        throw new Error(errData.error || "Failed to generate tailored interview questions.");
       }
 
       const data = await res.json();
       if (Array.isArray(data.questions) && data.questions.length > 0) {
-        setQuestions((prev) => [...data.questions, ...prev]);
-        setFilterCategory("all");
-        setCurrentIdx(0);
-        setResponse("");
-        setEvalResult(null);
-        setJdSuccessMsg(`Generated ${data.questions.length} tailored interview questions!`);
-        setShowCustomJdModal(false);
+        const taggedQuestions: InterviewQuestion[] = data.questions.map((q: InterviewQuestion) => ({
+          ...q,
+          isCustom: true,
+        }));
+
+        if (appendMode) {
+          setQuestions((prev) => [...prev, ...taggedQuestions]);
+          setCustomSuccessMsg(`Added ${taggedQuestions.length} more custom questions to queue! (${data.source || "AI engine"})`);
+        } else {
+          setQuestions((prev) => [...taggedQuestions, ...prev]);
+          setFilterCategory("all");
+          setCurrentIdx(0);
+          setResponse("");
+          setEvalResult(null);
+          setCustomSuccessMsg(`Generated ${taggedQuestions.length} questions tailored to your resume & requirements! (${data.source || "AI engine"})`);
+        }
+      } else {
+        throw new Error("No interview questions were generated. Please refine your requirements.");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error generating questions from JD");
+      setError(err instanceof Error ? err.message : "Error generating tailored questions.");
     } finally {
-      setIsGeneratingJd(false);
+      setIsGeneratingCustom(false);
     }
   };
 
@@ -1024,8 +1829,10 @@ export default function InterviewPage() {
           hint: `${gq.whatInterviewerLooksFor} · Hint: ${gq.hint}`,
           sampleAnswer: `Architectural breakdown for ${analysis.repoName}`,
           followUps: [],
-          keyConceptsToCover: gq.referencedFiles,
+          keyConceptsToCover: gq.keyConcepts && gq.keyConcepts.length > 0 ? gq.keyConcepts : gq.referencedFiles,
           referencedFiles: gq.referencedFiles,
+          codeExcerpt: gq.codeExcerpt,
+          whyAskThis: gq.whatInterviewerLooksFor,
         }));
 
         setQuestions((prev) => [...convertedQuestions, ...prev]);
@@ -1044,6 +1851,13 @@ export default function InterviewPage() {
   const handleSaveSession = async () => {
     if (!evalResult || !activeQuestion) return;
     try {
+      const allMissed = Array.from(
+        new Set([
+          ...sessionTurns.flatMap((t) => t.missedConcepts || []),
+          ...(evalResult.missedConcepts || []),
+        ])
+      );
+
       await recordInterviewSession({
         date: new Date().toISOString().split("T")[0],
         role: selectedRole,
@@ -1056,6 +1870,7 @@ export default function InterviewPage() {
         feedback: evalResult.deliveryCritique.pacingAdvice,
         questionsAnswered: sessionTurns.length + 1,
         duration: `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`,
+        missedConcepts: allMissed.length > 0 ? allMissed : undefined,
         turns: [
           ...sessionTurns,
           {
@@ -1074,6 +1889,9 @@ export default function InterviewPage() {
             rewrittenAnswer: evalResult.rewrittenIdealAnswer,
             followUpQuestion: evalResult.followUpQuestion.prompt,
             turnOrder: currentTurnOrder,
+            coveredConcepts: evalResult.coveredConcepts,
+            missedConcepts: evalResult.missedConcepts,
+            codeSnippet: codeSnippet.trim() || undefined,
           },
         ],
       });
@@ -1140,6 +1958,15 @@ export default function InterviewPage() {
             <Clock className="w-3.5 h-3.5" />
             Session History ({sessions.length})
           </button>
+          <button
+            type="button"
+            onClick={() => setShowScorecardModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all shadow-sm"
+            title="View Round Scorecard and Hiring Verdict"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span>Scorecard ({allRoundTurns.length})</span>
+          </button>
         </div>
       </div>
 
@@ -1205,14 +2032,43 @@ export default function InterviewPage() {
             🔥 Resume Project Grill
           </button>
 
-          {/* Custom JD Generator Trigger */}
           <button
             type="button"
-            onClick={() => setShowCustomJdModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all"
+            onClick={() => {
+              setStudioMode("dsa");
+              setEvalResult(null);
+              setResponse("");
+            }}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+              studioMode === "dsa"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-sm"
+                : "text-slate-400 hover:text-amber-300"
+            )}
+          >
+            <Code2 className="w-3.5 h-3.5 text-amber-400" />
+            <span>💻 OA &amp; DSA Coding Arena</span>
+            <span className="text-[10px] bg-amber-500/25 text-amber-200 px-1.5 py-0.2 rounded-full font-bold">
+              30 OA
+            </span>
+          </button>
+
+          {/* Custom Resume + JD Generator Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowCustomizerPanel((prev) => !prev)}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+              showCustomizerPanel
+                ? "bg-indigo-600 text-white font-semibold shadow-md shadow-indigo-600/30"
+                : "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+            )}
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            Custom JD Generator
+            <span>🎯 Customize by Resume &amp; JD</span>
+            {detectedResume && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Resume Loaded" />
+            )}
           </button>
         </div>
 
@@ -1225,6 +2081,7 @@ export default function InterviewPage() {
               onChange={(e) => {
                 const newRole = e.target.value;
                 setSelectedRole(newRole);
+                setCustomRole(newRole);
                 setCurrentIdx(0);
                 setEvalResult(null);
                 setResponse("");
@@ -1271,75 +2128,288 @@ export default function InterviewPage() {
         </div>
       </div>
 
-      {/* ─── CUSTOM JD GENERATOR MODAL ───────────────────────────────────────── */}
-      {showCustomJdModal && (
-        <Card className="p-6 bg-gradient-to-br from-[#0e1424] via-[#11182c] to-[#0e1424] border-indigo-500/30 shadow-2xl animate-fadeIn">
-          <div className="flex items-center justify-between pb-3 border-b border-white/8 mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-400" />
-              <h3 className="text-base font-bold text-white">Generate Custom Interview Questions from Job Description</h3>
+      {/* ─── RESUME DETECTION QUICK BADGE (WHEN PANEL IS COLLAPSED) ─────────── */}
+      {detectedResume && !showCustomizerPanel && !showCustomJdModal && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-emerald-950/20 border border-emerald-500/25 text-xs animate-fadeIn">
+          <div className="flex items-center gap-2 text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span>
+              Loaded Resume: <strong className="text-white font-mono">{detectedResume.fileName}</strong> ({detectedResume.projects.length} Projects, {detectedResume.skills.length} Skills detected)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCustomizerPanel(true)}
+            className="text-[11px] font-medium text-indigo-300 hover:text-white underline self-start sm:self-auto"
+          >
+            Customize Questions for Target Job &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* ─── CUSTOM RESUME + JOB REQUIREMENT PANEL ───────────────────────── */}
+      {(showCustomizerPanel || showCustomJdModal) && (
+        <Card className="p-5 md:p-6 bg-gradient-to-br from-[#0c1222] via-[#0f172a] to-[#0c1222] border-indigo-500/40 shadow-2xl rounded-2xl animate-fadeIn space-y-5">
+          {/* Header */}
+          <div className="flex items-start justify-between pb-3 border-b border-white/8">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  🎯 Customize Questions by Resume &amp; Job Requirement
+                </h3>
+                <Badge variant="indigo" size="sm">Dual-Synthesizer AI</Badge>
+              </div>
+              <p className="text-xs text-slate-400">
+                Synthesizes your uploaded resume projects &amp; skills with target company requirements to generate tailored, bar-raiser interview questions.
+              </p>
             </div>
             <button
               type="button"
-              onClick={() => setShowCustomJdModal(false)}
-              className="text-slate-400 hover:text-white text-sm"
+              onClick={() => {
+                setShowCustomizerPanel(false);
+                setShowCustomJdModal(false);
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm"
             >
               ✕
             </button>
           </div>
 
-          <p className="text-xs text-slate-400 mb-4">
-            Paste any job posting or company requirements. Our AI will analyze the tech stack, scale, and responsibilities to generate 8-10 tough bar-raiser interview questions.
-          </p>
+          {/* Resume Integration Status Card */}
+          <div className={clsx(
+            "p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
+            detectedResume
+              ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
+              : "bg-slate-900/60 border-white/8 text-slate-400"
+          )}>
+            <div className="flex items-center gap-2.5">
+              {detectedResume ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              )}
+              <div>
+                {detectedResume ? (
+                  <p className="font-semibold text-emerald-300">
+                    ✓ Loaded Resume: <span className="text-white font-mono">{detectedResume.fileName}</span>
+                    <span className="text-emerald-400/80 font-normal ml-1.5">
+                      ({detectedResume.projects.length} Projects, {detectedResume.skills.length} Skills detected)
+                    </span>
+                  </p>
+                ) : (
+                  <p>
+                    No uploaded resume found in workspace. Using target role defaults, or upload your resume in the{" "}
+                    <a href="/resume" className="text-indigo-400 underline hover:text-indigo-300 font-medium">Resume Screener</a>.
+                  </p>
+                )}
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {detectedResume && (
+              <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-slate-300 hover:text-white bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/10">
+                <input
+                  type="checkbox"
+                  checked={includeResumeContext}
+                  onChange={(e) => setIncludeResumeContext(e.target.checked)}
+                  className="rounded border-slate-600 text-indigo-500 focus:ring-indigo-400"
+                />
+                <span>Include Resume in AI Prompt</span>
+              </label>
+            )}
+          </div>
+
+          {/* Inputs Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Target Role */}
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Target Company (Optional)</label>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Target Role <span className="text-indigo-400">*</span>
+              </label>
+              <select
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
+                className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+              >
+                {INTERVIEW_ROLES.map((r) => (
+                  <option key={r} value={r} className="bg-slate-900 text-slate-200">
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Target Company */}
+            <div>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Target Company (Optional)
+              </label>
               <input
                 type="text"
-                placeholder="e.g. Google, Stripe, Razorpay"
-                value={jdCompany}
-                onChange={(e) => setJdCompany(e.target.value)}
+                placeholder="e.g. Google, Stripe, Zepto, Swiggy"
+                value={customCompany}
+                onChange={(e) => setCustomCompany(e.target.value)}
                 className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
+
+            {/* Difficulty */}
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Target Job Title (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Senior Backend Engineer"
-                value={jdTitle}
-                onChange={(e) => setJdTitle(e.target.value)}
-                className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Difficulty Bar
+              </label>
+              <select
+                value={customDifficulty}
+                onChange={(e) => setCustomDifficulty(e.target.value as "Easy" | "Medium" | "Hard" | "Mixed")}
+                className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="Mixed" className="bg-slate-900">Mixed (Bar-Raiser &amp; Core)</option>
+                <option value="Hard" className="bg-slate-900">Hard (Senior / Staff)</option>
+                <option value="Medium" className="bg-slate-900">Medium (Mid-Level SDE)</option>
+                <option value="Easy" className="bg-slate-900">Easy (Foundational)</option>
+              </select>
             </div>
           </div>
 
-          <div className="mb-4">
-            <label className="text-xs font-semibold text-slate-300 block mb-1">Job Description &amp; Technical Requirements *</label>
+          {/* Question Mix Focus Categories */}
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+              Target Question Focus Areas
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "core-technical", label: "Core Technical & Architecture" },
+                { id: "resume-grill", label: "Resume Project Grill" },
+                { id: "system-design", label: "Distributed System Design" },
+                { id: "behavioral", label: "STAR Leadership & Ownership" },
+                { id: "debugging", label: "Live Debugging & RCA" },
+                { id: "dsa", label: "DSA & Algorithmic Problem Solving" },
+              ].map((area) => {
+                const selected = customFocusCategories.includes(area.id);
+                return (
+                  <button
+                    key={area.id}
+                    type="button"
+                    onClick={() => {
+                      if (selected) {
+                        if (customFocusCategories.length > 1) {
+                          setCustomFocusCategories((prev) => prev.filter((id) => id !== area.id));
+                        }
+                      } else {
+                        setCustomFocusCategories((prev) => [...prev, area.id]);
+                      }
+                    }}
+                    className={clsx(
+                      "px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all select-none",
+                      selected
+                        ? "bg-indigo-600/30 border-indigo-500/60 text-indigo-200 font-semibold"
+                        : "bg-white/5 border-white/8 text-slate-400 hover:text-white"
+                    )}
+                  >
+                    {selected ? "✓ " : "+ "}{area.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Job Description & Requirements Textarea */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-300">
+                Job Description &amp; Technical Requirements <span className="text-indigo-400">*</span>
+              </label>
+              <span className="text-[10px] text-slate-500">
+                Paste responsibilities, required stack, or key qualifications
+              </span>
+            </div>
+
+            {/* 1-Click Company Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap mb-2">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Presets:</span>
+              {COMPANY_JD_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => {
+                    setCustomCompany(preset.company);
+                    setCustomRole(preset.role);
+                    setCustomJdText(preset.desc);
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/25 text-[11px] text-indigo-300 font-medium transition-all"
+                >
+                  🏢 {preset.name}
+                </button>
+              ))}
+            </div>
+
             <textarea
-              rows={5}
-              placeholder="Paste the full job description, required tech stack, responsibilities, or qualification bullet points..."
-              value={jdText}
-              onChange={(e) => setJdText(e.target.value)}
+              rows={4}
+              placeholder="Paste target Job Description, required competencies, or tech stack expectations (e.g. 'Must have experience with Next.js, Kafka, microservices, and high-concurrency database indexing')..."
+              value={customJdText}
+              onChange={(e) => setCustomJdText(e.target.value)}
               className="w-full text-xs bg-black/40 border border-white/10 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setShowCustomJdModal(false)}>
-              Cancel
-            </Button>
+          {/* Success / Info Feedback */}
+          {customSuccessMsg && (
+            <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>{customSuccessMsg}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomSuccessMsg(null)}
+                className="text-emerald-400/70 hover:text-white text-xs"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <Button
-              variant="primary"
+              variant="ghost"
               size="sm"
-              icon={isGeneratingJd ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              onClick={handleGenerateCustomJd}
-              disabled={isGeneratingJd || !jdText.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white"
+              onClick={() => {
+                setShowCustomizerPanel(false);
+                setShowCustomJdModal(false);
+              }}
+              className="text-slate-400 hover:text-white text-xs"
             >
-              {isGeneratingJd ? "Analyzing JD & Generating Questions..." : "Generate Interview Questions"}
+              Close Customizer
             </Button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* + Generate 10 More Questions button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={isGeneratingCustom ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 text-indigo-400" />}
+                onClick={() => handleGenerateCustomQuestions(true)}
+                disabled={isGeneratingCustom || (!customJdText.trim() && !customRole)}
+                className="text-xs border border-indigo-500/30 hover:border-indigo-500/60"
+              >
+                + Generate 10 More Questions
+              </Button>
+
+              {/* Generate 12 Custom Questions (Primary) */}
+              <Button
+                variant="primary"
+                size="sm"
+                icon={isGeneratingCustom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
+                onClick={() => handleGenerateCustomQuestions(false)}
+                disabled={isGeneratingCustom || (!customJdText.trim() && !customRole)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30"
+              >
+                {isGeneratingCustom ? "Analyzing Profile & Generating..." : "⚡ Generate Tailored Questions (12)"}
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -1560,10 +2630,16 @@ export default function InterviewPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => {
-                    setFilterCategory(cat.id);
-                    setCurrentIdx(0);
-                    setEvalResult(null);
-                    setResponse("");
+                    if (cat.id === "dsa") {
+                      setStudioMode("dsa");
+                      setEvalResult(null);
+                      setResponse("");
+                    } else {
+                      setFilterCategory(cat.id);
+                      setCurrentIdx(0);
+                      setEvalResult(null);
+                      setResponse("");
+                    }
                   }}
                   className={clsx(
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -1578,8 +2654,891 @@ export default function InterviewPage() {
             </div>
           )}
 
-          {/* MAIN SPLIT STAGE */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {studioMode === "dsa" ? (
+            /* ─── LEETCODE OA & DSA CODING ARENA SPLIT VIEW ─── */
+            <div className="space-y-4">
+              {/* Top Navigation & Quick Filter Bar */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/40 border border-white/8 backdrop-blur-md">
+                <div className="flex items-center gap-2.5 flex-wrap flex-1">
+                  {/* Topic Filter */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400 font-medium">Topic:</span>
+                    <select
+                      value={dsaTopicFilter}
+                      onChange={(e) => {
+                        setDsaTopicFilter(e.target.value);
+                        setDsaProblemIdx(0);
+                        setRunCodeResult(null);
+                        setRunCodeError(null);
+                      }}
+                      className="text-xs bg-slate-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="all">All Topics (30)</option>
+                      {DSA_OA_TOPICS.map((topic) => (
+                        <option key={topic} value={topic}>
+                          {topic}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Difficulty Filter */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400 font-medium">Difficulty:</span>
+                    <select
+                      value={dsaDifficultyFilter}
+                      onChange={(e) => {
+                        setDsaDifficultyFilter(e.target.value);
+                        setDsaProblemIdx(0);
+                        setRunCodeResult(null);
+                        setRunCodeError(null);
+                      }}
+                      className="text-xs bg-slate-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="all">All Difficulties</option>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+
+                  {/* Problem Dropdown Selector */}
+                  <div className="flex items-center gap-1.5 flex-1 min-w-[220px]">
+                    <select
+                      value={activeDsaProblem.id}
+                      onChange={(e) => {
+                        const idx = filteredDsaProblems.findIndex((p) => p.id === e.target.value);
+                        if (idx !== -1) {
+                          setDsaProblemIdx(idx);
+                          setRunCodeResult(null);
+                          setRunCodeError(null);
+                          setActiveHintIdx(0);
+                        }
+                      }}
+                      className="w-full text-xs font-semibold bg-slate-900 border border-amber-500/30 rounded-lg px-3 py-1.5 text-amber-200 focus:outline-none focus:border-amber-400 truncate"
+                    >
+                      {filteredDsaProblems.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          #{p.number}. {p.title} ({p.difficulty} • {p.companyTags[0] || "OA"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right: Prev / Next Navigation & Count */}
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDsaProblemIdx((i) => Math.max(0, i - 1));
+                      setRunCodeResult(null);
+                      setRunCodeError(null);
+                      setActiveHintIdx(0);
+                    }}
+                    disabled={dsaProblemIdx === 0}
+                    className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Previous Problem"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs text-slate-400 font-mono font-medium">
+                    {dsaProblemIdx + 1} / {filteredDsaProblems.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDsaProblemIdx((i) => Math.min(filteredDsaProblems.length - 1, i + 1));
+                      setRunCodeResult(null);
+                      setRunCodeError(null);
+                      setActiveHintIdx(0);
+                    }}
+                    disabled={dsaProblemIdx >= filteredDsaProblems.length - 1}
+                    className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Next Problem"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Split Grid (Problem Spec vs Multi-Language IDE) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* ─── LEFT PANE: OA Problem Spec & Monospace Cards ─── */}
+                <div className="lg:col-span-5 space-y-4">
+                  <Card className="p-5 bg-gradient-to-br from-[#0c101d] to-[#080d19] border-white/10 shadow-2xl rounded-2xl space-y-4">
+                    {/* Header */}
+                    <div>
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant={
+                              activeDsaProblem.difficulty === "Easy"
+                                ? "emerald"
+                                : activeDsaProblem.difficulty === "Medium"
+                                ? "amber"
+                                : "rose"
+                            }
+                            size="sm"
+                          >
+                            {activeDsaProblem.difficulty}
+                          </Badge>
+                          <span className="text-xs text-slate-400 font-mono">
+                            {activeDsaProblem.topic}
+                          </span>
+                        </div>
+
+                        {/* Company OA Tags */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {activeDsaProblem.companyTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <h2 className="text-lg font-bold text-white tracking-tight">
+                        #{activeDsaProblem.number}. {activeDsaProblem.title}
+                      </h2>
+                    </div>
+
+                    {/* Collapsible Explain Intuition Out Loud Bar */}
+                    <div className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 overflow-hidden transition-all">
+                      <div
+                        className="flex items-center justify-between p-3 cursor-pointer select-none bg-indigo-500/10 hover:bg-indigo-500/15"
+                        onClick={() => setShowOaVerbalBar((prev) => !prev)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Mic className="w-4 h-4 text-emerald-400 animate-pulse" />
+                          <span className="text-xs font-bold text-indigo-200">
+                            🎙️ Explain Approach Out Loud
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            (Evaluated by Bar-Raiser)
+                          </span>
+                        </div>
+                        <span className="text-xs text-indigo-300">
+                          {showOaVerbalBar ? "▲ Minimize" : "▼ Expand Voice"}
+                        </span>
+                      </div>
+
+                      {showOaVerbalBar && (
+                        <div className="p-3.5 space-y-3 border-t border-indigo-500/20">
+                          {/* Audio Controls Strip */}
+                          <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              {!isRecording ? (
+                                <button
+                                  type="button"
+                                  onClick={startRecording}
+                                  className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+                                >
+                                  <Mic className="w-3.5 h-3.5" />
+                                  <span>Start Speaking Intuition</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={stopRecording}
+                                  className="px-3 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-all flex items-center gap-1.5 animate-pulse shadow-sm"
+                                >
+                                  <MicOff className="w-3.5 h-3.5" />
+                                  <span>Stop Recording</span>
+                                </button>
+                              )}
+
+                              {isRecording && (
+                                <div className="flex items-center gap-0.5 h-3.5 px-2 py-1 rounded bg-black/40 border border-white/5">
+                                  {[1, 2, 3, 4, 5].map((b) => (
+                                    <span
+                                      key={b}
+                                      className={clsx(
+                                        "w-1 rounded-full transition-all duration-75",
+                                        micActiveLevel >= b * 18 ? "bg-emerald-400" : "bg-emerald-950/40"
+                                      )}
+                                      style={{ height: micActiveLevel >= b * 18 ? `${Math.max(4, b * 3)}px` : "3px" }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                              <span className="font-mono">
+                                {liveWpm > 0 ? `${liveWpm} WPM` : "Pacing ready"}
+                              </span>
+                              <span>•</span>
+                              <span className={totalFillersSpoken > 2 ? "text-rose-400" : "text-emerald-400"}>
+                                {totalFillersSpoken} fillers
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Key Concepts Pills */}
+                          {activeDsaProblem.keyConcepts && activeDsaProblem.keyConcepts.length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-semibold text-slate-300">Algorithmic Rubric Concepts</span>
+                                <span className="text-[10px] text-emerald-400 font-medium">
+                                  Lights up green as you speak
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {activeDsaProblem.keyConcepts.map((concept, idx) => {
+                                  const covered = isConceptCovered(concept, response, currentDsaCode);
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={clsx(
+                                        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all",
+                                        covered
+                                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"
+                                          : "bg-black/30 text-slate-400 border border-white/6"
+                                      )}
+                                    >
+                                      {covered ? (
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      ) : (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                      )}
+                                      <span>{concept}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Response Textarea Preview */}
+                          <textarea
+                            rows={2}
+                            value={response}
+                            onChange={(e) => {
+                              setResponse(e.target.value);
+                              countFillers(e.target.value);
+                            }}
+                            placeholder="Your spoken algorithmic approach & trade-off intuition transcribes here live..."
+                            className="w-full p-2.5 text-xs bg-black/40 border border-white/8 rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none font-sans"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Problem Description */}
+                    <div className="text-xs text-slate-300 leading-relaxed font-sans space-y-2 whitespace-pre-line">
+                      {activeDsaProblem.problemStatement}
+                    </div>
+
+                    {/* Examples Cards */}
+                    <div className="space-y-3 pt-1">
+                      <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                        Examples
+                      </h3>
+                      {activeDsaProblem.examples.map((ex, i) => (
+                        <div
+                          key={i}
+                          className="p-3 rounded-xl bg-black/50 border border-white/6 text-xs space-y-1.5 font-mono"
+                        >
+                          <div className="text-[11px] font-bold text-slate-400 uppercase">
+                            Example {i + 1}
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Input: </span>
+                            <span className="text-slate-200">{ex.input}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Output: </span>
+                            <span className="text-emerald-400 font-semibold">{ex.output}</span>
+                          </div>
+                          {ex.explanation && (
+                            <div className="text-slate-400 text-[11px] pt-1 font-sans">
+                              <span className="text-slate-500 font-mono">Explanation: </span>
+                              {ex.explanation}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Constraints */}
+                    {activeDsaProblem.constraints.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-white/6">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                          Constraints
+                        </h3>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-slate-400 font-mono">
+                          {activeDsaProblem.constraints.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Expected Target Complexities */}
+                    <div className="p-3 rounded-xl bg-slate-900/50 border border-white/6 flex items-center justify-between flex-wrap gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-500 font-medium">Target Time: </span>
+                        <span className="text-amber-300 font-mono font-semibold">
+                          {activeDsaProblem.expectedTimeComplexity}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium">Target Space: </span>
+                        <span className="text-indigo-300 font-mono font-semibold">
+                          {activeDsaProblem.expectedSpaceComplexity}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* ─── RIGHT PANE: Multi-Language IDE & Bottom Console ─── */}
+                <div className="lg:col-span-7 space-y-4">
+                  <Card className="p-4 md:p-5 bg-gradient-to-br from-[#0c101d] to-[#080d19] border-white/10 shadow-2xl rounded-2xl space-y-3">
+                    {/* Toolbar */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-white/8">
+                      {/* Left: Language & Claimed Complexities */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => {
+                            setSelectedLanguage(e.target.value as "cpp" | "java" | "python" | "typescript");
+                          }}
+                          className="text-xs font-semibold bg-slate-900 border border-indigo-500/30 rounded-lg px-2.5 py-1.5 text-indigo-200 focus:outline-none focus:border-indigo-400"
+                        >
+                          <option value="python">Python 3.11</option>
+                          <option value="cpp">C++ (GCC 13 / STL)</option>
+                          <option value="java">Java 21 (JDK)</option>
+                          <option value="typescript">TypeScript (Node.js)</option>
+                        </select>
+
+                        <div className="flex items-center gap-1 bg-black/40 border border-white/8 rounded-lg px-2 py-1">
+                          <span className="text-[10px] text-slate-500 font-mono">Time:</span>
+                          <select
+                            value={claimedTimeComplexity}
+                            onChange={(e) => setClaimedTimeComplexity(e.target.value)}
+                            className="text-[11px] font-mono bg-transparent text-amber-300 focus:outline-none"
+                          >
+                            <option value="O(1)" className="bg-slate-900 text-slate-200">O(1)</option>
+                            <option value="O(log N)" className="bg-slate-900 text-slate-200">O(log N)</option>
+                            <option value="O(N)" className="bg-slate-900 text-slate-200">O(N)</option>
+                            <option value="O(N log N)" className="bg-slate-900 text-slate-200">O(N log N)</option>
+                            <option value="O(N^2)" className="bg-slate-900 text-slate-200">O(N^2)</option>
+                            <option value="O(2^N)" className="bg-slate-900 text-slate-200">O(2^N)</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-1 bg-black/40 border border-white/8 rounded-lg px-2 py-1">
+                          <span className="text-[10px] text-slate-500 font-mono">Space:</span>
+                          <select
+                            value={claimedSpaceComplexity}
+                            onChange={(e) => setClaimedSpaceComplexity(e.target.value)}
+                            className="text-[11px] font-mono bg-transparent text-indigo-300 focus:outline-none"
+                          >
+                            <option value="O(1)" className="bg-slate-900 text-slate-200">O(1)</option>
+                            <option value="O(log N)" className="bg-slate-900 text-slate-200">O(log N)</option>
+                            <option value="O(N)" className="bg-slate-900 text-slate-200">O(N)</option>
+                            <option value="O(N^2)" className="bg-slate-900 text-slate-200">O(N^2)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleResetDsaTemplate}
+                          title="Reset to starter template"
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white transition-all text-xs flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Reset</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowHintModal(true)}
+                          className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-medium flex items-center gap-1 transition-all"
+                        >
+                          <Lightbulb className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Hint</span>
+                        </button>
+
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleRunCode("run")}
+                          disabled={isRunningCode}
+                          icon={
+                            isRunningCode ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
+                            )
+                          }
+                          className="text-xs"
+                        >
+                          Run Tests
+                        </Button>
+
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleRunCode("submit")}
+                          disabled={isRunningCode}
+                          icon={
+                            isRunningCode ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            )
+                          }
+                          className="bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/20"
+                        >
+                          Submit OA
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Editor Surface */}
+                    <div className="rounded-xl border border-white/10 overflow-hidden bg-[#0b0f19] shadow-inner">
+                      <div className="flex font-mono text-xs max-h-[440px] overflow-hidden">
+                        {/* Line Numbers Gutter */}
+                        <div className="select-none py-3 px-2.5 text-right text-slate-600 bg-black/50 border-r border-white/5 font-mono text-xs shrink-0">
+                          {Array.from({ length: Math.max(16, currentDsaCode.split("\n").length) }).map((_, i) => (
+                            <div key={i} className="leading-6 h-6">{i + 1}</div>
+                          ))}
+                        </div>
+
+                        {/* Code Textarea */}
+                        <textarea
+                          rows={Math.max(16, Math.min(26, currentDsaCode.split("\n").length + 2))}
+                          value={currentDsaCode}
+                          onChange={(e) => handleDsaCodeChange(e.target.value)}
+                          onKeyDown={(e) => handleEditorKeyDown(e, currentDsaCode, handleDsaCodeChange)}
+                          className="flex-1 p-3 bg-transparent text-emerald-300 font-mono text-xs leading-6 focus:outline-none resize-none overflow-auto whitespace-pre font-normal"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      {/* Status Bar */}
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 border-t border-white/5 text-[10px] text-slate-500 font-mono">
+                        <div>
+                          {selectedLanguage.toUpperCase()} • {currentDsaCode.split("\n").length} lines • {currentDsaCode.length} chars
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>Tab: 2 spaces</span>
+                          <span>•</span>
+                          <span>UTF-8</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Console Container */}
+                    <div className="rounded-xl border border-white/10 bg-black/60 overflow-hidden">
+                      {/* Console Tab Headers */}
+                      <div className="flex items-center justify-between border-b border-white/8 px-2 bg-black/40">
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => setConsoleTab("testcases")}
+                            className={clsx(
+                              "px-3 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5",
+                              consoleTab === "testcases"
+                                ? "border-indigo-500 text-white"
+                                : "border-transparent text-slate-400 hover:text-white"
+                            )}
+                          >
+                            <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Testcases</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setConsoleTab("results")}
+                            className={clsx(
+                              "px-3 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5",
+                              consoleTab === "results"
+                                ? "border-emerald-500 text-white"
+                                : "border-transparent text-slate-400 hover:text-white"
+                            )}
+                          >
+                            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Test Results</span>
+                            {runCodeResult && (
+                              <span
+                                className={clsx(
+                                  "text-[10px] px-1.5 py-0.2 rounded font-mono font-bold",
+                                  runCodeResult.status === "Accepted"
+                                    ? "bg-emerald-500/20 text-emerald-300"
+                                    : "bg-rose-500/20 text-rose-300"
+                                )}
+                              >
+                                {runCodeResult.passedCount}/{runCodeResult.totalCount}
+                              </span>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setConsoleTab("review")}
+                            className={clsx(
+                              "px-3 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5",
+                              consoleTab === "review"
+                                ? "border-amber-500 text-white"
+                                : "border-transparent text-slate-400 hover:text-white"
+                            )}
+                          >
+                            <Brain className="w-3.5 h-3.5 text-amber-400" />
+                            <span>AI Bar-Raiser Review</span>
+                            {runCodeResult?.codeReview && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono font-bold">
+                                {runCodeResult.codeReview.overallScore}/100
+                              </span>
+                            )}
+                          </button>
+                        </div>
+
+                        {isRunningCode && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-amber-300 pr-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                            <span>Executing...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Console Tab Content */}
+                      <div className="p-3.5 min-h-[160px] max-h-[300px] overflow-y-auto">
+                        {runCodeError && (
+                          <div className="mb-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/25 text-xs text-rose-300 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                            <span>{runCodeError}</span>
+                          </div>
+                        )}
+
+                        {/* Tab 1: Testcases */}
+                        {consoleTab === "testcases" && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              {activeDsaProblem.testCases.map((tc, idx) => (
+                                <button
+                                  key={tc.id}
+                                  type="button"
+                                  onClick={() => setSelectedCaseIdx(idx)}
+                                  className={clsx(
+                                    "px-2.5 py-1 rounded-lg text-xs font-medium font-mono transition-all",
+                                    selectedCaseIdx === idx
+                                      ? "bg-indigo-600 text-white"
+                                      : "bg-white/5 text-slate-400 hover:text-white"
+                                  )}
+                                >
+                                  Case {idx + 1}
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCaseIdx(-1)}
+                                className={clsx(
+                                  "px-2.5 py-1 rounded-lg text-xs font-medium font-mono transition-all",
+                                  selectedCaseIdx === -1
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-white/5 text-slate-400 hover:text-white"
+                                )}
+                              >
+                                Custom Input
+                              </button>
+                            </div>
+
+                            {selectedCaseIdx >= 0 && activeDsaProblem.testCases[selectedCaseIdx] && (
+                              <div className="space-y-2 text-xs font-mono">
+                                <div>
+                                  <div className="text-[11px] text-slate-500 uppercase font-semibold mb-1">
+                                    Input:
+                                  </div>
+                                  <pre className="p-2.5 rounded-lg bg-black/60 border border-white/5 text-slate-200 overflow-x-auto whitespace-pre-wrap">
+                                    {activeDsaProblem.testCases[selectedCaseIdx].inputDisplay}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <div className="text-[11px] text-slate-500 uppercase font-semibold mb-1">
+                                    Expected Output:
+                                  </div>
+                                  <pre className="p-2.5 rounded-lg bg-black/60 border border-white/5 text-emerald-400 font-semibold overflow-x-auto whitespace-pre-wrap">
+                                    {activeDsaProblem.testCases[selectedCaseIdx].expectedOutputDisplay}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedCaseIdx === -1 && (
+                              <div className="space-y-2 text-xs">
+                                <div className="text-[11px] text-slate-400">
+                                  Provide custom input format matching problem parameters:
+                                </div>
+                                <textarea
+                                  rows={3}
+                                  value={customTestInput}
+                                  onChange={(e) => setCustomTestInput(e.target.value)}
+                                  placeholder="e.g. nums = [1, 2, 3], k = 3"
+                                  className="w-full p-2.5 rounded-lg bg-black/60 border border-white/10 text-xs font-mono text-emerald-300 focus:outline-none focus:border-indigo-500 resize-none"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Tab 2: Test Results */}
+                        {consoleTab === "results" && (
+                          <div>
+                            {isRunningCode ? (
+                              <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
+                                <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                                <p className="text-xs text-slate-300 font-medium">
+                                  Running static execution trace &amp; sample test cases...
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  Verifying inputs, boundary conditions, and output conformance
+                                </p>
+                              </div>
+                            ) : runCodeResult ? (
+                              <div className="space-y-3">
+                                {/* Result Summary Bar */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-black/50 border border-white/8 flex-wrap gap-2 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={clsx(
+                                        "font-bold px-2 py-0.5 rounded text-xs flex items-center gap-1",
+                                        runCodeResult.status === "Accepted"
+                                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                          : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                      )}
+                                    >
+                                      {runCodeResult.status === "Accepted" ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                      ) : (
+                                        <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                                      )}
+                                      <span>{runCodeResult.status}</span>
+                                    </span>
+                                    <span className="text-slate-300 font-semibold">
+                                      {runCodeResult.passedCount} / {runCodeResult.totalCount} Testcases Passed
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
+                                    <span>Runtime: <strong className="text-white">{runCodeResult.runtimeMs}ms</strong></span>
+                                    <span>Memory: <strong className="text-white">{runCodeResult.memoryMb}MB</strong></span>
+                                  </div>
+                                </div>
+
+                                {runCodeResult.compilerMessage && (
+                                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 font-mono whitespace-pre-wrap">
+                                    {runCodeResult.compilerMessage}
+                                  </div>
+                                )}
+
+                                {/* Per-Test Case Cards */}
+                                <div className="space-y-2">
+                                  {runCodeResult.testResults.map((tr, idx) => (
+                                    <div
+                                      key={tr.caseId || idx}
+                                      className={clsx(
+                                        "p-2.5 rounded-lg border text-xs font-mono space-y-1.5",
+                                        tr.passed
+                                          ? "bg-emerald-950/20 border-emerald-500/20"
+                                          : "bg-rose-950/20 border-rose-500/20"
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-slate-300">Case {idx + 1}</span>
+                                        <span
+                                          className={clsx(
+                                            "px-1.5 py-0.2 rounded font-bold text-[10px]",
+                                            tr.passed
+                                              ? "bg-emerald-500/20 text-emerald-300"
+                                              : "bg-rose-500/20 text-rose-300"
+                                          )}
+                                        >
+                                          {tr.passed ? "Passed" : "Wrong Answer"}
+                                        </span>
+                                      </div>
+
+                                      <div className="text-[11px] text-slate-400">
+                                        Input: <span className="text-slate-200">{tr.input}</span>
+                                      </div>
+                                      <div className="text-[11px]">
+                                        Expected: <span className="text-emerald-400 font-semibold">{tr.expectedOutput}</span>
+                                      </div>
+                                      <div className="text-[11px]">
+                                        Your Output:{" "}
+                                        <span className={tr.passed ? "text-emerald-300" : "text-rose-400 font-semibold"}>
+                                          {tr.actualOutput}
+                                        </span>
+                                      </div>
+
+                                      {tr.executionTrace && (
+                                        <div className="pt-1 text-[10px] text-slate-500 italic">
+                                          Trace: {tr.executionTrace}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 text-slate-500 text-xs">
+                                Click <strong className="text-slate-300">Run Tests</strong> or{" "}
+                                <strong className="text-slate-300">Submit OA</strong> above to execute and trace test cases.
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Tab 3: AI Bar-Raiser Review */}
+                        {consoleTab === "review" && (
+                          <div>
+                            {isRunningCode ? (
+                              <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
+                                <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                                <p className="text-xs text-slate-300 font-medium">
+                                  Generating Bar-Raiser AI Code Review &amp; Complexity Check...
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  Cross-referencing claimed Big-O, edge cases, and optimal reference solution
+                                </p>
+                              </div>
+                            ) : runCodeResult?.codeReview ? (
+                              <div className="space-y-3.5 text-xs">
+                                {/* Score & Complexity */}
+                                <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-bold text-amber-300 text-sm font-mono">
+                                      {runCodeResult.codeReview.overallScore}
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-white">OA Solution Score</div>
+                                      <div className="text-[10px] text-slate-400">
+                                        {runCodeResult.codeReview.overallScore >= 85
+                                          ? "Strong Hire / Cleared OA"
+                                          : runCodeResult.codeReview.overallScore >= 65
+                                          ? "Borderline / Needs Optimization"
+                                          : "Needs Work / Critical Gaps"}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 font-mono text-[11px] flex-wrap">
+                                    <div className="px-2 py-1 rounded bg-black/40 border border-white/5">
+                                      <span className="text-slate-500">Claimed: </span>
+                                      <span className="text-slate-200">{claimedTimeComplexity} / {claimedSpaceComplexity}</span>
+                                    </div>
+                                    <div className="px-2 py-1 rounded bg-black/40 border border-white/5">
+                                      <span className="text-slate-500">Detected: </span>
+                                      <span className="text-amber-300 font-semibold">
+                                        {runCodeResult.codeReview.detectedTimeComplexity} / {runCodeResult.codeReview.detectedSpaceComplexity}
+                                      </span>
+                                    </div>
+                                    <span
+                                      className={clsx(
+                                        "px-2 py-1 rounded font-bold text-[10px]",
+                                        runCodeResult.codeReview.complexityMatch
+                                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                          : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                      )}
+                                    >
+                                      {runCodeResult.codeReview.complexityMatch ? "✓ Match" : "⚠️ Mismatch"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Edge Cases */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                  <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 space-y-1">
+                                    <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3.5 h-3.5" /> Handled Edge Cases
+                                    </span>
+                                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-300">
+                                      {runCodeResult.codeReview.edgeCasesHandled.map((ec, i) => (
+                                        <li key={i}>{ec}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+
+                                  <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/20 space-y-1">
+                                    <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                                      <AlertCircle className="w-3.5 h-3.5" /> Edge Cases Missed / Risks
+                                    </span>
+                                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-300">
+                                      {runCodeResult.codeReview.edgeCasesMissed.map((ec, i) => (
+                                        <li key={i}>{ec}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+
+                                {/* Optimal Code Suggestion */}
+                                {runCodeResult.codeReview.optimalCodeSuggestion && (
+                                  <div className="p-3 rounded-xl bg-black/70 border border-white/10 space-y-2">
+                                    <div className="flex items-center justify-between text-[11px]">
+                                      <span className="font-bold text-indigo-300 flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                                        Optimal Reference Pattern ({selectedLanguage.toUpperCase()})
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(runCodeResult.codeReview!.optimalCodeSuggestion);
+                                          setCopiedCode(true);
+                                          setTimeout(() => setCopiedCode(false), 2000);
+                                        }}
+                                        className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
+                                      >
+                                        {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                        <span>{copiedCode ? "Copied" : "Copy Code"}</span>
+                                      </button>
+                                    </div>
+                                    <pre className="p-2.5 rounded-lg bg-black/90 border border-white/5 font-mono text-xs text-emerald-300 overflow-x-auto whitespace-pre leading-relaxed">
+                                      {runCodeResult.codeReview.optimalCodeSuggestion}
+                                    </pre>
+                                  </div>
+                                )}
+
+                                {/* Follow-up Question Probe */}
+                                {runCodeResult.codeReview.followUpQuestion && (
+                                  <div className="p-3 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-1">
+                                    <div className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                                      <Target className="w-3.5 h-3.5 text-indigo-400" />
+                                      Interviewer Follow-up Probe
+                                    </div>
+                                    <p className="text-xs text-white leading-relaxed">
+                                      &ldquo;{runCodeResult.codeReview.followUpQuestion.prompt}&rdquo;
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 italic">
+                                      Interviewer Intent: {runCodeResult.codeReview.followUpQuestion.intent}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 text-slate-500 text-xs">
+                                Click <strong className="text-slate-300">Submit OA</strong> above to generate an authentic Bar-Raiser AI Code Review, Big-O verification, and follow-up probes.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ─── MAIN SPLIT STAGE (Bank & Resume Grill) ─── */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ─── LEFT PANEL: Live Webcam HUD & Acoustic Waveform (5 cols) ─── */}
             <div className="lg:col-span-5 space-y-4">
               <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 shadow-2xl backdrop-blur-md">
@@ -1674,9 +3633,27 @@ export default function InterviewPage() {
                   {cameraActive && !cameraPermissionDenied && (
                     <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
                       <div className="flex justify-between items-start">
-                        <div className="w-4 h-4 border-t-2 border-l-2 border-indigo-500/80" />
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 border border-emerald-500/40 text-[10px] text-emerald-300 font-semibold backdrop-blur-sm pointer-events-auto">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-t-2 border-l-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 border border-white/10 text-[10px] text-emerald-300 font-semibold backdrop-blur-sm pointer-events-auto">
+                          <span
+                            className={clsx(
+                              "w-1.5 h-1.5 rounded-full",
+                              reticleColor === "green"
+                                ? "bg-emerald-400 animate-pulse"
+                                : reticleColor === "amber"
+                                ? "bg-amber-400"
+                                : "bg-rose-400 animate-ping"
+                            )}
+                          />
                           <span>{isVirtualCamera ? "VIRTUAL AVATAR HUD" : "LIVE WEBCAM HUD"}</span>
                           {isVirtualCamera && (
                             <button
@@ -1688,15 +3665,78 @@ export default function InterviewPage() {
                             </button>
                           )}
                         </div>
-                        <div className="w-4 h-4 border-t-2 border-r-2 border-indigo-500/80" />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-t-2 border-r-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
                       </div>
 
-                      {/* Head Centering Guide Box */}
-                      <div className="self-center w-28 h-28 border border-dashed border-indigo-400/30 rounded-2xl flex items-center justify-center" />
+                      {/* Head Centering Guide Box & HUD Guidance Toast */}
+                      <div className="self-center flex flex-col items-center gap-2">
+                        <div
+                          className={clsx(
+                            "w-28 h-28 border border-dashed rounded-2xl flex items-center justify-center transition-all duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                              : reticleColor === "amber"
+                              ? "border-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                              : "border-rose-400/50 shadow-[0_0_20px_rgba(244,63,94,0.2)]"
+                          )}
+                        >
+                          <div
+                            className={clsx(
+                              "w-2 h-2 rounded-full transition-colors duration-300",
+                              reticleColor === "green"
+                                ? "bg-emerald-400/70"
+                                : reticleColor === "amber"
+                                ? "bg-amber-400/70"
+                                : "bg-rose-400/70"
+                            )}
+                          />
+                        </div>
+                        {visualToast && (
+                          <div
+                            className={clsx(
+                              "px-2.5 py-0.5 rounded-full text-[10px] font-medium tracking-wide bg-black/85 backdrop-blur-md border shadow-md transition-all animate-fadeIn",
+                              reticleColor === "green"
+                                ? "border-emerald-500/40 text-emerald-300"
+                                : reticleColor === "amber"
+                                ? "border-amber-500/40 text-amber-300"
+                                : "border-rose-500/40 text-rose-300"
+                            )}
+                          >
+                            {visualToast}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex justify-between items-end">
-                        <div className="w-4 h-4 border-b-2 border-l-2 border-indigo-500/80" />
-                        <div className="w-4 h-4 border-b-2 border-r-2 border-indigo-500/80" />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-b-2 border-l-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
+                        <div
+                          className={clsx(
+                            "w-4 h-4 border-b-2 border-r-2 transition-colors duration-300",
+                            reticleColor === "green"
+                              ? "border-emerald-500/80"
+                              : reticleColor === "amber"
+                              ? "border-amber-500/80"
+                              : "border-rose-500/80"
+                          )}
+                        />
                       </div>
                     </div>
                   )}
@@ -1737,9 +3777,13 @@ export default function InterviewPage() {
                           "font-semibold",
                           livePosture === "Stable"
                             ? "text-emerald-400"
-                            : livePosture === "Centering"
+                            : livePosture === "Calibrating..."
+                            ? "text-blue-400"
+                            : livePosture === "Off-Center"
                             ? "text-amber-400"
-                            : "text-rose-400"
+                            : livePosture === "Shifting"
+                            ? "text-rose-400"
+                            : "text-slate-500"
                         )}
                       >
                         {livePosture}
@@ -1808,6 +3852,62 @@ export default function InterviewPage() {
 
             {/* ─── RIGHT PANEL: Prompt, Live Telemetry Strip & Input (7 cols) ─── */}
             <div className="lg:col-span-7 space-y-4">
+              {/* Conversation Thread Timeline for Multi-Turn Sessions */}
+              {sessionTurns.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-black/40 border border-indigo-500/20 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-indigo-300 flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                      Interview Conversation Thread ({sessionTurns.length} Previous Turn{sessionTurns.length > 1 ? "s" : ""})
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-mono">Multi-Turn Active</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {sessionTurns.map((turn, idx) => (
+                      <div key={turn.id || idx} className="p-2 rounded-lg bg-white/5 border border-white/5 text-xs flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-bold text-slate-300 truncate">
+                            Turn {turn.turnOrder || idx + 1}: {turn.questionText}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate italic">
+                            You: &ldquo;{turn.userAnswer}&rdquo;
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-mono font-semibold text-emerald-400 shrink-0">
+                          {turn.score ? `${turn.score}/100` : "Answered"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Interviewer Persona Bar & Speaking Visualizer */}
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-black/40 border border-indigo-500/20 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 block animate-pulse" />
+                  <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span>🎙️ AI Bar-Raiser</span>
+                    <span className="text-[10px] text-indigo-400 font-mono">· Staff SDE Interviewer Panel</span>
+                  </span>
+                </div>
+                {isSpeakingTTS ? (
+                  <div className="flex items-center gap-1 text-[11px] text-indigo-300 font-mono">
+                    <span className="text-[10px] text-indigo-400">Interviewer Speaking</span>
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <span className="w-1 h-3 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1 h-4 bg-indigo-300 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1 h-2.5 bg-indigo-400 rounded-full animate-bounce" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <span className="text-amber-400/90 font-mono">⏱️ 15s Think Time</span>
+                    <span className="hidden sm:inline text-slate-500">· Formulate your approach</span>
+                  </div>
+                )}
+              </div>
+
               <Card className="p-5 bg-[#0e1424] border-white/8 shadow-xl">
                 {/* Header: Turn order, category, difficulty */}
                 <div className="flex items-center justify-between pb-3 border-b border-white/6 mb-4">
@@ -1841,6 +3941,7 @@ export default function InterviewPage() {
                         setCurrentIdx((i) => Math.max(0, i - 1));
                         setResponse("");
                         setEvalResult(null);
+                        setRevealedHintsCount(0);
                       }}
                       disabled={currentIdx === 0}
                       className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1857,6 +3958,7 @@ export default function InterviewPage() {
                         setCurrentIdx((i) => Math.min(availableQuestions.length - 1, i + 1));
                         setResponse("");
                         setEvalResult(null);
+                        setRevealedHintsCount(0);
                       }}
                       disabled={currentIdx >= availableQuestions.length - 1}
                       className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1867,9 +3969,70 @@ export default function InterviewPage() {
                 </div>
 
                 {/* Main Question Text */}
-                <h2 className="text-base sm:text-lg font-bold text-white mb-3 leading-relaxed">
+                <h2 className="text-base sm:text-lg font-bold text-white mb-2 leading-relaxed">
                   {activeQuestion?.question}
                 </h2>
+
+                {/* Why Interviewers Ask This */}
+                {activeQuestion?.whyAskThis && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 leading-relaxed flex items-start gap-2">
+                    <Target className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-indigo-300">Why Interviewers Ask This: </strong>
+                      {activeQuestion.whyAskThis}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bridge Tag if synthesized */}
+                {activeQuestion?.bridgeTag && (
+                  <div className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-500/30 text-[11px] text-purple-300 font-mono">
+                    <span>🔗 {activeQuestion.bridgeTag}</span>
+                  </div>
+                )}
+
+                {/* Code Excerpt Under Review (GitHub Grill & Technical Case Questions) */}
+                {activeQuestion?.codeExcerpt && (
+                  <div className="mb-3 rounded-xl bg-[#070b14] border border-indigo-500/30 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-950/40 border-b border-indigo-500/20 text-[11px] font-mono text-indigo-300">
+                      <span className="flex items-center gap-1.5">
+                        <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                        📄 Code Under Review {activeQuestion.referencedFiles?.[0] ? `(${activeQuestion.referencedFiles[0]})` : ""}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Analyze architecture &amp; edge cases</span>
+                    </div>
+                    <pre className="p-3 text-[11px] font-mono text-emerald-300/90 overflow-x-auto leading-relaxed whitespace-pre">
+                      <code>{activeQuestion.codeExcerpt}</code>
+                    </pre>
+                  </div>
+                )}
+
+                {/* Progressive Hints Button & List */}
+                {activeQuestion?.progressiveHints && activeQuestion.progressiveHints.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setRevealedHintsCount((c) => Math.min(activeQuestion.progressiveHints?.length || 0, c + 1))}
+                        disabled={revealedHintsCount >= (activeQuestion.progressiveHints?.length || 0)}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                        <span>💡 Progressive Hint ({revealedHintsCount}/{activeQuestion.progressiveHints.length})</span>
+                      </button>
+                    </div>
+                    {revealedHintsCount > 0 && (
+                      <div className="space-y-1.5 animate-fadeIn">
+                        {activeQuestion.progressiveHints.slice(0, revealedHintsCount).map((hint, idx) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-2">
+                            <span className="font-mono text-amber-400 font-bold shrink-0">H{idx + 1}:</span>
+                            <span>{hint}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Referenced Files Pill (if available, e.g. in GitHub Grill mode) */}
                 {activeQuestion?.referencedFiles && activeQuestion.referencedFiles.length > 0 && (
@@ -1924,6 +4087,31 @@ export default function InterviewPage() {
                     </span>
                   </div>
 
+                  {/* Real-time Mic Volume / Audio Activity Meter */}
+                  {isRecording && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25">
+                      <div className="flex items-center gap-0.5 h-3.5">
+                        {[1, 2, 3, 4, 5].map((bar) => (
+                          <span
+                            key={bar}
+                            className={clsx(
+                              "w-1 rounded-full transition-all duration-75",
+                              micActiveLevel >= bar * 18
+                                ? "bg-emerald-400"
+                                : "bg-emerald-950/40"
+                            )}
+                            style={{
+                              height: micActiveLevel >= bar * 18 ? `${Math.max(4, bar * 3)}px` : "3px",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-300">
+                        {micActiveLevel > 15 ? "Mic Active" : "Listening..."}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Live WPM Gauge */}
                   <div className="flex items-center gap-1.5">
                     <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -1967,6 +4155,13 @@ export default function InterviewPage() {
                     </div>
                   )}
 
+                  {/* Non-Blocking Speech Recognition Fallback Badge */}
+                  {recordingStatusBadge && (
+                    <div className="flex items-center gap-1 text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 animate-pulse">
+                      <span>{recordingStatusBadge}</span>
+                    </div>
+                  )}
+
                   {/* Whisper Refinement Banner */}
                   {isTranscribingWithWhisper && (
                     <div className="flex items-center gap-1 text-[11px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/25 animate-pulse">
@@ -1976,32 +4171,165 @@ export default function InterviewPage() {
                   )}
                 </div>
 
-                {/* Dual Input Textarea: Real-time STT + Manual Edit */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">
-                      Your Live Spoken Response
-                    </label>
-                    <span className="text-slate-500 text-[11px]">
-                      {response.trim().split(/\s+/).filter(Boolean).length} words
-                    </span>
+                {/* Live "Expected Concepts" Checklist Pills */}
+                {activeExpectedConcepts.length > 0 && (
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-white/8 mb-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-300">
+                        <Target className="w-3.5 h-3.5 text-indigo-400" />
+                        <span className="uppercase tracking-wider text-[11px]">Key Rubric Concepts</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          ({coveredConceptsCount} of {activeExpectedConcepts.length} covered live)
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-medium">
+                        Lights up green as you speak
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeExpectedConcepts.map((concept: string, idx: number) => {
+                        const covered = isConceptCovered(concept, response, codeSnippet);
+                        return (
+                          <span
+                            key={idx}
+                            className={clsx(
+                              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all duration-200",
+                              covered
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold shadow-sm shadow-emerald-500/10"
+                                : "bg-black/30 text-slate-400 border border-white/6 hover:border-white/12"
+                            )}
+                          >
+                            {covered ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+                            )}
+                            <span>{concept}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Clean Tab Switcher: Verbal Response vs Code & Architecture IDE */}
+                <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/6 flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/40 border border-white/8">
+                    <button
+                      type="button"
+                      onClick={() => setNonDsaWorkspaceTab("verbal")}
+                      className={clsx(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        nonDsaWorkspaceTab === "verbal"
+                          ? "bg-indigo-600 text-white shadow-sm font-semibold"
+                          : "text-slate-400 hover:text-white"
+                      )}
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      <span>🎙️ Verbal Response</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNonDsaWorkspaceTab("ide")}
+                      className={clsx(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        nonDsaWorkspaceTab === "ide"
+                          ? "bg-indigo-600 text-white shadow-sm font-semibold"
+                          : "text-slate-400 hover:text-white"
+                      )}
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-indigo-300" />
+                      <span>💻 Code &amp; Architecture IDE</span>
+                      {codeSnippet.trim() && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      )}
+                    </button>
                   </div>
 
-                  <textarea
-                    rows={6}
-                    value={response}
-                    onChange={(e) => {
-                      setResponse(e.target.value);
-                      countFillers(e.target.value);
-                    }}
-                    placeholder="Click 'Start Speaking' below to transcribe live, or type your response here..."
-                    className="w-full p-3.5 text-sm bg-black/40 border border-white/8 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none transition-all leading-relaxed font-sans"
-                  />
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {nonDsaWorkspaceTab === "verbal"
+                      ? `${response.trim().split(/\s+/).filter(Boolean).length} words spoken`
+                      : `${codeSnippet.trim().split("\n").filter(Boolean).length} lines attached`}
+                  </span>
                 </div>
+
+                {nonDsaWorkspaceTab === "verbal" ? (
+                  /* Dual Input Textarea: Real-time STT + Manual Edit */
+                  <div className="space-y-2 mb-4">
+                    <textarea
+                      rows={6}
+                      value={response}
+                      onChange={(e) => {
+                        setResponse(e.target.value);
+                        countFillers(e.target.value);
+                      }}
+                      placeholder="Click 'Start Speaking' below to transcribe live, or type your response here..."
+                      className="w-full p-3.5 text-sm bg-black/40 border border-white/8 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none transition-all leading-relaxed font-sans"
+                    />
+                  </div>
+                ) : (
+                  /* Code & Architecture Workspace with Language Switcher */
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] text-indigo-300 font-semibold flex items-center gap-1 mr-1">
+                          <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                          Language:
+                        </span>
+                        {CODE_LANGUAGES.map((lang) => (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            onClick={() => handleSelectScratchpadLang(lang.id)}
+                            className={clsx(
+                              "px-2 py-0.5 rounded text-[11px] font-mono transition-all",
+                              scratchpadLang === lang.id
+                                ? "bg-indigo-600 text-white font-bold shadow-sm"
+                                : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                            )}
+                          >
+                            {lang.name}
+                          </button>
+                        ))}
+                      </div>
+                      {codeSnippet.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setCodeSnippet("")}
+                          className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors"
+                        >
+                          Clear Code
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="text-[10px] text-emerald-400/90 font-mono px-1">
+                      ✓ Any language supported: Python, Java, C++, TypeScript, SQL, Go, or Pseudocode — evaluated concurrently with verbal response
+                    </div>
+
+                    <div className="flex bg-[#0b0f19] border border-white/10 rounded-xl overflow-hidden font-mono text-xs">
+                      <div className="select-none py-3 px-2.5 text-right text-slate-600 bg-black/50 border-r border-white/5 font-mono text-xs shrink-0">
+                        {Array.from({ length: Math.max(10, codeSnippet.split("\n").length) }).map((_, i) => (
+                          <div key={i} className="leading-6 h-6">{i + 1}</div>
+                        ))}
+                      </div>
+                      <textarea
+                        rows={10}
+                        value={codeSnippet}
+                        onChange={(e) => setCodeSnippet(e.target.value)}
+                        onKeyDown={(e) => handleEditorKeyDown(e, codeSnippet, setCodeSnippet)}
+                        placeholder={`// Write ${CODE_LANGUAGES.find((l) => l.id === scratchpadLang)?.name || "code"} implementation, schema, or architecture here...\n${CODE_LANGUAGES.find((l) => l.id === scratchpadLang)?.defaultSnippet || ""}`}
+                        className="flex-1 p-3 bg-transparent text-emerald-300 font-mono text-xs leading-6 focus:outline-none resize-none overflow-auto whitespace-pre"
+                        spellCheck={false}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons: Voice Record & Evaluation */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                     {!isRecording ? (
                       <Button
                         variant="primary"
@@ -2013,24 +4341,35 @@ export default function InterviewPage() {
                         Start Speaking
                       </Button>
                     ) : (
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<MicOff className="w-4 h-4 animate-pulse" />}
-                        onClick={stopRecording}
-                        className="w-full sm:w-auto"
-                      >
-                        Stop Recording
-                      </Button>
+                      <>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<MicOff className="w-4 h-4 animate-pulse" />}
+                          onClick={stopRecording}
+                          className="w-full sm:w-auto"
+                        >
+                          Stop Recording
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleTogglePauseRecording}
+                          className="text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                        >
+                          {isRecordingPaused ? "▶ Resume" : "⏸ Pause to Think"}
+                        </Button>
+                      </>
                     )}
 
                     <Button
                       variant="ghost"
                       size="sm"
-                      icon={showSample ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      onClick={() => setShowSample(!showSample)}
+                      icon={<Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+                      onClick={handleApplySampleAnswer}
+                      title="Load realistic 90-word STAR answer to test evaluation"
                     >
-                      {showSample ? "Hide Sample" : "Sample"}
+                      Sample
                     </Button>
                   </div>
 
@@ -2041,25 +4380,131 @@ export default function InterviewPage() {
                       icon={
                         isEvaluating ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : isTranscribingWithWhisper ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300" />
                         ) : (
                           <Brain className="w-3.5 h-3.5" />
                         )
                       }
                       onClick={handleEvaluate}
-                      disabled={!response.trim() || isEvaluating}
+                      disabled={
+                        (!response.trim() && !codeSnippet.trim() && !isRecording) ||
+                        isEvaluating ||
+                        isTranscribingWithWhisper
+                      }
                       className="bg-indigo-600 hover:bg-indigo-500 w-full sm:w-auto"
                     >
-                      {isEvaluating ? "Evaluating..." : "Submit & Evaluate Answer"}
+                      {isEvaluating
+                        ? "Evaluating..."
+                        : isTranscribingWithWhisper
+                        ? "Transcribing Voice..."
+                        : isRecording
+                        ? "Stop & Evaluate Answer"
+                        : "Submit & Evaluate Answer"}
                     </Button>
                   </div>
                 </div>
               </Card>
             </div>
           </div>
+          )}
+
+          {/* Progressive Hints Dialog for DSA OA Arena */}
+          {showHintModal && activeDsaProblem && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+              <div className="w-full max-w-lg rounded-2xl bg-[#0c1222] border border-indigo-500/40 p-5 space-y-4 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-white/8">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5 text-amber-400" />
+                    <h3 className="text-sm font-bold text-white">
+                      Progressive Hints: #{activeDsaProblem.number}. {activeDsaProblem.title}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowHintModal(false)}
+                    className="text-slate-400 hover:text-white text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {activeDsaProblem.hints.map((hint, idx) => (
+                    <div
+                      key={idx}
+                      className={clsx(
+                        "p-3 rounded-xl border text-xs transition-all",
+                        idx <= activeHintIdx
+                          ? "bg-slate-900/80 border-indigo-500/30 text-slate-200"
+                          : "bg-black/40 border-white/5 text-slate-600"
+                      )}
+                    >
+                      <div className="flex items-center justify-between font-semibold mb-1 text-[11px]">
+                        <span className={idx <= activeHintIdx ? "text-indigo-300" : "text-slate-500"}>
+                          Hint {idx + 1} of {activeDsaProblem.hints.length}:{" "}
+                          {idx === 0
+                            ? "Core Intuition"
+                            : idx === 1
+                            ? "Algorithm Pattern"
+                            : "Edge Cases & Optimization"}
+                        </span>
+                        {idx > activeHintIdx && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveHintIdx(idx)}
+                            className="px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] border border-indigo-500/30"
+                          >
+                            Reveal Hint {idx + 1}
+                          </button>
+                        )}
+                      </div>
+                      {idx <= activeHintIdx ? (
+                        <p className="leading-relaxed text-slate-300">{hint}</p>
+                      ) : (
+                        <p className="italic text-slate-600 text-[11px]">
+                          Locked — Think about Hint {idx} first before revealing this step.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowHintModal(false)}
+                    className="text-xs"
+                  >
+                    Close Hints
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ─── POST-ANSWER DEEP DIAGNOSTIC DASHBOARD ───────────────────────── */}
           {evalResult && (
-            <div className="space-y-6 pt-4 animate-fadeIn">
+            <div ref={evaluationRef} className="space-y-6 pt-4 animate-fadeIn">
+              {/* Interviewer Conversational Reaction Bubble */}
+              {evalResult.interviewerReaction && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/50 to-black/60 border border-indigo-500/40 flex items-start gap-3.5 shadow-xl">
+                  <div className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-base shrink-0 mt-0.5">
+                    🎙️
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-indigo-300">AI Bar-Raiser · Staff Interviewer</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Conversational Feedback</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed italic">
+                      &ldquo;{evalResult.interviewerReaction}&rdquo;
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* 3-Gauge Score Header */}
               <Card className="p-6 bg-gradient-to-br from-[#0e1424] via-[#11182c] to-[#0e1424] border-indigo-500/30 shadow-2xl">
                 <div className="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-white/8 gap-4 mb-6">
@@ -2216,6 +4661,77 @@ export default function InterviewPage() {
                 </div>
               </Card>
 
+              {/* Rubric Concept Coverage Audit */}
+              {((evalResult.coveredConcepts && evalResult.coveredConcepts.length > 0) ||
+                (evalResult.missedConcepts && evalResult.missedConcepts.length > 0)) && (
+                <Card className="p-5 bg-[#0e1424] border-white/6">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-indigo-400" />
+                    Rubric Concept Coverage Audit
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/25">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Covered Concepts ({evalResult.coveredConcepts?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {evalResult.coveredConcepts && evalResult.coveredConcepts.length > 0 ? (
+                          evalResult.coveredConcepts.map((concept, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-200 border border-emerald-500/30 text-[11px] font-medium"
+                            >
+                              ✓ {concept}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">
+                            No rubric concepts fully matched in transcript.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/25">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300 mb-2">
+                        <AlertCircle className="w-4 h-4 text-rose-400" />
+                        <span>Missed Concepts ({evalResult.missedConcepts?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {evalResult.missedConcepts && evalResult.missedConcepts.length > 0 ? (
+                          evalResult.missedConcepts.map((concept, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-200 border border-rose-500/30 text-[11px] font-medium"
+                            >
+                              ✕ {concept}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-emerald-400 italic">
+                            Flawless! All key rubric concepts were addressed.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Technical Scratchpad & Code Review Critique */}
+              {evalResult.codeReviewCritique && (
+                <Card className="p-5 bg-[#0a1220] border-indigo-500/30">
+                  <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-indigo-400" />
+                    Technical Scratchpad &amp; Code Review Critique
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                    {evalResult.codeReviewCritique}
+                  </p>
+                </Card>
+              )}
+
               {/* Side-by-Side Comparison: Spoken vs Rewritten Ideal Answer */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-5 bg-[#0e1424] border-rose-500/20">
@@ -2315,6 +4831,16 @@ export default function InterviewPage() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      icon={<Trophy className="w-3.5 h-3.5 text-amber-400" />}
+                      onClick={() => setShowScorecardModal(true)}
+                      className="whitespace-nowrap border-amber-500/30 hover:border-amber-500/50 text-amber-200"
+                    >
+                      Round Scorecard ({allRoundTurns.length})
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       icon={<RotateCcw className="w-3.5 h-3.5" />}
                       onClick={handleSaveSession}
                       className="whitespace-nowrap"
@@ -2326,6 +4852,263 @@ export default function InterviewPage() {
               </Card>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── ROUND SCORECARD & HIRING VERDICT MODAL ───────────────────────── */}
+      {showScorecardModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-[#0c101d] via-[#101528] to-[#0c101d] border border-indigo-500/30 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-white/8">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-6 h-6 text-amber-400" />
+                  <h2 className="text-xl font-bold text-white">
+                    Round Composite Scorecard &amp; Hiring Verdict
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Aggregated performance across {scorecardStats.turnsCount}{" "}
+                  {scorecardStats.turnsCount === 1 ? "question" : "questions"} for{" "}
+                  <span className="text-indigo-300 font-semibold">{selectedRole}</span>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowScorecardModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Hiring Verdict Banner */}
+            <div
+              className={clsx(
+                "p-5 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4",
+                scorecardStats.verdictVariant === "emerald"
+                  ? "bg-emerald-950/30 border-emerald-500/40"
+                  : scorecardStats.verdictVariant === "blue"
+                  ? "bg-blue-950/30 border-blue-500/40"
+                  : scorecardStats.verdictVariant === "amber"
+                  ? "bg-amber-950/30 border-amber-500/40"
+                  : "bg-rose-950/30 border-rose-500/40"
+              )}
+            >
+              <div className="space-y-1.5 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">
+                    Composite Hiring Verdict:
+                  </span>
+                  <span
+                    className={clsx(
+                      "px-3 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wide border",
+                      scorecardStats.verdictVariant === "emerald"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                        : scorecardStats.verdictVariant === "blue"
+                        ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                        : scorecardStats.verdictVariant === "amber"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                        : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                    )}
+                  >
+                    {scorecardStats.verdict}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                  {scorecardStats.verdictDescription}
+                </p>
+              </div>
+
+              <div className="text-center px-4 py-2 rounded-xl bg-black/40 border border-white/8 shrink-0">
+                <span className="text-3xl font-extrabold text-white block">
+                  {scorecardStats.avgScore}
+                  <span className="text-base font-normal text-slate-400">/100</span>
+                </span>
+                <span className="text-[11px] text-slate-400">Round Average</span>
+              </div>
+            </div>
+
+            {/* 4-Axis Competency Breakdown */}
+            <div>
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
+                4-Axis Competency Breakdown
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Technical Depth</span>
+                    <span className="font-bold text-indigo-300">{scorecardStats.avgContent}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-indigo-500 h-full rounded-full"
+                      style={{ width: `${scorecardStats.avgContent}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">STAR Content &amp; Precision</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Delivery &amp; Flow</span>
+                    <span className="font-bold text-emerald-300">{scorecardStats.avgDelivery}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full rounded-full"
+                      style={{ width: `${scorecardStats.avgDelivery}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">Vocal presence &amp; poise</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Vocal Pace</span>
+                    <span className="font-bold text-white">{scorecardStats.avgWpm} WPM</span>
+                  </div>
+                  <span className="text-[11px] text-slate-300 block">
+                    {scorecardStats.totalFillers} fillers total
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    {scorecardStats.avgWpm >= 115 && scorecardStats.avgWpm <= 165
+                      ? "Optimal cadence"
+                      : "Adjust conversational pace"}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-white/6 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-medium">Eye Contact</span>
+                    <span className="font-bold text-amber-300">
+                      {scorecardStats.avgEyeContact >= 0 ? `${scorecardStats.avgEyeContact}%` : "Audio"}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-300 block">
+                    {scorecardStats.avgEyeContact >= 70
+                      ? "Direct camera presence"
+                      : scorecardStats.avgEyeContact >= 0
+                      ? "Room for more gaze"
+                      : "Audio-only practice"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">Facial visual telemetry</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Aggregated Missed Concepts Checklist */}
+            <div className="p-4 rounded-2xl bg-[#0a1220] border border-white/8 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Target className="w-4 h-4 text-rose-400" />
+                  <span>Actionable Missed Concepts Checklist</span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {scorecardStats.missedConcepts.length} concepts to review
+                </span>
+              </div>
+
+              {scorecardStats.missedConcepts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {scorecardStats.missedConcepts.map((concept: string, idx: number) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-start gap-2"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                      <span className="text-xs text-rose-200 font-medium leading-tight">
+                        {concept}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 text-xs text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>
+                    Impressive! You addressed all expected technical concepts across every question in this round.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Turn-by-Turn Questions History */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Turn-by-Turn Questions in this Round ({allRoundTurns.length})
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {allRoundTurns.map((turn, idx) => (
+                  <div
+                    key={turn.id || idx}
+                    className="p-3 rounded-xl bg-black/40 border border-white/6 flex items-start justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-white/6 text-slate-300 text-[10px] font-bold">
+                          Q{idx + 1}
+                        </span>
+                        {turn.category && (
+                          <span className="text-[10px] text-indigo-400 uppercase font-semibold">
+                            {turn.category}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-200 font-medium leading-snug">
+                        {turn.questionText}
+                      </p>
+                      {turn.userAnswer && (
+                        <p className="text-[11px] text-slate-400 line-clamp-1 italic">
+                          &quot;{turn.userAnswer}&quot;
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={clsx(
+                          "px-2.5 py-1 rounded-lg text-xs font-extrabold inline-block",
+                          (turn.score || 0) >= 80
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : (turn.score || 0) >= 65
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        )}
+                      >
+                        {turn.score || 0}/100
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-white/8">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RotateCcw className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  handleSaveSession();
+                  setShowScorecardModal(false);
+                }}
+              >
+                Save Round to History
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowScorecardModal(false)}
+                className="bg-indigo-600 hover:bg-indigo-500"
+              >
+                Close Scorecard
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
