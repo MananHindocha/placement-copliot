@@ -71,8 +71,8 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     subtitle: "In-depth technical interview on architecture, implementation, and trade-offs",
   },
   "/interview/dsa": {
-    title: "OA & DSA Coding Arena",
-    subtitle: "Solve coding challenges, run test cases, and analyze Big-O complexity",
+    title: "OA & DSA Problemset",
+    subtitle: "Practice coding problems, sharpen your algorithms, and prepare for technical assessments",
   },
   "/interview/customize": {
     title: "Customize by Resume & JD",
@@ -118,7 +118,16 @@ interface SystemStatusData {
 export default function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const page = PAGE_TITLES[pathname] ?? { title: "Dashboard", subtitle: "" };
+  let page = PAGE_TITLES[pathname];
+  if (!page && pathname.startsWith("/interview/dsa/")) {
+    page = {
+      title: "OA & DSA Problem Workspace",
+      subtitle: "Live code execution, Big-O verification, and Bar-Raiser AI review",
+    };
+  }
+  if (!page) {
+    page = { title: "Dashboard", subtitle: "" };
+  }
 
   const [mode] = useState<"demo" | "live">(getEffectiveDataMode);
   const [profile, setProfile] = useState<UserProfile | null>(null);
