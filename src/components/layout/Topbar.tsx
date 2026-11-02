@@ -62,6 +62,22 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Mock Interview Coach",
     subtitle: "Practice with AI-powered questions and feedback",
   },
+  "/interview/question-bank": {
+    title: "Standard Question Bank",
+    subtitle: "Select your engineering role to practice curated technical & behavioral questions",
+  },
+  "/interview/resume-grill": {
+    title: "Resume & Project Grill",
+    subtitle: "Select your engineering role for in-depth codebase & project defense",
+  },
+  "/interview/dsa": {
+    title: "OA & DSA Problemset",
+    subtitle: "Practice coding problems, sharpen your algorithms, and prepare for technical assessments",
+  },
+  "/interview/customize": {
+    title: "Customize by Resume & JD",
+    subtitle: "Generate personalized interview questions matching your resume and target role",
+  },
   "/readiness": {
     title: "Placement Readiness Plan",
     subtitle: "Your personalised roadmap to landing the offer",
@@ -102,7 +118,34 @@ interface SystemStatusData {
 export default function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const page = PAGE_TITLES[pathname] ?? { title: "Dashboard", subtitle: "" };
+  let page = PAGE_TITLES[pathname];
+  if (!page && pathname.startsWith("/interview/customize/session/")) {
+    page = {
+      title: "Custom Tailored Mock Interview",
+      subtitle: "AI-powered personalized interview session aligned to your resume and target JD",
+    };
+  }
+  if (!page && pathname.startsWith("/interview/resume-grill/")) {
+    page = {
+      title: "Resume & Project Grill Workspace",
+      subtitle: "Deep-dive codebase defense, architectural trade-offs, and failure scenarios",
+    };
+  }
+  if (!page && pathname.startsWith("/interview/question-bank/")) {
+    page = {
+      title: "Role Interview Workspace",
+      subtitle: "AI-powered technical, behavioral, and architectural mock interview",
+    };
+  }
+  if (!page && pathname.startsWith("/interview/dsa/")) {
+    page = {
+      title: "OA & DSA Problem Workspace",
+      subtitle: "Live code execution, Big-O verification, and Bar-Raiser AI review",
+    };
+  }
+  if (!page) {
+    page = { title: "Dashboard", subtitle: "" };
+  }
 
   const [mode] = useState<"demo" | "live">(getEffectiveDataMode);
   const [profile, setProfile] = useState<UserProfile | null>(null);
