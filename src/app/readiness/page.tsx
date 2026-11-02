@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -12,8 +13,9 @@ import {
   toggleMilestone as toggleMilestoneService,
   addReadinessMilestone,
   deleteReadinessMilestone,
+  fetchAiGoalRecommendations,
 } from "@/lib/services/readiness.service";
-import type { ReadinessMilestone, ReadinessDomain } from "@/types";
+import type { ReadinessMilestone, ReadinessDomain, AiGoalRecommendation } from "@/types";
 import {
   CheckCircle2,
   Circle,
@@ -31,6 +33,13 @@ import {
   Trash2,
   Sparkles,
   X,
+  RotateCcw,
+  Upload,
+  ArrowRight,
+  AlertCircle,
+  Check,
+  Briefcase,
+  HelpCircle,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -45,15 +54,15 @@ const DOMAIN_ICONS: Record<string, React.ElementType> = {
 
 const CATEGORY_CONFIG: Record<
   string,
-  { icon: React.ElementType; label: string; color: string }
+  { icon: React.ElementType; label: string; color: string; badgeVariant: "indigo" | "violet" | "amber" | "emerald" | "rose" }
 > = {
-  resume: { icon: FileText, label: "Resume", color: "text-indigo-400" },
-  skills: { icon: Code2, label: "Skills", color: "text-violet-400" },
-  network: { icon: Users, label: "Networking", color: "text-amber-400" },
-  networking: { icon: Users, label: "Networking", color: "text-amber-400" },
-  interview: { icon: MessageSquare, label: "Interviews", color: "text-emerald-400" },
-  interviews: { icon: MessageSquare, label: "Interviews", color: "text-emerald-400" },
-  applications: { icon: Send, label: "Applications", color: "text-rose-400" },
+  resume: { icon: FileText, label: "Resume Polish", color: "text-indigo-400", badgeVariant: "indigo" },
+  skills: { icon: Code2, label: "Skills & Tech", color: "text-violet-400", badgeVariant: "violet" },
+  network: { icon: Users, label: "Networking", color: "text-amber-400", badgeVariant: "amber" },
+  networking: { icon: Users, label: "Networking", color: "text-amber-400", badgeVariant: "amber" },
+  interview: { icon: MessageSquare, label: "Mock Interview", color: "text-emerald-400", badgeVariant: "emerald" },
+  interviews: { icon: MessageSquare, label: "Mock Interview", color: "text-emerald-400", badgeVariant: "emerald" },
+  applications: { icon: Send, label: "Applications", color: "text-rose-400", badgeVariant: "rose" },
 };
 
 const PRIORITY_BADGE: Record<string, "rose" | "amber" | "slate"> = {
@@ -71,7 +80,7 @@ function MilestoneRow({
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
 }) {
-  const config = CATEGORY_CONFIG[milestone.category] ?? CATEGORY_CONFIG.resume;
+  const config = CATEGORY_CONFIG[milestone.category] ?? CATEGORY_CONFIG.skills;
   const Icon = config.icon;
 
   return (
@@ -125,7 +134,7 @@ function MilestoneRow({
         <button
           type="button"
           onClick={() => onDelete(milestone.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-white/5"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-white/5 cursor-pointer"
           title="Delete Milestone"
         >
           <Trash2 className="w-4 h-4" />
@@ -140,14 +149,31 @@ export default function ReadinessPage() {
   const [domains, setDomains] = useState<ReadinessDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Recommendations state
+  const [recommendations, setRecommendations] = useState<AiGoalRecommendation[]>([]);
+  const [recStatus, setRecStatus] = useState<"loading" | "ready" | "no_resume" | "needs_analysis" | "no_gaps" | "error">("loading");
+  const [recTargetRole, setRecTargetRole] = useState<string>("Software Engineer");
+  const [recRefreshing, setRecRefreshing] = useState(false);
+  const [recError, setRecError] = useState<string | null>(null);
+  const [addingRecId, setAddingRecId] = useState<string | null>(null);
+
+  // Manual Goal Creation State
   const [filterTab, setFilterTab] = useState<"all" | "pending" | "completed">("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newCategory, setNewCategory] = useState<"resume" | "skills" | "network" | "interview" | "applications">("skills");
+  const [newDescription, setNewDescription] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newCategory, setNewCategory] = useState<ReadinessMilestone["category"]>("skills");
   const [newPriority, setNewPriority] = useState<"high" | "medium" | "low">("medium");
 
-  const loadData = () => {
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
     Promise.all([getReadinessMilestones(), getReadinessDomains()])
@@ -160,23 +186,50 @@ export default function ReadinessPage() {
         setError(err instanceof Error ? err.message : "Failed to load readiness data.");
         setLoading(false);
       });
-  };
+  }, []);
+
+  const loadRecommendations = useCallback(async (forceRefresh = false) => {
+    if (forceRefresh) setRecRefreshing(true);
+    else setRecStatus("loading");
+    setRecError(null);
+
+    try {
+      const res = await fetchAiGoalRecommendations(forceRefresh);
+      setRecommendations(res.recommendations);
+      setRecStatus(res.status);
+      if (res.targetRole) setRecTargetRole(res.targetRole);
+      if (res.error) setRecError(res.error);
+    } catch (err: unknown) {
+      setRecStatus("error");
+      setRecError(err instanceof Error ? err.message : "Failed to generate recommendations.");
+    } finally {
+      setRecRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
-    const handleUpdate = () => {
+    loadRecommendations();
+
+    const handleUpdate = (e?: Event) => {
       Promise.all([getReadinessMilestones(), getReadinessDomains()]).then(([mList, dList]) => {
         setMilestones(mList);
         setDomains(dList);
       });
+      // If resume updated, refresh recommendations
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.source === "resume") {
+        loadRecommendations(true);
+      }
     };
+
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
-  }, []);
+  }, [loadData, loadRecommendations]);
 
   const toggleMilestone = async (id: string) => {
     const target = milestones.find((m) => m.id === id);
@@ -191,6 +244,7 @@ export default function ReadinessPage() {
       await toggleMilestoneService(id, newCompleted);
       const updatedDomains = await getReadinessDomains();
       setDomains(updatedDomains);
+      showToast(`${newCompleted ? "Completed" : "Reopened"}: "${target.title}"`);
     } catch (err: unknown) {
       setMilestones((prev) =>
         prev.map((m) => (m.id === id ? { ...m, completed: !newCompleted } : m))
@@ -202,41 +256,82 @@ export default function ReadinessPage() {
   const handleAddMilestone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
+
     try {
       const added = await addReadinessMilestone({
         title: newTitle.trim(),
         category: newCategory,
         priority: newPriority,
         completed: false,
-        description: "Custom goal added to placement readiness roadmap.",
-        dueDate: "In 7 days",
+        description: newDescription.trim() || "Custom goal added to placement readiness roadmap.",
+        dueDate: newDueDate.trim() || undefined,
       });
+
       setMilestones((prev) => [added, ...prev]);
       setNewTitle("");
+      setNewDescription("");
+      setNewDueDate("");
       setShowAddForm(false);
       const updatedDomains = await getReadinessDomains();
       setDomains(updatedDomains);
+      showToast(`Added goal: "${added.title}"`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to add milestone.");
     }
   };
 
   const handleDeleteMilestone = async (id: string) => {
+    const target = milestones.find((m) => m.id === id);
     try {
       await deleteReadinessMilestone(id);
       setMilestones((prev) => prev.filter((m) => m.id !== id));
       const updatedDomains = await getReadinessDomains();
       setDomains(updatedDomains);
+      showToast(`Removed "${target?.title || "milestone"}"`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete milestone.");
     }
+  };
+
+  // Convert AI Recommendation to Milestone
+  const handleAddRecommendationToPlan = async (rec: AiGoalRecommendation) => {
+    if (isRecommendationAdded(rec) || addingRecId === rec.id) return;
+    setAddingRecId(rec.id);
+
+    try {
+      const newMilestone = await addReadinessMilestone({
+        title: rec.title,
+        category: rec.category,
+        priority: rec.priority,
+        completed: false,
+        description: rec.suggestedAction || rec.reason,
+        dueDate: "In 7 days",
+      });
+
+      setMilestones((prev) => [newMilestone, ...prev.filter((m) => m.id !== newMilestone.id)]);
+      const updatedDomains = await getReadinessDomains();
+      setDomains(updatedDomains);
+      showToast(`Added "${rec.title}" to preparation roadmap!`);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add recommendation to plan.");
+    } finally {
+      setAddingRecId(null);
+    }
+  };
+
+  const isRecommendationAdded = (rec: AiGoalRecommendation): boolean => {
+    return milestones.some(
+      (m) => m.title.trim().toLowerCase() === rec.title.trim().toLowerCase()
+    );
   };
 
   const completed = milestones.filter((m) => m.completed).length;
   const total = milestones.length;
   const overallPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  const overallReadiness = domains.length
+  // Safe overall readiness: only computes from active domain milestones
+  const activeDomains = domains.filter((d) => d.score > 0);
+  const overallReadiness = total > 0 && domains.length > 0
     ? Math.round(domains.reduce((s, d) => s + d.score, 0) / domains.length)
     : 0;
 
@@ -244,7 +339,15 @@ export default function ReadinessPage() {
   const done = milestones.filter((m) => m.completed);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
+          <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+          {toastMessage}
+        </div>
+      )}
+
       {/* Error Banner */}
       {error && (
         <ErrorBanner
@@ -261,9 +364,9 @@ export default function ReadinessPage() {
         </div>
       ) : (
         <>
-          {/* Top stats */}
+          {/* Top Telemetry & Streak Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Readiness ring */}
+            {/* Readiness Ring Gauge */}
             <Card className="flex items-center gap-5">
               <div className="relative flex items-center justify-center w-20 h-20 shrink-0">
                 <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
@@ -287,7 +390,9 @@ export default function ReadinessPage() {
               <div>
                 <p className="text-sm font-semibold text-white">Overall Readiness</p>
                 <p className="text-xs text-slate-400 mt-1">
-                  {overallReadiness >= 80
+                  {total === 0
+                    ? "Add goals to begin"
+                    : overallReadiness >= 80
                     ? "Ready to interview!"
                     : overallReadiness >= 60
                     ? "Strong progress"
@@ -295,26 +400,28 @@ export default function ReadinessPage() {
                 </p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400">
                   <TrendingUp className="w-3 h-3" />
-                  +4% this week
+                  <span>{total > 0 ? `${overallPct}% completed` : "Roadmap unstarted"}</span>
                 </div>
               </div>
             </Card>
 
-            {/* Milestones */}
+            {/* Milestones Counter */}
             <Card>
               <div className="flex items-center gap-2 mb-3">
                 <Target className="w-4 h-4 text-amber-400" />
-                <p className="text-sm font-semibold text-white">Milestones</p>
+                <p className="text-sm font-semibold text-white">Roadmap Milestones</p>
               </div>
               <div className="flex items-end gap-1 mb-2">
                 <span className="text-3xl font-bold text-white">{completed}</span>
                 <span className="text-sm text-slate-400 mb-1">/ {total} done</span>
               </div>
               <ProgressBar value={overallPct} color="amber" size="lg" className="mb-2" />
-              <p className="text-xs text-slate-400">{total - completed} remaining</p>
+              <p className="text-xs text-slate-400">
+                {total === 0 ? "No milestones added yet" : `${total - completed} pending action`}
+              </p>
             </Card>
 
-            {/* Streak */}
+            {/* Activity Streak */}
             <Card>
               <div className="flex items-center gap-2 mb-3">
                 <Flame className="w-4 h-4 text-rose-400" />
@@ -338,11 +445,16 @@ export default function ReadinessPage() {
             </Card>
           </div>
 
+          {/* Main Grid: Domain Breakdown + Milestones Roadmap */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Domain breakdown */}
+            {/* Left Column: Domain Breakdown & Focus This Week */}
             <div className="space-y-4">
+              {/* Domain Breakdown */}
               <Card>
-                <h3 className="text-sm font-semibold text-white mb-4">Domain Breakdown</h3>
+                <h3 className="text-sm font-semibold text-white mb-4 flex items-center justify-between">
+                  <span>Domain Breakdown</span>
+                  <span className="text-[10px] text-slate-500 font-normal">5 Weighted Pillars</span>
+                </h3>
                 <div className="space-y-4">
                   {domains.map((domain) => {
                     const Icon = DOMAIN_ICONS[domain.icon] ?? CATEGORY_CONFIG[domain.label.toLowerCase()]?.icon ?? Target;
@@ -355,7 +467,7 @@ export default function ReadinessPage() {
                           </div>
                           <span className="text-xs font-bold text-slate-300">{domain.score}%</span>
                         </div>
-                        <div className="h-2 rounded-full bg-white/6">
+                        <div className="h-2 rounded-full bg-white/6 overflow-hidden">
                           <div
                             className="h-2 rounded-full transition-all duration-700"
                             style={{ width: `${domain.score}%`, backgroundColor: domain.color }}
@@ -367,32 +479,51 @@ export default function ReadinessPage() {
                 </div>
               </Card>
 
-              {/* Recommended focus */}
+              {/* Dynamic Focus This Week (Driven by real pending milestones) */}
               <Card>
-                <h3 className="text-sm font-semibold text-white mb-3">Focus This Week</h3>
-                <div className="space-y-2">
-                  {[
-                    { text: "Complete 3 LeetCode mediums", icon: Code2, color: "text-violet-400" },
-                    { text: "2 mock behavioral interviews", icon: MessageSquare, color: "text-emerald-400" },
-                    { text: "Reach out to 2 LinkedIn contacts", icon: Users, color: "text-amber-400" },
-                  ].map((item, i) => {
-                    const Icon = item.icon;
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/3 transition-colors"
-                      >
-                        <Icon className={clsx("w-4 h-4 shrink-0", item.color)} />
-                        <span className="text-xs text-slate-300">{item.text}</span>
-                      </div>
-                    );
-                  })}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-white">Focus This Week</h3>
+                  <span className="text-[10px] text-indigo-400 font-medium">From Roadmap</span>
                 </div>
+                {pending.length === 0 ? (
+                  <div className="py-6 text-center space-y-2">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      No active pending tasks.
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Add custom goals or review the AI-recommended milestones below.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pending.slice(0, 3).map((item) => {
+                      const config = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.skills;
+                      const Icon = config.icon;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-start gap-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+                        >
+                          <Icon className={clsx("w-4 h-4 mt-0.5 shrink-0", config.color)} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-slate-200 line-clamp-1">
+                              {item.title}
+                            </p>
+                            <span className="text-[10px] text-slate-500 capitalize">
+                              {item.priority} priority • {config.label}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
             </div>
 
-            {/* Milestones list */}
+            {/* Right Column: Milestones Roadmap Checklist */}
             <div className="lg:col-span-2 space-y-4">
+              {/* Filter Tabs & Add Goal Action */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/4 border border-white/8 text-xs">
                   <button
@@ -400,7 +531,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("all")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-all",
-                      filterTab === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                      filterTab === "all" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
                     All ({total})
@@ -410,7 +541,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("pending")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-all",
-                      filterTab === "pending" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                      filterTab === "pending" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
                     Pending ({pending.length})
@@ -420,7 +551,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("completed")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-all",
-                      filterTab === "completed" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                      filterTab === "completed" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
                     Completed ({done.length})
@@ -432,8 +563,9 @@ export default function ReadinessPage() {
                   size="sm"
                   icon={showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                   onClick={() => setShowAddForm(!showAddForm)}
+                  className="gap-1.5 text-xs shadow-md shadow-indigo-500/10"
                 >
-                  {showAddForm ? "Cancel" : "Add Goal"}
+                  {showAddForm ? "Cancel" : "+ Add Goal"}
                 </Button>
               </div>
 
@@ -441,26 +573,40 @@ export default function ReadinessPage() {
               {showAddForm && (
                 <form
                   onSubmit={handleAddMilestone}
-                  className="p-4 rounded-xl bg-[#0B1120] border border-indigo-500/30 space-y-3 shadow-xl animate-fadeIn"
+                  className="p-5 rounded-2xl bg-[#0B1120] border border-indigo-500/30 space-y-3.5 shadow-2xl animate-fadeIn"
                 >
-                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                    New Preparation Milestone
-                  </h4>
-                  <input
-                    type="text"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="e.g. Master React Server Components & Streaming SSR"
-                    className="w-full bg-[#050811] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    autoFocus
-                  />
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/8">
+                    <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      Create Custom Preparation Goal
+                    </h4>
+                    <span className="text-[10px] text-slate-500">Manual Entry</span>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                      Goal Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="e.g. Master System Design Caching & Redis Partitioning"
+                      className="w-full bg-[#050811] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                        Category
+                      </label>
                       <select
                         value={newCategory}
                         onChange={(e) => setNewCategory(e.target.value as any)}
-                        className="bg-[#050811] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050811] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="skills">Skills &amp; Tech</option>
                         <option value="resume">Resume Polish</option>
@@ -468,11 +614,16 @@ export default function ReadinessPage() {
                         <option value="network">Networking</option>
                         <option value="applications">Applications</option>
                       </select>
+                    </div>
 
+                    <div>
+                      <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                        Priority
+                      </label>
                       <select
                         value={newPriority}
                         onChange={(e) => setNewPriority(e.target.value as any)}
-                        className="bg-[#050811] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050811] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="high">High Priority</option>
                         <option value="medium">Medium Priority</option>
@@ -480,31 +631,329 @@ export default function ReadinessPage() {
                       </select>
                     </div>
 
+                    <div>
+                      <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                        Target Due Date
+                      </label>
+                      <input
+                        type="text"
+                        value={newDueDate}
+                        onChange={(e) => setNewDueDate(e.target.value)}
+                        placeholder="e.g. In 7 days, Nov 15"
+                        className="w-full bg-[#050811] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                      Action Description (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      placeholder="Add specific target tasks, problem links, or milestones..."
+                      className="w-full bg-[#050811] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/8">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAddForm(false)}
+                    >
+                      Cancel
+                    </Button>
                     <Button type="submit" size="sm" disabled={!newTitle.trim()}>
-                      Save Milestone
+                      Save Goal
                     </Button>
                   </div>
                 </form>
               )}
 
-              {/* Milestones list */}
-              <div className="space-y-2">
-                {milestones
-                  .filter((m) => {
-                    if (filterTab === "pending") return !m.completed;
-                    if (filterTab === "completed") return m.completed;
-                    return true;
-                  })
-                  .map((m) => (
-                    <MilestoneRow
-                      key={m.id}
-                      milestone={m}
-                      onToggle={toggleMilestone}
-                      onDelete={handleDeleteMilestone}
-                    />
-                  ))}
+              {/* Milestones Checklist List */}
+              <div className="space-y-2.5">
+                {milestones.length === 0 ? (
+                  <div className="p-12 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+                      <Target className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-semibold text-white">
+                        No milestones in your preparation roadmap yet
+                      </h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                        Start building your personalized roadmap by creating custom goals above or adopting AI recommendations below.
+                      </p>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setShowAddForm(true)}
+                      className="gap-1.5 text-xs mt-2"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Create Your First Goal</span>
+                    </Button>
+                  </div>
+                ) : (
+                  milestones
+                    .filter((m) => {
+                      if (filterTab === "pending") return !m.completed;
+                      if (filterTab === "completed") return m.completed;
+                      return true;
+                    })
+                    .map((m) => (
+                      <MilestoneRow
+                        key={m.id}
+                        milestone={m}
+                        onToggle={toggleMilestone}
+                        onDelete={handleDeleteMilestone}
+                      />
+                    ))
+                )}
               </div>
             </div>
+          </div>
+
+          {/* ─── DEDICATED SECTION: AI-RECOMMENDED GOALS ───────────────────────── */}
+          <div className="pt-6 border-t border-white/8 space-y-4">
+            {/* Section Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                    <Sparkles className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-base font-bold text-white tracking-tight">
+                    AI-Recommended Goals
+                  </h3>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Target: {recTargetRole}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Personalized preparation tasks based on your resume gaps and placement readiness.
+                </p>
+              </div>
+
+              {/* Refresh Action */}
+              <button
+                type="button"
+                onClick={() => loadRecommendations(true)}
+                disabled={recRefreshing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/8 text-xs font-medium transition-all disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+                title="Refresh recommendations based on latest resume"
+              >
+                <RotateCcw className={clsx("w-3.5 h-3.5", recRefreshing && "animate-spin text-indigo-400")} />
+                <span>{recRefreshing ? "Analyzing..." : "Refresh Recommendations"}</span>
+              </button>
+            </div>
+
+            {/* Error in recommendations */}
+            {recError && (
+              <ErrorBanner
+                title="AI Recommendation Alert"
+                message={recError}
+                onRetry={() => loadRecommendations(true)}
+              />
+            )}
+
+            {/* Recommendations Content State */}
+            {recStatus === "loading" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl bg-[#0B1120] border border-white/6 animate-pulse space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-20 h-4 bg-white/8 rounded" />
+                      <div className="w-14 h-4 bg-white/8 rounded" />
+                    </div>
+                    <div className="w-3/4 h-4 bg-white/10 rounded" />
+                    <div className="w-full h-8 bg-white/5 rounded" />
+                    <div className="w-24 h-7 bg-white/8 rounded mt-2" />
+                  </div>
+                ))}
+              </div>
+            ) : recStatus === "no_resume" ? (
+              /* Case A: No Resume Uploaded */
+              <div className="p-8 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white">
+                    Unlock Personalized Recommendations
+                  </h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Upload your resume to identify skill gaps, improve your profile, and receive personalized preparation goals tailored to your target role.
+                  </p>
+                </div>
+                <Link
+                  href="/resume"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Resume in Resume Screener</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            ) : recStatus === "needs_analysis" ? (
+              /* Case B: Resume Uploaded but Not Analyzed */
+              <div className="p-8 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white">
+                    Resume Analysis Required
+                  </h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Your resume is available, but it needs to be analyzed first to extract verified skill gaps and personalized roadmap goals.
+                  </p>
+                </div>
+                <Link
+                  href="/resume"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
+                >
+                  <span>Analyze in Resume Screener</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            ) : recStatus === "no_gaps" || recommendations.length === 0 ? (
+              /* Case C: Resume Analyzed but No Significant Gaps Found */
+              <div className="p-8 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white">
+                    No Major Resume Gaps Identified
+                  </h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Your current resume strongly demonstrates the foundational competencies for <span className="text-white font-medium">{recTargetRole}</span>. You can create custom challenges or add mock interview goals above.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Active Recommendations Grid */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recommendations.map((rec) => {
+                  const isAdded = isRecommendationAdded(rec);
+                  const config = CATEGORY_CONFIG[rec.category] ?? CATEGORY_CONFIG.skills;
+                  const Icon = config.icon;
+                  const isProcessing = addingRecId === rec.id;
+
+                  return (
+                    <div
+                      key={rec.id}
+                      className={clsx(
+                        "p-5 rounded-2xl border flex flex-col justify-between transition-all space-y-4",
+                        isAdded
+                          ? "bg-emerald-500/[0.03] border-emerald-500/25"
+                          : "bg-[#0B1120] border-white/8 hover:border-indigo-500/40 hover:bg-[#0f172a]"
+                      )}
+                    >
+                      <div className="space-y-3">
+                        {/* Header Badges */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={clsx(
+                              "text-[10px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1",
+                              config.color,
+                              "bg-white/5 border-white/10"
+                            )}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {config.label}
+                          </span>
+
+                          <span
+                            className={clsx(
+                              "text-[10px] font-semibold px-2 py-0.5 rounded-md border capitalize",
+                              PRIORITY_BADGE[rec.priority] === "rose"
+                                ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                                : PRIORITY_BADGE[rec.priority] === "amber"
+                                ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                : "text-slate-400 bg-slate-500/10 border-slate-500/20"
+                            )}
+                          >
+                            {rec.priority} Priority
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h4 className="text-sm font-bold text-white tracking-tight leading-snug">
+                          {rec.title}
+                        </h4>
+
+                        {/* Reason / Why Recommended */}
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            Why Recommended:
+                          </span>
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {rec.reason}
+                          </p>
+                        </div>
+
+                        {/* Action / Suggested Steps */}
+                        {rec.suggestedAction && (
+                          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/6 space-y-1">
+                            <span className="text-[10px] font-semibold text-indigo-300 uppercase tracking-wider block">
+                              Suggested Action:
+                            </span>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              {rec.suggestedAction}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Related Finding Tag */}
+                        {rec.finding && (
+                          <p className="text-[10px] text-slate-500 italic">
+                            Evidence: {rec.finding}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Add Button */}
+                      <div className="pt-2 border-t border-white/6">
+                        {isAdded ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="w-full py-2 px-3 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Added to Plan ✓</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleAddRecommendationToPlan(rec)}
+                            disabled={isProcessing}
+                            className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+                          >
+                            {isProcessing ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Plus className="w-3.5 h-3.5" />
+                            )}
+                            <span>+ Add to Plan</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </>
       )}
