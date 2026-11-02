@@ -14,7 +14,7 @@ export default function ErrorBanner({
   onRetry,
 }: ErrorBannerProps) {
   return (
-    <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-200">
+    <div className="rounded-xl border border-rose-500/30 bg-[#0B0D18] p-4 text-rose-200 shadow-lg">
       <div className="flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">

@@ -180,11 +180,11 @@ export default function JobImportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-fadeIn">
       <div
-        className="w-full max-w-4xl max-h-[90vh] bg-[#0B1120] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white"
+        className="w-full max-w-4xl max-h-[90vh] bg-[#101326] border border-[rgba(100,110,255,0.22)] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Section */}
-        <div className="p-5 border-b border-white/8 bg-[#0F172A]/70 flex items-start justify-between gap-4 shrink-0">
+        <div className="p-5 border-b border-[rgba(100,110,255,0.14)] bg-[#080A14] flex items-start justify-between gap-4 shrink-0">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
@@ -213,17 +213,17 @@ export default function JobImportModal({
         </div>
 
         {/* Source Selection & Search Toolbar */}
-        <div className="p-4 border-b border-white/8 bg-[#050811]/60 space-y-3 shrink-0">
+        <div className="p-4 border-b border-[rgba(100,110,255,0.14)] bg-[#050505] space-y-3 shrink-0">
           {/* Source Tabs */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 p-1 bg-[#0F172A] border border-white/8 rounded-xl text-xs">
+            <div className="flex items-center gap-1.5 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl text-xs">
               <button
                 type="button"
                 onClick={() => setSourceFilter("all")}
                 className={clsx(
                   "px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
                   sourceFilter === "all"
-                    ? "bg-indigo-600 text-white shadow-sm"
+                    ? "bg-[#1B1FB8] text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 )}
               >
@@ -239,7 +239,7 @@ export default function JobImportModal({
                 className={clsx(
                   "px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
                   sourceFilter === "openwebninja"
-                    ? "bg-indigo-600 text-white shadow-sm"
+                    ? "bg-[#1B1FB8] text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 )}
               >
@@ -255,7 +255,7 @@ export default function JobImportModal({
                 className={clsx(
                   "px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
                   sourceFilter === "himalayas"
-                    ? "bg-indigo-600 text-white shadow-sm"
+                    ? "bg-[#1B1FB8] text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 )}
               >
@@ -286,7 +286,7 @@ export default function JobImportModal({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Job title or keywords..."
-                className="w-full pl-9 pr-3 py-1.5 bg-[#0F172A] border border-white/8 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-1.5 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 
@@ -299,7 +299,7 @@ export default function JobImportModal({
                 onChange={(e) => setLocation(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Location (e.g. India, Remote)..."
-                className="w-full pl-9 pr-3 py-1.5 bg-[#0F172A] border border-white/8 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-1.5 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 
@@ -308,10 +308,10 @@ export default function JobImportModal({
               <select
                 value={jobType}
                 onChange={(e) => setJobType(e.target.value)}
-                className="w-full bg-[#0F172A] border border-white/8 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {JOB_TYPES.map((t) => (
-                  <option key={t.label} value={t.value} className="bg-[#0B1120]">
+                  <option key={t.label} value={t.value} className="bg-[#101326]">
                     {t.label}
                   </option>
                 ))}
@@ -323,10 +323,10 @@ export default function JobImportModal({
               <select
                 value={experienceLevel}
                 onChange={(e) => setExperienceLevel(e.target.value)}
-                className="w-full bg-[#0F172A] border border-white/8 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {EXPERIENCE_LEVELS.map((el) => (
-                  <option key={el.label} value={el.value} className="bg-[#0B1120]">
+                  <option key={el.label} value={el.value} className="bg-[#101326]">
                     {el.label}
                   </option>
                 ))}
@@ -431,7 +431,7 @@ export default function JobImportModal({
                 <div
                   key={job.id}
                   className={clsx(
-                    "p-4 rounded-xl border transition-all space-y-3 bg-[#0F172A] relative group",
+                    "p-4 rounded-xl border transition-all space-y-3 bg-[#080A14] relative group",
                     alreadyTracked
                       ? "border-emerald-500/30 bg-emerald-500/[0.02]"
                       : "border-white/8 hover:border-indigo-500/40 hover:bg-[#121c33]"
@@ -477,7 +477,7 @@ export default function JobImportModal({
 
                           {/* Work Arrangement / Job Type */}
                           {job.type && job.type !== "Unspecified" && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-medium">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.22)] font-medium">
                               {job.type}
                             </span>
                           )}
@@ -527,7 +527,7 @@ export default function JobImportModal({
                           type="button"
                           onClick={() => handleAddClick(job)}
                           disabled={isAdding}
-                          className="py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+                          className="py-1.5 px-3 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] active:scale-95 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
                         >
                           {isAdding ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -582,7 +582,7 @@ export default function JobImportModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t border-white/8 bg-[#0F172A]/80 flex items-center justify-between text-xs text-slate-400 shrink-0">
+        <div className="p-4 border-t border-[rgba(100,110,255,0.14)] bg-[#080A14] flex items-center justify-between text-xs text-slate-400 shrink-0">
           <span>
             Added jobs enter your <strong className="text-white">Saved / Wishlist</strong> stage immediately.
           </span>

@@ -170,7 +170,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   CODEBASE DEFENSE
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-white/5 text-slate-300 border border-white/8 font-mono">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] font-mono">
                   {roleMeta.title}
                 </span>
               </h3>
@@ -252,7 +252,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/6">
+            <p className="text-xs text-slate-300 leading-relaxed bg-black/30 p-3 rounded-xl border border-[rgba(100,110,255,0.12)]">
               {githubAnalysis.summary}
             </p>
 

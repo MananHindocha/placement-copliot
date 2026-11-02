@@ -235,7 +235,7 @@ export default function CustomizePage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4">
         <div>
           <Link
             href="/interview"
@@ -263,9 +263,9 @@ export default function CustomizePage() {
       </div>
 
       {/* ─── DUAL-SYNTHESIZER AI QUESTION GENERATOR CARD ─────────────────────── */}
-      <Card className="p-5 md:p-8 bg-gradient-to-br from-[#0c1222] via-[#0f172a] to-[#0c1222] border-emerald-500/30 shadow-2xl rounded-3xl space-y-6">
+      <Card className="p-5 md:p-8 bg-gradient-to-br from-[#080A14] via-[#0f172a] to-[#080A14] border-emerald-500/30 shadow-2xl rounded-3xl space-y-6">
         {/* Card Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-white/8">
+        <div className="flex items-start justify-between pb-4 border-b border-[rgba(100,110,255,0.12)]">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -290,7 +290,7 @@ export default function CustomizePage() {
             "p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all",
             detectedResume
               ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
-              : "bg-slate-900/60 border-white/8 text-slate-400"
+              : "bg-[#0B0D18] border-[rgba(100,110,255,0.12)] text-slate-400"
           )}
         >
           <div className="flex items-center gap-2.5">
@@ -344,7 +344,7 @@ export default function CustomizePage() {
               className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               {INTERVIEW_ROLES.map((r) => (
-                <option key={r} value={r} className="bg-slate-900 text-slate-200">
+                <option key={r} value={r} className="bg-[#101326] text-slate-200">
                   {r}
                 </option>
               ))}
@@ -375,10 +375,10 @@ export default function CustomizePage() {
               onChange={(e) => setCustomDifficulty(e.target.value as "Easy" | "Medium" | "Hard" | "Mixed")}
               className="w-full text-xs bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
-              <option value="Mixed" className="bg-slate-900">Mixed (Bar-Raiser &amp; Core)</option>
-              <option value="Hard" className="bg-slate-900">Hard (Senior / Staff)</option>
-              <option value="Medium" className="bg-slate-900">Medium (Mid-Level SDE)</option>
-              <option value="Easy" className="bg-slate-900">Easy (Foundational)</option>
+              <option value="Mixed" className="bg-[#101326]">Mixed (Bar-Raiser &amp; Core)</option>
+              <option value="Hard" className="bg-[#101326]">Hard (Senior / Staff)</option>
+              <option value="Medium" className="bg-[#101326]">Medium (Mid-Level SDE)</option>
+              <option value="Easy" className="bg-[#101326]">Easy (Foundational)</option>
             </select>
           </div>
         </div>
@@ -415,7 +415,7 @@ export default function CustomizePage() {
                     "px-3 py-1.5 text-xs font-medium rounded-lg border transition-all select-none cursor-pointer",
                     selected
                       ? "bg-emerald-600/30 border-emerald-500/60 text-emerald-200 font-semibold shadow-sm shadow-emerald-500/10"
-                      : "bg-white/5 border-white/8 text-slate-400 hover:text-white"
+                      : "bg-white/5 border-[rgba(100,110,255,0.12)] text-slate-400 hover:text-white"
                   )}
                 >
                   {selected ? "✓ " : "+ "}{area.label}
@@ -473,7 +473,7 @@ export default function CustomizePage() {
         )}
 
         {/* Section G: Question Generation Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/8">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[rgba(100,110,255,0.12)]">
           <span className="text-[11px] text-slate-500">
             Configure parameters above and generate your personalized bar-raiser interview questions.
           </span>

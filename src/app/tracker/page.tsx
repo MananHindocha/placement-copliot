@@ -359,7 +359,7 @@ export default function TrackerPage() {
     <div className="space-y-6 max-w-full pb-12">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1B1FB8]/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
           {toastMessage}
         </div>
@@ -391,14 +391,14 @@ export default function TrackerPage() {
         {/* View Switchers (Global Add button removed per specification) */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Density Switcher: 4-Stage Compact vs 6-Stage Detailed */}
-          <div className="flex items-center gap-1 p-1 bg-[#0B1120] border border-white/8 rounded-xl text-xs">
+          <div className="flex items-center gap-1 p-1 bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs">
             <button
               type="button"
               onClick={() => setViewDensity("compact")}
               className={clsx(
                 "px-3 py-1 rounded-lg font-medium transition-all",
                 viewDensity === "compact"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-[#1B1FB8] text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
               )}
             >
@@ -410,7 +410,7 @@ export default function TrackerPage() {
               className={clsx(
                 "px-3 py-1 rounded-lg font-medium transition-all",
                 viewDensity === "detailed"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-[#1B1FB8] text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
               )}
             >
@@ -419,7 +419,7 @@ export default function TrackerPage() {
           </div>
 
           {/* Layout Mode: Board vs List */}
-          <div className="flex items-center gap-1 p-1 bg-[#0B1120] border border-white/8 rounded-xl text-xs">
+          <div className="flex items-center gap-1 p-1 bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs">
             <button
               type="button"
               onClick={() => setLayoutMode("board")}
@@ -451,7 +451,7 @@ export default function TrackerPage() {
       </div>
 
       {/* Filter Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B1120] p-3 rounded-2xl border border-white/8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B0D18] p-3 rounded-2xl border border-[rgba(100,110,255,0.12)]">
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
@@ -460,7 +460,7 @@ export default function TrackerPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by company or role..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#050811] border border-white/6 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-1.5 bg-[#050505] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
@@ -475,7 +475,7 @@ export default function TrackerPage() {
               className={clsx(
                 "px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all",
                 priorityFilter === p
-                  ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/40"
+                  ? "bg-[#1B1FB8]/30 text-indigo-300 border border-indigo-500/40"
                   : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
               )}
             >
@@ -516,7 +516,7 @@ export default function TrackerPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, stage.defaultStatus)}
                 className={clsx(
-                  "flex flex-col rounded-2xl bg-[#0B1120] border-t-2 border border-white/8 min-h-[500px] transition-all",
+                  "flex flex-col rounded-2xl bg-[#0B0D18] border-t-2 border border-[rgba(100,110,255,0.12)] min-h-[500px] transition-all",
                   stage.accentColor,
                   isDropActive
                     ? "ring-2 ring-indigo-500/80 bg-indigo-500/5 scale-[1.01]"
@@ -524,7 +524,7 @@ export default function TrackerPage() {
                 )}
               >
                 {/* Column Header */}
-                <div className="p-3.5 border-b border-white/6 flex items-center justify-between">
+                <div className="p-3.5 border-b border-[rgba(100,110,255,0.12)] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-white">
                       {stage.label}
@@ -537,11 +537,11 @@ export default function TrackerPage() {
 
                 {/* Prominent Add Button ONLY in First Column */}
                 {isFirstStage && (
-                  <div className="p-2.5 border-b border-white/6 bg-indigo-500/[0.04]">
+                  <div className="p-2.5 border-b border-[rgba(100,110,255,0.12)] bg-indigo-500/[0.04]">
                     <button
                       type="button"
                       onClick={() => setShowJobImportModal(true)}
-                      className="w-full py-2 px-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-500/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm group"
+                      className="w-full py-2 px-3 rounded-xl bg-[#1B1FB8]/20 hover:bg-[#1B1FB8]/30 text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-500/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm group"
                     >
                       <Plus className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
                       <span>+ Add Job Application</span>
@@ -561,10 +561,10 @@ export default function TrackerPage() {
                         onDragStart={(e) => handleDragStart(e, card.id)}
                         onClick={() => setSelectedCard(card)}
                         className={clsx(
-                          "rounded-xl border p-3.5 bg-[#0F172A] cursor-grab active:cursor-grabbing hover:border-indigo-500/40 hover:bg-[#131c33] transition-all relative group shadow-sm",
+                          "rounded-xl border p-3.5 bg-[#0B0D18] cursor-grab active:cursor-grabbing hover:border-indigo-500/40 hover:bg-[#151A35]/60 hover:shadow-lg hover:shadow-[rgba(27,31,184,0.12)] transition-all relative group shadow-sm",
                           isCardSelected
                             ? "border-indigo-500 ring-1 ring-indigo-500/50"
-                            : "border-white/6"
+                            : "border-[rgba(100,110,255,0.12)]"
                         )}
                       >
                         {/* Company Avatar + Name & Status Pill */}
@@ -606,7 +606,7 @@ export default function TrackerPage() {
                             )}
                           >
                             {ALL_STATUSES.map((s) => (
-                              <option key={s} value={s} className="bg-[#0B1120] text-white">
+                              <option key={s} value={s} className="bg-[#0B0D18] text-white">
                                 {s}
                               </option>
                             ))}
@@ -679,7 +679,7 @@ export default function TrackerPage() {
                     <div className="flex-1 flex flex-col items-center justify-center py-10 px-4 text-center">
                       {isFirstStage ? (
                         <div className="space-y-3">
-                          <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/8 text-slate-400 flex items-center justify-center mx-auto">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 border border-[rgba(100,110,255,0.12)] text-slate-400 flex items-center justify-center mx-auto">
                             <Briefcase className="w-5 h-5 text-indigo-400/80" />
                           </div>
                           <div className="space-y-1">
@@ -693,7 +693,7 @@ export default function TrackerPage() {
                           <button
                             type="button"
                             onClick={() => setShowJobImportModal(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 text-xs font-medium border border-indigo-500/30 transition-all mt-1"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B1FB8]/30 hover:bg-[#1B1FB8]/50 text-indigo-200 text-xs font-medium border border-indigo-500/30 transition-all mt-1"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>Import from APIs</span>
@@ -745,10 +745,10 @@ export default function TrackerPage() {
         </div>
       ) : (
         /* Table / List View */
-        <div className="rounded-2xl border border-white/8 bg-[#0B1120] overflow-hidden">
+        <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#050811] text-slate-400 border-b border-white/6 uppercase text-[10px] tracking-wider">
+              <thead className="bg-[#050505] text-slate-400 border-b border-[rgba(100,110,255,0.12)] uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Company</th>
                   <th className="py-3 px-4">Role</th>
@@ -826,7 +826,7 @@ export default function TrackerPage() {
                             <option
                               key={s}
                               value={s}
-                              className="bg-[#0B1120] text-white"
+                              className="bg-[#0B0D18] text-white"
                             >
                               {s}
                             </option>
@@ -888,9 +888,9 @@ export default function TrackerPage() {
       {/* Slide-over Detail Panel */}
       {selectedCard && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#0B1120] border-l border-white/10 h-full p-6 overflow-y-auto space-y-6 shadow-2xl">
+          <div className="w-full max-w-md bg-[#0B0D18] border-l border-[rgba(100,110,255,0.16)] h-full p-6 overflow-y-auto space-y-6 shadow-2xl">
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-white/8">
+            <div className="flex items-start justify-between pb-4 border-b border-[rgba(100,110,255,0.12)]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 font-bold text-sm flex items-center justify-center shrink-0">
                   {selectedCard.logo || selectedCard.company.slice(0, 2).toUpperCase()}
@@ -925,7 +925,7 @@ export default function TrackerPage() {
                     e.target.value as KanbanStatus
                   )
                 }
-                className="w-full bg-[#050811] border border-white/8 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-[#050505] border border-[rgba(100,110,255,0.12)] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {ALL_STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -937,7 +937,7 @@ export default function TrackerPage() {
 
             {/* External Links & Metadata */}
             {(selectedCard.url || selectedCard.sourceUrl || selectedCard.location || selectedCard.closingDate) && (
-              <div className="p-3 rounded-xl bg-white/3 border border-white/6 space-y-2 text-xs">
+              <div className="p-3 rounded-xl bg-white/3 border border-[rgba(100,110,255,0.12)] space-y-2 text-xs">
                 {selectedCard.location && <p className="text-slate-400">Location: {selectedCard.location}</p>}
                 {selectedCard.source && <p className="text-slate-400">Source: {selectedCard.source}</p>}
                 {selectedCard.closingDate && (
@@ -983,7 +983,7 @@ export default function TrackerPage() {
             </div>
 
             {/* Next Steps & Action Dates */}
-            <div className="p-4 rounded-xl bg-white/3 border border-white/6 space-y-2">
+            <div className="p-4 rounded-xl bg-white/3 border border-[rgba(100,110,255,0.12)] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
@@ -1014,7 +1014,7 @@ export default function TrackerPage() {
                   showToast("Saved application notes.");
                 }}
                 placeholder="Add preparation links, interviewer feedback, or notes..."
-                className="w-full bg-[#050811] border border-white/8 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-[#050505] border border-[rgba(100,110,255,0.12)] rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <span className="text-[10px] text-slate-500">
                 Auto-saves when you click out of the box.
@@ -1032,7 +1032,7 @@ export default function TrackerPage() {
             </button>
 
             {/* Footer Actions */}
-            <div className="pt-4 border-t border-white/8 flex items-center justify-between">
+            <div className="pt-4 border-t border-[rgba(100,110,255,0.12)] flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => handleDeleteCard(selectedCard.id)}

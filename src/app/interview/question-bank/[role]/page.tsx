@@ -22,7 +22,7 @@ export default async function RoleQuestionBankPage({ params }: PageProps) {
   if (!roleMeta) {
     return (
       <div className="max-w-2xl mx-auto py-16 px-4">
-        <Card className="p-8 text-center space-y-5 bg-[#0d1322] border-white/10 rounded-2xl shadow-2xl">
+        <Card className="p-8 text-center space-y-5 bg-[#0B0D18] border-white/10 rounded-2xl shadow-2xl">
           <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 border border-rose-500/25 flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>

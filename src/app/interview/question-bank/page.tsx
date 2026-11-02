@@ -112,7 +112,7 @@ export default function QuestionBankRoleSelectionPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4">
         <div>
           <Link
             href="/interview"
@@ -136,7 +136,7 @@ export default function QuestionBankRoleSelectionPage() {
           <Badge variant="indigo" size="md">
             QUESTION BANK
           </Badge>
-          <div className="px-3 py-1 rounded-full bg-white/5 border border-white/8 text-slate-300 text-xs font-mono font-medium">
+          <div className="px-3 py-1 rounded-full bg-white/5 border border-[rgba(100,110,255,0.12)] text-slate-300 text-xs font-mono font-medium">
             {QUESTION_BANK_ROLES.length} ROLES AVAILABLE
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function QuestionBankRoleSelectionPage() {
             >
               <Card
                 className={clsx(
-                  "h-full p-5 sm:p-6 bg-[#0a0f1d] border border-white/10 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4",
+                  "h-full p-5 sm:p-6 bg-[#0B0D18] border border-white/10 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4",
                   styling.borderHover,
                   styling.glowHover,
                   "group-hover:-translate-y-0.5"
@@ -192,12 +192,12 @@ export default function QuestionBankRoleSelectionPage() {
                 </div>
 
                 {/* Bottom Section: Topic Tags & Explore Indicator */}
-                <div className="pt-3 border-t border-white/6 space-y-3">
+                <div className="pt-3 border-t border-[rgba(100,110,255,0.12)] space-y-3">
                   <div className="flex flex-wrap gap-1.5">
                     {role.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-white/6 group-hover:border-white/10 transition-colors"
+                        className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-white/10 transition-colors"
                       >
                         {tag}
                       </span>

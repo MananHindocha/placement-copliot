@@ -89,7 +89,7 @@ function MilestoneRow({
         "flex items-start gap-4 p-4 rounded-xl border transition-all group",
         milestone.completed
           ? "bg-emerald-500/5 border-emerald-500/15"
-          : "bg-[#111827] border-white/6 hover:border-white/12"
+          : "bg-[#0B0D18] border-[rgba(100,110,255,0.12)] hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/50"
       )}
     >
       <button
@@ -342,7 +342,7 @@ export default function ReadinessPage() {
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1B1FB8]/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
           {toastMessage}
         </div>
@@ -525,13 +525,13 @@ export default function ReadinessPage() {
             <div className="lg:col-span-2 space-y-4">
               {/* Filter Tabs & Add Goal Action */}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/4 border border-white/8 text-xs">
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/4 border border-[rgba(100,110,255,0.12)] text-xs">
                   <button
                     type="button"
                     onClick={() => setFilterTab("all")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-all",
-                      filterTab === "all" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                      filterTab === "all" ? "bg-[#1B1FB8] text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
                     All ({total})
@@ -541,7 +541,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("pending")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-all",
-                      filterTab === "pending" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                      filterTab === "pending" ? "bg-[#1B1FB8] text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
                     Pending ({pending.length})
@@ -551,7 +551,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("completed")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-all",
-                      filterTab === "completed" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                      filterTab === "completed" ? "bg-[#1B1FB8] text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
                     Completed ({done.length})
@@ -573,7 +573,7 @@ export default function ReadinessPage() {
               {showAddForm && (
                 <form
                   onSubmit={handleAddMilestone}
-                  className="p-5 rounded-2xl bg-[#0B1120] border border-indigo-500/30 space-y-3.5 shadow-2xl animate-fadeIn"
+                  className="p-5 rounded-2xl bg-[#0B0D18] border border-indigo-500/30 space-y-3.5 shadow-2xl animate-fadeIn"
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-white/8">
                     <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
@@ -593,7 +593,7 @@ export default function ReadinessPage() {
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       placeholder="e.g. Master System Design Caching & Redis Partitioning"
-                      className="w-full bg-[#050811] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       autoFocus
                     />
                   </div>
@@ -606,7 +606,7 @@ export default function ReadinessPage() {
                       <select
                         value={newCategory}
                         onChange={(e) => setNewCategory(e.target.value as any)}
-                        className="w-full bg-[#050811] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="skills">Skills &amp; Tech</option>
                         <option value="resume">Resume Polish</option>
@@ -623,7 +623,7 @@ export default function ReadinessPage() {
                       <select
                         value={newPriority}
                         onChange={(e) => setNewPriority(e.target.value as any)}
-                        className="w-full bg-[#050811] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="high">High Priority</option>
                         <option value="medium">Medium Priority</option>
@@ -640,7 +640,7 @@ export default function ReadinessPage() {
                         value={newDueDate}
                         onChange={(e) => setNewDueDate(e.target.value)}
                         placeholder="e.g. In 7 days, Nov 15"
-                        className="w-full bg-[#050811] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
@@ -654,7 +654,7 @@ export default function ReadinessPage() {
                       value={newDescription}
                       onChange={(e) => setNewDescription(e.target.value)}
                       placeholder="Add specific target tasks, problem links, or milestones..."
-                      className="w-full bg-[#050811] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
@@ -677,7 +677,7 @@ export default function ReadinessPage() {
               {/* Milestones Checklist List */}
               <div className="space-y-2.5">
                 {milestones.length === 0 ? (
-                  <div className="p-12 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+                  <div className="p-12 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
                       <Target className="w-6 h-6" />
                     </div>
@@ -745,7 +745,7 @@ export default function ReadinessPage() {
                 type="button"
                 onClick={() => loadRecommendations(true)}
                 disabled={recRefreshing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/8 text-xs font-medium transition-all disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-[rgba(100,110,255,0.12)] text-xs font-medium transition-all disabled:opacity-50 cursor-pointer self-start sm:self-auto"
                 title="Refresh recommendations based on latest resume"
               >
                 <RotateCcw className={clsx("w-3.5 h-3.5", recRefreshing && "animate-spin text-indigo-400")} />
@@ -768,7 +768,7 @@ export default function ReadinessPage() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="p-4 rounded-2xl bg-[#0B1120] border border-white/6 animate-pulse space-y-3"
+                    className="p-4 rounded-2xl bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] animate-pulse space-y-3"
                   >
                     <div className="flex items-center justify-between">
                       <div className="w-20 h-4 bg-white/8 rounded" />
@@ -782,7 +782,7 @@ export default function ReadinessPage() {
               </div>
             ) : recStatus === "no_resume" ? (
               /* Case A: No Resume Uploaded */
-              <div className="p-8 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+              <div className="p-8 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
                   <Upload className="w-6 h-6" />
                 </div>
@@ -796,7 +796,7 @@ export default function ReadinessPage() {
                 </div>
                 <Link
                   href="/resume"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Resume in Resume Screener</span>
@@ -805,7 +805,7 @@ export default function ReadinessPage() {
               </div>
             ) : recStatus === "needs_analysis" ? (
               /* Case B: Resume Uploaded but Not Analyzed */
-              <div className="p-8 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+              <div className="p-8 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
                   <FileText className="w-6 h-6" />
                 </div>
@@ -819,7 +819,7 @@ export default function ReadinessPage() {
                 </div>
                 <Link
                   href="/resume"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
                 >
                   <span>Analyze in Resume Screener</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -827,7 +827,7 @@ export default function ReadinessPage() {
               </div>
             ) : recStatus === "no_gaps" || recommendations.length === 0 ? (
               /* Case C: Resume Analyzed but No Significant Gaps Found */
-              <div className="p-8 rounded-2xl border border-white/8 bg-[#0B1120] text-center space-y-3">
+              <div className="p-8 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
@@ -856,7 +856,7 @@ export default function ReadinessPage() {
                         "p-5 rounded-2xl border flex flex-col justify-between transition-all space-y-4",
                         isAdded
                           ? "bg-emerald-500/[0.03] border-emerald-500/25"
-                          : "bg-[#0B1120] border-white/8 hover:border-indigo-500/40 hover:bg-[#0f172a]"
+                          : "bg-[#0B0D18] border-white/8 hover:border-indigo-500/40 hover:bg-[#151A35]/50"
                       )}
                     >
                       <div className="space-y-3">
@@ -904,7 +904,7 @@ export default function ReadinessPage() {
 
                         {/* Action / Suggested Steps */}
                         {rec.suggestedAction && (
-                          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/6 space-y-1">
+                          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-[rgba(100,110,255,0.12)] space-y-1">
                             <span className="text-[10px] font-semibold text-indigo-300 uppercase tracking-wider block">
                               Suggested Action:
                             </span>
@@ -938,7 +938,7 @@ export default function ReadinessPage() {
                             type="button"
                             onClick={() => handleAddRecommendationToPlan(rec)}
                             disabled={isProcessing}
-                            className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+                            className="w-full py-2 px-3 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] active:scale-95 text-white font-medium text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
                           >
                             {isProcessing ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />

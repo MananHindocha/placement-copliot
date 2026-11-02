@@ -11,7 +11,7 @@ type ProgressBarProps = {
 };
 
 const colorMap: Record<string, string> = {
-  indigo: "bg-indigo-500",
+  indigo: "bg-gradient-to-r from-[#1B1FB8] to-[#454BFF]",
   emerald: "bg-emerald-500",
   amber: "bg-amber-500",
   rose: "bg-rose-500",
@@ -39,8 +39,8 @@ export default function ProgressBar({
     <div className={clsx("w-full", className)}>
       {showLabel && (
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-slate-400">{label ?? "Progress"}</span>
-          <span className="text-xs font-semibold text-slate-300">{clamped}%</span>
+          <span className="text-xs text-[#A2A7C0]">{label ?? "Progress"}</span>
+          <span className="text-xs font-semibold text-[#F5F6FF]">{clamped}%</span>
         </div>
       )}
       <div
@@ -49,7 +49,10 @@ export default function ProgressBar({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={label ?? "Progress"}
-        className={clsx("w-full rounded-full bg-white/8", sizeMap[size])}
+        className={clsx(
+          "w-full rounded-full bg-[#080A14] border border-[rgba(100,110,255,0.12)] overflow-hidden",
+          sizeMap[size]
+        )}
       >
         <div
           className={clsx(
