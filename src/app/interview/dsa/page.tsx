@@ -163,7 +163,7 @@ export default function DsaProblemsetPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-white/8 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4">
         <div>
           <Link
             href="/interview"
@@ -209,7 +209,7 @@ export default function DsaProblemsetPage() {
       </div>
 
       {/* ─── SEARCH & FILTERING TOOLBAR ──────────────────────────────────────── */}
-      <Card className="p-4 bg-[#0a0f1d] border-white/10 rounded-2xl shadow-xl space-y-3">
+      <Card className="p-4 bg-[#0B0D18] border-white/10 rounded-2xl shadow-xl space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
           {/* Search Bar */}
           <div className="md:col-span-4 relative">
@@ -286,7 +286,7 @@ export default function DsaProblemsetPage() {
             {/* Status Quick Filter */}
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400 font-medium">Status:</span>
-              <div className="flex items-center bg-black/40 border border-white/8 rounded-lg p-0.5">
+              <div className="flex items-center bg-black/40 border border-[rgba(100,110,255,0.12)] rounded-lg p-0.5">
                 {(["all", "solved", "attempted", "unsolved"] as const).map((st) => (
                   <button
                     key={st}
@@ -343,11 +343,11 @@ export default function DsaProblemsetPage() {
       </Card>
 
       {/* ─── LEETCODE-STYLE PROBLEMCARD / TABLE ───────────────────────────────── */}
-      <Card className="overflow-hidden bg-[#090d1a] border-white/10 rounded-2xl shadow-2xl p-0">
+      <Card className="overflow-hidden bg-[#080A14] border-white/10 rounded-2xl shadow-2xl p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/8 bg-black/40 text-[11px] uppercase tracking-wider text-slate-400 font-semibold select-none">
+              <tr className="border-b border-[rgba(100,110,255,0.12)] bg-black/40 text-[11px] uppercase tracking-wider text-slate-400 font-semibold select-none">
                 <th className="py-3 px-4 w-14 text-center">Status</th>
                 <th className="py-3 px-4 min-w-[260px]">Problem</th>
                 <th className="py-3 px-4 w-28">Difficulty</th>
@@ -459,7 +459,7 @@ export default function DsaProblemsetPage() {
                             {p.companyTags.slice(0, 3).map((comp) => (
                               <span
                                 key={comp}
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-white/6 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 transition-colors"
+                                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-violet-500/20 group-hover:bg-violet-500/10 transition-colors"
                               >
                                 {comp}
                               </span>

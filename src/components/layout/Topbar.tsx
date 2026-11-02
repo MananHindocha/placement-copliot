@@ -278,13 +278,13 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#0B1120]/80 backdrop-blur-sm sticky top-0 z-40">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-[rgba(100,110,255,0.12)] bg-[#080A14]/90 backdrop-blur-md sticky top-0 z-40">
         {/* Page title */}
         <div>
-          <h1 className="text-lg font-semibold text-white leading-tight">
+          <h1 className="text-lg font-semibold text-[#F5F6FF] leading-tight">
             {page.title}
           </h1>
-          <p className="text-xs text-slate-400">{page.subtitle}</p>
+          <p className="text-xs text-[#A2A7C0]">{page.subtitle}</p>
         </div>
 
         {/* Actions */}
@@ -312,7 +312,7 @@ export default function Topbar() {
                 <span>Live Mode</span>
               </>
             )}
-            <span className="text-[10px] text-slate-500 group-hover:text-slate-300 ml-0.5">
+            <span className="text-[10px] text-[#737A99] group-hover:text-[#A2A7C0] ml-0.5">
               • Status
             </span>
           </button>
@@ -321,11 +321,11 @@ export default function Topbar() {
           <button
             type="button"
             onClick={() => setShowSearchModal(true)}
-            className="hidden md:flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/8 rounded-xl text-slate-400 hover:text-white transition-all shadow-sm"
+            className="hidden md:flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-xs bg-[#050505] hover:bg-[#101326] border border-[rgba(100,110,255,0.16)] rounded-xl text-[#A2A7C0] hover:text-[#F5F6FF] transition-all shadow-sm"
           >
-            <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[11px] text-slate-400">Search co-pilot...</span>
-            <kbd className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-300 font-mono">⌘K</kbd>
+            <Search className="w-3.5 h-3.5 text-[#777CFF]" />
+            <span className="text-[11px] text-[#A2A7C0]">Search co-pilot...</span>
+            <kbd className="text-[10px] bg-[#101326] border border-[rgba(100,110,255,0.20)] px-1.5 py-0.5 rounded text-[#A2A7C0] font-mono">⌘K</kbd>
           </button>
 
           {/* Notifications Trigger & Popover */}
@@ -337,20 +337,20 @@ export default function Topbar() {
                 if (!showNotifications) setUnreadCount(0);
               }}
               aria-label="Notifications"
-              className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 border border-white/8 text-slate-400 hover:text-white hover:bg-white/10 transition-all focus:outline-none"
+              className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-[#050505] border border-[rgba(100,110,255,0.16)] text-[#A2A7C0] hover:text-[#F5F6FF] hover:bg-[#101326] transition-all focus:outline-none"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#454BFF] rounded-full animate-pulse shadow-sm shadow-[#454BFF]" />
               )}
             </button>
 
             {/* Notification Popover Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-[#0e1424] border border-white/10 shadow-2xl p-4 z-50 animate-fadeIn space-y-3">
+              <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-[#101326] border border-[rgba(100,110,255,0.22)] shadow-2xl p-4 z-50 animate-fadeIn space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-white/8">
                   <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Bell className="w-3.5 h-3.5 text-indigo-400" />
+                    <Bell className="w-3.5 h-3.5 text-[#777CFF]" />
                     Notifications &amp; Reminders
                   </h4>
                   <button
@@ -374,7 +374,7 @@ export default function Topbar() {
                           setShowNotifications(false);
                           router.push("/tracker");
                         }}
-                        className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/15 cursor-pointer transition-all space-y-1"
+                        className="p-2.5 rounded-xl bg-[#080A14] border border-[rgba(100,110,255,0.18)] hover:bg-[#151A35] cursor-pointer transition-all space-y-1"
                       >
                         <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-300">
                           <span>{app.company}</span>
@@ -451,7 +451,7 @@ export default function Topbar() {
               type="button"
               onClick={handleSignOut}
               title="Sign Out"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-xl border border-white/5 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A2A7C0] hover:text-rose-400 hover:bg-[#151A35] rounded-xl border border-[rgba(100,110,255,0.12)] transition-all"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign Out</span>
@@ -459,7 +459,7 @@ export default function Topbar() {
           ) : (
             <Link
               href="/auth/login"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 rounded-xl border border-indigo-500/20 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#A5A9FF] hover:text-white bg-[rgba(27,31,184,0.22)] hover:bg-[#1B1FB8] rounded-xl border border-[rgba(100,110,255,0.30)] transition-all"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign In</span>
@@ -469,7 +469,7 @@ export default function Topbar() {
           {/* User Avatar */}
           <div
             title={profile?.fullName || "User Profile"}
-            className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-inner cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1B1FB8] to-[#454BFF] flex items-center justify-center shadow-inner cursor-pointer"
           >
             <span className="text-xs font-bold text-white">{initials}</span>
           </div>
@@ -479,7 +479,7 @@ export default function Topbar() {
       {/* Interactive System Status & API Key Configuration Modal */}
       {showStatusModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-2xl bg-[#0B1120] border border-white/12 rounded-2xl shadow-2xl overflow-hidden space-y-5 p-6 relative text-left">
+          <div className="w-full max-w-2xl bg-[#101326] border border-[rgba(100,110,255,0.24)] rounded-2xl shadow-2xl overflow-hidden space-y-5 p-6 relative text-left">
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-white/8">
               <div>
@@ -520,7 +520,7 @@ export default function Topbar() {
             {/* Service Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-h-[60vh] overflow-y-auto pr-1">
               {/* 1. Database & Persistence */}
-              <div className="p-3.5 rounded-xl border border-white/8 bg-[#050811] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                     <Database className="w-4 h-4 text-indigo-400" />
@@ -550,7 +550,7 @@ export default function Topbar() {
               </div>
 
               {/* 2. Primary AI Engine */}
-              <div className="p-3.5 rounded-xl border border-white/8 bg-[#050811] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-violet-400" />
@@ -582,7 +582,7 @@ export default function Topbar() {
               </div>
 
               {/* 3. Live Job Search Feed */}
-              <div className="p-3.5 rounded-xl border border-white/8 bg-[#050811] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                     <Briefcase className="w-4 h-4 text-emerald-400" />
@@ -618,7 +618,7 @@ export default function Topbar() {
               </div>
 
               {/* 4. Local Python Resume Parser */}
-              <div className="p-3.5 rounded-xl border border-white/8 bg-[#050811] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                     <Cpu className="w-4 h-4 text-amber-400" />
@@ -664,7 +664,7 @@ export default function Topbar() {
               <button
                 type="button"
                 onClick={() => setShowStatusModal(false)}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-500/20"
+                className="px-4 py-1.5 bg-[#1B1FB8] hover:bg-[#292EDB] text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-[rgba(27,31,184,0.35)]"
               >
                 Done
               </button>
@@ -676,7 +676,7 @@ export default function Topbar() {
       {/* ─── GLOBAL SEARCH MODAL (Ctrl+K / Cmd+K) ──────────────────────────────── */}
       {showSearchModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/70 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-lg rounded-2xl bg-[#0B1120] border border-white/12 shadow-2xl overflow-hidden">
+          <div className="w-full max-w-lg rounded-2xl bg-[#101326] border border-[rgba(100,110,255,0.24)] shadow-2xl overflow-hidden">
             {/* Search Input Bar */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-white/2">
               <Search className="w-4 h-4 text-indigo-400 shrink-0" />

@@ -211,7 +211,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4">
         <div>
           <Link
             href={backHref}
@@ -244,7 +244,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
       {/* ─── LEETCODE OA & DSA CODING ARENA SPLIT VIEW ─── */}
       <div className="space-y-4">
         {/* Top Navigation & Quick Filter Bar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/40 border border-white/8 backdrop-blur-md">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/40 border border-[rgba(100,110,255,0.12)] backdrop-blur-md">
           <div className="flex items-center gap-2.5 flex-wrap flex-1">
             {/* Topic Filter */}
             <div className="flex items-center gap-1.5">
@@ -257,7 +257,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                   setRunCodeResult(null);
                   setRunCodeError(null);
                 }}
-                className="text-xs bg-slate-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                className="text-xs bg-[#101326] border border-white/10 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500"
               >
                 <option value="all">All Topics (30)</option>
                 {DSA_OA_TOPICS.map((topic) => (
@@ -279,7 +279,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                   setRunCodeResult(null);
                   setRunCodeError(null);
                 }}
-                className="text-xs bg-slate-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500"
+                className="text-xs bg-[#101326] border border-white/10 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500"
               >
                 <option value="all">All Difficulties</option>
                 <option value="easy">Easy</option>
@@ -301,7 +301,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                     setActiveHintIdx(0);
                   }
                 }}
-                className="w-full text-xs font-semibold bg-slate-900 border border-violet-500/30 rounded-lg px-3 py-1.5 text-violet-200 focus:outline-none focus:border-violet-400 truncate"
+                className="w-full text-xs font-semibold bg-[#101326] border border-violet-500/30 rounded-lg px-3 py-1.5 text-violet-200 focus:outline-none focus:border-violet-400 truncate"
               >
                 {filteredDsaProblems.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -323,7 +323,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                 setActiveHintIdx(0);
               }}
               disabled={dsaProblemIdx === 0}
-              className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg bg-white/5 border border-[rgba(100,110,255,0.12)] text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
               title="Previous Problem"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -340,7 +340,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                 setActiveHintIdx(0);
               }}
               disabled={dsaProblemIdx >= filteredDsaProblems.length - 1}
-              className="p-1.5 rounded-lg bg-white/5 border border-white/6 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg bg-white/5 border border-[rgba(100,110,255,0.12)] text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
               title="Next Problem"
             >
               <ChevronRight className="w-4 h-4" />
@@ -352,7 +352,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* ─── LEFT PANE: OA Problem Spec & Monospace Cards ─── */}
           <div className="lg:col-span-5 space-y-4">
-            <Card className="p-5 bg-gradient-to-br from-[#0c101d] to-[#080d19] border-white/10 shadow-2xl rounded-2xl space-y-4">
+            <Card className="p-5 bg-gradient-to-br from-[#0B0D18] to-[#080A14] border-white/10 shadow-2xl rounded-2xl space-y-4">
               {/* Header */}
               <div>
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
@@ -395,7 +395,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
               {/* Collapsible Explain Intuition Out Loud Bar */}
               <div className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 overflow-hidden transition-all">
                 <div
-                  className="flex items-center justify-between p-3 cursor-pointer select-none bg-indigo-500/10 hover:bg-indigo-500/15"
+                  className="flex items-center justify-between p-3 cursor-pointer select-none bg-indigo-500/10 hover:bg-[#292EDB]/15"
                   onClick={() => setShowOaVerbalBar((prev) => !prev)}
                 >
                   <div className="flex items-center gap-2">
@@ -483,7 +483,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                                   "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all",
                                   covered
                                     ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"
-                                    : "bg-black/30 text-slate-400 border border-white/6"
+                                    : "bg-black/30 text-slate-400 border border-[rgba(100,110,255,0.12)]"
                                 )}
                               >
                                 {covered ? (
@@ -508,7 +508,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                         countFillers(e.target.value);
                       }}
                       placeholder="Your spoken algorithmic approach & trade-off intuition transcribes here live..."
-                      className="w-full p-2.5 text-xs bg-black/40 border border-white/8 rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none font-sans"
+                      className="w-full p-2.5 text-xs bg-black/40 border border-[rgba(100,110,255,0.12)] rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none font-sans"
                     />
                   </div>
                 )}
@@ -527,7 +527,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                 {activeDsaProblem.examples.map((ex, i) => (
                   <div
                     key={i}
-                    className="p-3 rounded-xl bg-black/50 border border-white/6 text-xs space-y-1.5 font-mono"
+                    className="p-3 rounded-xl bg-black/50 border border-[rgba(100,110,255,0.12)] text-xs space-y-1.5 font-mono"
                   >
                     <div className="text-[11px] font-bold text-slate-400 uppercase">
                       Example {i + 1}
@@ -552,7 +552,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
 
               {/* Constraints */}
               {activeDsaProblem.constraints.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-white/6">
+                <div className="space-y-2 pt-2 border-t border-[rgba(100,110,255,0.12)]">
                   <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                     Constraints
                   </h3>
@@ -565,7 +565,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
               )}
 
               {/* Expected Target Complexities */}
-              <div className="p-3 rounded-xl bg-slate-900/50 border border-white/6 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div className="p-3 rounded-xl bg-[#080A14] border border-[rgba(100,110,255,0.12)] flex items-center justify-between flex-wrap gap-2 text-xs">
                 <div>
                   <span className="text-slate-500 font-medium">Target Time: </span>
                   <span className="text-amber-300 font-mono font-semibold">
@@ -584,9 +584,9 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
 
           {/* ─── RIGHT PANE: Multi-Language IDE & Bottom Console ─── */}
           <div className="lg:col-span-7 space-y-4">
-            <Card className="p-4 md:p-5 bg-gradient-to-br from-[#0c101d] to-[#080d19] border-white/10 shadow-2xl rounded-2xl space-y-3">
+            <Card className="p-4 md:p-5 bg-gradient-to-br from-[#0B0D18] to-[#080A14] border-white/10 shadow-2xl rounded-2xl space-y-3">
               {/* Toolbar */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-white/8">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-[rgba(100,110,255,0.12)]">
                 {/* Left: Language & Claimed Complexities */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
@@ -594,7 +594,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                     onChange={(e) => {
                       setSelectedLanguage(e.target.value as "cpp" | "java" | "python" | "typescript");
                     }}
-                    className="text-xs font-semibold bg-slate-900 border border-indigo-500/30 rounded-lg px-2.5 py-1.5 text-indigo-200 focus:outline-none focus:border-indigo-400"
+                    className="text-xs font-semibold bg-[#101326] border border-indigo-500/30 rounded-lg px-2.5 py-1.5 text-indigo-200 focus:outline-none focus:border-indigo-400"
                   >
                     <option value="python">Python 3.11</option>
                     <option value="cpp">C++ (GCC 13 / STL)</option>
@@ -602,33 +602,33 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                     <option value="typescript">TypeScript (Node.js)</option>
                   </select>
 
-                  <div className="flex items-center gap-1 bg-black/40 border border-white/8 rounded-lg px-2 py-1">
+                  <div className="flex items-center gap-1 bg-black/40 border border-[rgba(100,110,255,0.12)] rounded-lg px-2 py-1">
                     <span className="text-[10px] text-slate-500 font-mono">Time:</span>
                     <select
                       value={claimedTimeComplexity}
                       onChange={(e) => setClaimedTimeComplexity(e.target.value)}
                       className="text-[11px] font-mono bg-transparent text-amber-300 focus:outline-none"
                     >
-                      <option value="O(1)" className="bg-slate-900 text-slate-200">O(1)</option>
-                      <option value="O(log N)" className="bg-slate-900 text-slate-200">O(log N)</option>
-                      <option value="O(N)" className="bg-slate-900 text-slate-200">O(N)</option>
-                      <option value="O(N log N)" className="bg-slate-900 text-slate-200">O(N log N)</option>
-                      <option value="O(N^2)" className="bg-slate-900 text-slate-200">O(N^2)</option>
-                      <option value="O(2^N)" className="bg-slate-900 text-slate-200">O(2^N)</option>
+                      <option value="O(1)" className="bg-[#101326] text-slate-200">O(1)</option>
+                      <option value="O(log N)" className="bg-[#101326] text-slate-200">O(log N)</option>
+                      <option value="O(N)" className="bg-[#101326] text-slate-200">O(N)</option>
+                      <option value="O(N log N)" className="bg-[#101326] text-slate-200">O(N log N)</option>
+                      <option value="O(N^2)" className="bg-[#101326] text-slate-200">O(N^2)</option>
+                      <option value="O(2^N)" className="bg-[#101326] text-slate-200">O(2^N)</option>
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-1 bg-black/40 border border-white/8 rounded-lg px-2 py-1">
+                  <div className="flex items-center gap-1 bg-black/40 border border-[rgba(100,110,255,0.12)] rounded-lg px-2 py-1">
                     <span className="text-[10px] text-slate-500 font-mono">Space:</span>
                     <select
                       value={claimedSpaceComplexity}
                       onChange={(e) => setClaimedSpaceComplexity(e.target.value)}
                       className="text-[11px] font-mono bg-transparent text-indigo-300 focus:outline-none"
                     >
-                      <option value="O(1)" className="bg-slate-900 text-slate-200">O(1)</option>
-                      <option value="O(log N)" className="bg-slate-900 text-slate-200">O(log N)</option>
-                      <option value="O(N)" className="bg-slate-900 text-slate-200">O(N)</option>
-                      <option value="O(N^2)" className="bg-slate-900 text-slate-200">O(N^2)</option>
+                      <option value="O(1)" className="bg-[#101326] text-slate-200">O(1)</option>
+                      <option value="O(log N)" className="bg-[#101326] text-slate-200">O(log N)</option>
+                      <option value="O(N)" className="bg-[#101326] text-slate-200">O(N)</option>
+                      <option value="O(N^2)" className="bg-[#101326] text-slate-200">O(N^2)</option>
                     </select>
                   </div>
                 </div>
@@ -648,7 +648,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                   <button
                     type="button"
                     onClick={() => setShowHintModal(true)}
-                    className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-medium flex items-center gap-1 transition-all"
+                    className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-[#292EDB]/20 border border-indigo-500/30 text-indigo-300 text-xs font-medium flex items-center gap-1 transition-all"
                   >
                     <Lightbulb className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Hint</span>
@@ -691,7 +691,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
               </div>
 
               {/* Editor Surface */}
-              <div className="rounded-xl border border-white/10 overflow-hidden bg-[#0b0f19] shadow-inner">
+              <div className="rounded-xl border border-white/10 overflow-hidden bg-[#050505] shadow-inner">
                 <div className="flex font-mono text-xs max-h-[440px] overflow-hidden">
                   {/* Line Numbers Gutter */}
                   <div className="select-none py-3 px-2.5 text-right text-slate-600 bg-black/50 border-r border-white/5 font-mono text-xs shrink-0">
@@ -727,7 +727,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
               {/* Console Container */}
               <div className="rounded-xl border border-white/10 bg-black/60 overflow-hidden">
                 {/* Console Tab Headers */}
-                <div className="flex items-center justify-between border-b border-white/8 px-2 bg-black/40">
+                <div className="flex items-center justify-between border-b border-[rgba(100,110,255,0.12)] px-2 bg-black/40">
                   <div className="flex items-center">
                     <button
                       type="button"
@@ -818,7 +818,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                             className={clsx(
                               "px-2.5 py-1 rounded-lg text-xs font-medium font-mono transition-all",
                               selectedCaseIdx === idx
-                                ? "bg-indigo-600 text-white"
+                                ? "bg-[#1B1FB8] text-white"
                                 : "bg-white/5 text-slate-400 hover:text-white"
                             )}
                           >
@@ -831,7 +831,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                           className={clsx(
                             "px-2.5 py-1 rounded-lg text-xs font-medium font-mono transition-all",
                             selectedCaseIdx === -1
-                              ? "bg-indigo-600 text-white"
+                              ? "bg-[#1B1FB8] text-white"
                               : "bg-white/5 text-slate-400 hover:text-white"
                           )}
                         >
@@ -890,7 +890,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                       ) : runCodeResult ? (
                         <div className="space-y-3">
                           {/* Top Verdict Strip */}
-                          <div className="flex items-center justify-between pb-2 border-b border-white/8">
+                          <div className="flex items-center justify-between pb-2 border-b border-[rgba(100,110,255,0.12)]">
                             <div className="flex items-center gap-2">
                               <span
                                 className={clsx(
@@ -976,7 +976,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                       ) : runCodeResult?.codeReview ? (
                         <div className="space-y-4">
                           {/* Score Header */}
-                          <div className="flex items-center justify-between pb-3 border-b border-white/8">
+                          <div className="flex items-center justify-between pb-3 border-b border-[rgba(100,110,255,0.12)]">
                             <div>
                               <div className="text-xs font-bold text-amber-300 uppercase tracking-wider">
                                 Bar-Raiser AI Evaluation
@@ -995,7 +995,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
 
                           {/* Big-O Analysis Card */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="p-3 rounded-xl bg-black/40 border border-white/8 space-y-1">
+                            <div className="p-3 rounded-xl bg-black/40 border border-[rgba(100,110,255,0.12)] space-y-1">
                               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
                                 Time Complexity Verification
                               </span>
@@ -1012,7 +1012,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                               </span>
                             </div>
 
-                            <div className="p-3 rounded-xl bg-black/40 border border-white/8 space-y-1">
+                            <div className="p-3 rounded-xl bg-black/40 border border-[rgba(100,110,255,0.12)] space-y-1">
                               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
                                 Space Complexity Verification
                               </span>
@@ -1110,8 +1110,8 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
       {/* ─── HINT MODAL ──────────────────────────────────────────────────────── */}
       {showHintModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0e1424] border border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/8">
+          <div className="w-full max-w-lg bg-[#101326] border border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[rgba(100,110,255,0.12)]">
               <div className="flex items-center gap-2 text-indigo-300 font-bold text-sm">
                 <Lightbulb className="w-4 h-4 text-amber-400" />
                 <span>Interviewer Progressive Hints</span>
@@ -1145,7 +1145,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
               ))}
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-white/8">
+            <div className="flex items-center justify-between pt-2 border-t border-[rgba(100,110,255,0.12)]">
               <span className="text-[11px] text-slate-500">
                 Revealed {Math.min(activeHintIdx + 1, activeDsaProblem.hints.length)} of {activeDsaProblem.hints.length} hints
               </span>

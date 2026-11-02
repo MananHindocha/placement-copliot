@@ -784,7 +784,7 @@ export default function JobsPage() {
       {/* Loading Skeleton */}
       {loading && jobs.length === 0 ? (
         <div className="flex gap-4">
-          <div className="w-[280px] shrink-0 p-4 rounded-2xl bg-[#0B1120] border border-white/5 space-y-4">
+          <div className="w-[280px] shrink-0 p-4 rounded-2xl bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] space-y-4">
             <div className="h-5 w-24 skeleton mb-2" />
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-2 py-2">
@@ -796,7 +796,7 @@ export default function JobsPage() {
 
           <div className="flex-1 space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="p-4 rounded-2xl bg-[#0B1120] border border-white/5 space-y-3">
+              <div key={i} className="p-4 rounded-2xl bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl skeleton shrink-0" />
                   <div className="space-y-1.5 flex-1">
@@ -812,7 +812,7 @@ export default function JobsPage() {
             ))}
           </div>
 
-          <div className="w-[420px] shrink-0 p-5 rounded-2xl bg-[#0B1120] border border-white/5 space-y-4 hidden xl:block">
+          <div className="w-[420px] shrink-0 p-5 rounded-2xl bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] space-y-4 hidden xl:block">
             <div className="h-6 w-48 skeleton" />
             <div className="h-4 w-32 skeleton" />
             <div className="h-24 w-full skeleton my-4" />
@@ -876,7 +876,7 @@ export default function JobsPage() {
                     <select
                       value={filters.workArrangement}
                       onChange={(e) => updateFilter("workArrangement", e.target.value as JobFilters["workArrangement"])}
-                      className="w-full bg-[#050811] border border-white/8 rounded-lg p-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#050505] border border-white/8 rounded-lg p-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     >
                       <option value="any">Any arrangement</option>
                       <option value="remote">Remote</option>
@@ -1088,8 +1088,8 @@ export default function JobsPage() {
                   className={clsx(
                     "group relative p-4 rounded-2xl border cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50",
                     activeJob?.id === job.id
-                      ? "bg-indigo-500/8 border-indigo-500/30 shadow-lg shadow-indigo-500/5"
-                      : "bg-[#111827] border-white/6 hover:border-white/12 hover:bg-[#131d2e]"
+                      ? "bg-[rgba(27,31,184,0.22)] border-[rgba(69,75,255,0.65)] shadow-lg shadow-[rgba(27,31,184,0.15)]"
+                      : "bg-[#0B0D18] border-[rgba(100,110,255,0.12)] hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/60"
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -1240,7 +1240,7 @@ export default function JobsPage() {
             })}
 
             {filtered.length === 0 && !loading && (
-              <div className="p-12 text-center bg-[#111827] border border-white/6 rounded-2xl">
+              <div className="p-12 text-center bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-2xl">
                 <Globe className="w-10 h-10 text-slate-600 mx-auto mb-3" />
                 <p className="text-sm font-medium text-slate-400">No matching roles found</p>
                 <p className="text-xs text-slate-500 mt-1">

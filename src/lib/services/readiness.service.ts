@@ -7,7 +7,8 @@ import {
   logActivity,
   dispatchCopilotUpdate,
 } from "@/lib/storage-sync";
-import type { ReadinessMilestone, ReadinessDomain } from "@/types";
+import type { ReadinessMilestone, ReadinessDomain, AiGoalRecommendation } from "@/types";
+import { getResumeWorkspace } from "@/lib/services/resume.service";
 import type { ReadinessTaskRow } from "./types";
 
 export async function getReadinessMilestones(): Promise<ReadinessMilestone[]> {
@@ -65,7 +66,7 @@ export async function getReadinessDomains(): Promise<ReadinessDomain[]> {
     const cats = domainCategories[domain.label] || [domain.label.toLowerCase()];
     const inCat = milestones.filter((m) => cats.includes(m.category.toLowerCase()));
     const completedInCat = inCat.filter((m) => m.completed).length;
-    const computedScore = inCat.length > 0 ? Math.round((completedInCat / inCat.length) * 100) : domain.score;
+    const computedScore = inCat.length > 0 ? Math.round((completedInCat / inCat.length) * 100) : 0;
 
     return {
       ...domain,
@@ -200,4 +201,111 @@ export async function deleteReadinessMilestone(id: string): Promise<void> {
   }
 
   dispatchCopilotUpdate("readiness");
+}
+
+const REC_CACHE_KEY = "copilot_ai_readiness_recommendations_v1";
+
+export interface AiRecommendationsResult {
+  recommendations: AiGoalRecommendation[];
+  status: "ready" | "no_resume" | "needs_analysis" | "no_gaps" | "error";
+  targetRole?: string;
+  source?: string;
+  error?: string;
+}
+
+export async function fetchAiGoalRecommendations(
+  forceRefresh = false
+): Promise<AiRecommendationsResult> {
+  try {
+    const workspace = await getResumeWorkspace();
+
+    // Check if user has uploaded a resume
+    const hasRawLocal = typeof window !== "undefined" && Boolean(window.localStorage.getItem("copilot_latest_resume_analysis"));
+    const hasAnalysis = Boolean(workspace.analysis && workspace.analysis.matchScore > 0 && workspace.analysis.jobTitle !== "Upload a resume to begin");
+
+    if (!hasRawLocal && !hasAnalysis && !workspace.editableResume) {
+      return {
+        recommendations: [],
+        status: "no_resume",
+      };
+    }
+
+    if (!hasAnalysis) {
+      return {
+        recommendations: [],
+        status: "needs_analysis",
+      };
+    }
+
+    const targetRole = workspace.analysis.jobTitle || "Software Engineer";
+    const cacheKey = `${targetRole}_${workspace.analysis.matchScore}_${(workspace.analysis.gaps || []).length}`;
+
+    // Check localStorage cache unless forceRefresh
+    if (!forceRefresh && typeof window !== "undefined") {
+      try {
+        const cachedRaw = window.localStorage.getItem(REC_CACHE_KEY);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (cached && cached.cacheKey === cacheKey && Array.isArray(cached.recommendations)) {
+            return {
+              recommendations: cached.recommendations,
+              status: cached.recommendations.length > 0 ? "ready" : "no_gaps",
+              targetRole,
+              source: cached.source || "cached",
+            };
+          }
+        }
+      } catch {}
+    }
+
+    // Call recommendations API
+    const res = await fetch("/api/readiness/recommendations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targetRole,
+        targetCompany: workspace.analysis.company || "",
+        gaps: workspace.analysis.gaps || [],
+        missingKeywords: (workspace.analysis.keywords || []).filter((k) => !k.present).map((k) => k.word),
+        sectionScores: workspace.analysis.sectionScores,
+        suggestions: workspace.analysis.suggestions || [],
+        strengths: workspace.analysis.strengths || [],
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Recommendation API returned HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const recommendations: AiGoalRecommendation[] = data.recommendations || [];
+    const status: AiRecommendationsResult["status"] = data.status || (recommendations.length > 0 ? "ready" : "no_gaps");
+
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(
+          REC_CACHE_KEY,
+          JSON.stringify({
+            cacheKey,
+            recommendations,
+            source: data.source || "live",
+            timestamp: Date.now(),
+          })
+        );
+      } catch {}
+    }
+
+    return {
+      recommendations,
+      status,
+      targetRole,
+      source: data.source,
+    };
+  } catch (err: unknown) {
+    return {
+      recommendations: [],
+      status: "error",
+      error: err instanceof Error ? err.message : "Failed to load AI recommendations.",
+    };
+  }
 }

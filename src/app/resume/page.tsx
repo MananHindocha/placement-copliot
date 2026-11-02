@@ -516,14 +516,14 @@ export default function ResumePage() {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 p-1 bg-[#0B1120] border border-white/8 rounded-xl shrink-0">
+        <div className="flex items-center gap-1 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab("analyse")}
             className={clsx(
               "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
               activeTab === "analyse"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
                 : "text-slate-400 hover:text-white"
             )}
           >
@@ -536,7 +536,7 @@ export default function ResumePage() {
             className={clsx(
               "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
               activeTab === "tailor"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
                 : "text-slate-400 hover:text-white"
             )}
           >
@@ -594,7 +594,7 @@ export default function ResumePage() {
             {/* 4-Pillar ATS Diagnostic Header */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Overall JD Match */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">Role & Keyword Fit</span>
                   <Target className="w-4 h-4 text-indigo-400" />
@@ -615,7 +615,7 @@ export default function ResumePage() {
               </div>
 
               {/* ATS Parsability */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">ATS Readability & Structure</span>
                   <ShieldCheck className="w-4 h-4 text-violet-400" />
@@ -629,7 +629,7 @@ export default function ResumePage() {
               </div>
 
               {/* Quantified Impact */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">Measurable Impact</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -643,7 +643,7 @@ export default function ResumePage() {
               </div>
 
               {/* Action Verb Strength */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">Action Verb Strength</span>
                   <Zap className="w-4 h-4 text-amber-400" />
@@ -668,7 +668,7 @@ export default function ResumePage() {
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                   className={clsx(
-                    "relative border-2 border-dashed rounded-2xl p-6 text-center transition-all bg-[#0B1120]",
+                    "relative border-2 border-dashed rounded-2xl p-6 text-center transition-all bg-[#0B0D18]",
                     dragActive
                       ? "border-indigo-500 bg-indigo-500/10 scale-[1.01]"
                       : "border-white/10 hover:border-indigo-500/40"
@@ -734,7 +734,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Target Role & Collapsible Job Description Bar */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-4 space-y-3">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                       <Target className="w-3.5 h-3.5 text-indigo-400" />
@@ -756,7 +756,7 @@ export default function ResumePage() {
                       value={targetRole}
                       onChange={(e) => setTargetRole(e.target.value)}
                       placeholder="e.g. Frontend Developer, SDE-1"
-                      className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                     <Button
                       type="button"
@@ -781,7 +781,7 @@ export default function ResumePage() {
                         value={targetJd}
                         onChange={(e) => setTargetJd(e.target.value)}
                         placeholder="Paste required skills, requirements or JD text here..."
-                        className="w-full bg-[#050811] border border-white/8 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                       <Button
                         type="button"
@@ -798,7 +798,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Auto-Sync Extracted Skills to Profile & Job Discovery */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-4 space-y-3">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-white">Profile Synchronization</span>
                     <Award className="w-3.5 h-3.5 text-amber-400" />
@@ -822,7 +822,7 @@ export default function ResumePage() {
               {/* Right Column: Strengths, Keyword Gaps & "What to Improve" */}
               <div className="lg:col-span-2 space-y-5">
                 {/* Critical Fixes & Gaps */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-5 space-y-4">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-rose-400" />
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -844,7 +844,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Verified Strengths */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-5 space-y-4">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -866,7 +866,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Keyword Analysis Breakdown */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-5 space-y-3">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
                       Keyword Match Grid ({targetRole})
@@ -928,7 +928,7 @@ export default function ResumePage() {
                   <div
                     key={suggestion.id}
                     className={clsx(
-                      "rounded-2xl border transition-all overflow-hidden bg-[#0B1120]",
+                      "rounded-2xl border transition-all overflow-hidden bg-[#0B0D18]",
                       isApplied
                         ? "border-emerald-500/40 shadow-lg shadow-emerald-500/5"
                         : "border-white/8 hover:border-white/15"
@@ -1017,7 +1017,7 @@ export default function ResumePage() {
                               "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5",
                               isApplied
                                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20"
+                                : "bg-[#1B1FB8] hover:bg-[#292EDB] text-white shadow-md shadow-indigo-500/20"
                             )}
                           >
                             {isApplied ? (
@@ -1041,7 +1041,7 @@ export default function ResumePage() {
             </div>
 
             {/* Right: Live Resume Document Preview Pane */}
-            <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-6 space-y-4">
+            <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/8">
                 <div>
                   <h4 className="text-sm font-semibold text-white">Live Resume Document</h4>

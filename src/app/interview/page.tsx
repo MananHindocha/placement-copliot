@@ -41,7 +41,7 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
       border: "border-indigo-500/20",
       borderHover: "hover:border-indigo-500/50",
       glow: "hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]",
-      iconBg: "bg-indigo-500/15 group-hover:bg-indigo-500/25 border-indigo-500/30",
+      iconBg: "bg-indigo-500/15 group-hover:bg-[#292EDB]/25 border-indigo-500/30",
       iconColor: "text-indigo-400 group-hover:text-indigo-300",
       badgeBg: "bg-indigo-500/10",
       badgeColor: "text-indigo-300",
@@ -120,7 +120,7 @@ export default function InterviewLandingPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12 animate-fadeIn">
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[rgba(100,110,255,0.12)]">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
             <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/25">
@@ -149,7 +149,7 @@ export default function InterviewLandingPage() {
             <Link
               key={mode.number}
               href={mode.route}
-              className={`group block relative rounded-2xl bg-[#111827] border ${mode.accent.border} ${mode.accent.borderHover} ${mode.accent.glow} p-6 transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#131c33] cursor-pointer`}
+              className={`group block relative rounded-2xl bg-[#0B0D18] border ${mode.accent.border} ${mode.accent.borderHover} ${mode.accent.glow} p-6 transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#151A35] cursor-pointer`}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
                 {/* Left Section: Icon & Numbered Indicator */}

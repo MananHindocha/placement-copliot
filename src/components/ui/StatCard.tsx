@@ -27,27 +27,27 @@ const ICONS: Record<string, LucideIcon> = {
 
 const colorMap: Record<string, { bg: string; icon: string; delta: string }> = {
   indigo: {
-    bg: "bg-indigo-500/15 border-indigo-500/20",
-    icon: "text-indigo-400",
-    delta: "text-indigo-400",
+    bg: "bg-[rgba(27,31,184,0.20)] border-[rgba(100,110,255,0.28)]",
+    icon: "text-[#777CFF]",
+    delta: "text-[#777CFF]",
   },
   emerald: {
-    bg: "bg-emerald-500/15 border-emerald-500/20",
+    bg: "bg-emerald-500/15 border-emerald-500/25",
     icon: "text-emerald-400",
     delta: "text-emerald-400",
   },
   amber: {
-    bg: "bg-amber-500/15 border-amber-500/20",
+    bg: "bg-amber-500/15 border-amber-500/25",
     icon: "text-amber-400",
     delta: "text-amber-400",
   },
   rose: {
-    bg: "bg-rose-500/15 border-rose-500/20",
+    bg: "bg-rose-500/15 border-rose-500/25",
     icon: "text-rose-400",
     delta: "text-rose-400",
   },
   violet: {
-    bg: "bg-violet-500/15 border-violet-500/20",
+    bg: "bg-violet-500/15 border-violet-500/25",
     icon: "text-violet-400",
     delta: "text-violet-400",
   },
@@ -58,11 +58,11 @@ export default function StatCard({ label, value, delta, deltaPositive, icon, col
   const c = colorMap[color] ?? colorMap.indigo;
 
   return (
-    <div className="bg-[#111827] border border-white/6 rounded-2xl p-5 hover:border-white/12 transition-all duration-200 hover:shadow-lg hover:shadow-black/20">
+    <div className="bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-2xl p-5 hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/40 transition-all duration-200 hover:shadow-xl hover:shadow-[rgba(27,31,184,0.10)]">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-400 font-medium">{label}</p>
-          <p className="text-3xl font-bold text-white mt-1.5">{value}</p>
+          <p className="text-sm text-[#A2A7C0] font-medium">{label}</p>
+          <p className="text-3xl font-bold text-[#F5F6FF] mt-1.5">{value}</p>
           {delta && (
             <p
               className={clsx(
