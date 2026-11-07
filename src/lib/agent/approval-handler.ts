@@ -66,24 +66,49 @@ function getOrCreateInitialResume(userId: string): ResumeDocument {
 /**
  * Resolves a pending agent approval (APPROVED | REJECTED).
  * When approved with action_type === 'RESUME_DIFF', groundedly mutates the user's master resume.
+ * Polymorphic signature supports both:
+ * - (userId, approvalId, decision, supabase) [Track 2 Test Harness]
+ * - (approvalId, decision, userId, supabase) [Orchestrator Route]
  */
 export async function resolveAgentApproval(
-  userId: string,
-  approvalId: string,
-  decision: "APPROVED" | "REJECTED",
+  param1: string,
+  param2: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase?: any
+  param3?: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  param4?: any
 ): Promise<{
   success: boolean;
   decision: "APPROVED" | "REJECTED";
   approvalId: string;
   appliedChangesSummary: string;
+  message?: string;
   data: {
     approval: AgentApprovalRecord;
     updatedResume?: ResumeDocument;
     runStatus?: string;
   };
 }> {
+  let userId: string;
+  let approvalId: string;
+  let decision: "APPROVED" | "REJECTED";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let supabase: any;
+
+  if (param2 === "APPROVED" || param2 === "REJECTED") {
+    // Signature: (approvalId, decision, userId, supabase)
+    approvalId = param1;
+    decision = param2 as "APPROVED" | "REJECTED";
+    userId = typeof param3 === "string" ? param3 : "guest-demo-user";
+    supabase = param4;
+  } else {
+    // Signature: (userId, approvalId, decision, supabase)
+    userId = param1;
+    approvalId = param2;
+    decision = param3 as "APPROVED" | "REJECTED";
+    supabase = param4;
+  }
+
   if (!userId || !approvalId || !decision) {
     throw new Error("Invalid arguments: userId, approvalId, and decision are required.");
   }
@@ -286,6 +311,7 @@ export async function resolveAgentApproval(
     decision,
     approvalId,
     appliedChangesSummary,
+    message: appliedChangesSummary,
     data: {
       approval: updatedApproval,
       updatedResume,

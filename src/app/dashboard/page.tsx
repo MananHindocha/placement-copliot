@@ -19,9 +19,14 @@ import {
   Sparkles,
   CalendarCheck,
   Clock,
+  Bot,
+  Zap,
+  ShieldAlert,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
+import { useAgent } from "@/context/AgentProvider";
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   application: Send,
@@ -89,6 +94,9 @@ export default function DashboardPage() {
     : "Student";
 
   const scheduledInterviewsCount = data?.upcomingInterviews.length || 0;
+  const { runs, activeRun, pendingApprovalsCount, bluffRiskCount, isExecuting, openDrawer, triggerAgent } = useAgent();
+
+  const latestRunSummary = activeRun?.final_summary || runs[0]?.goal || "Continuous digital-twin alignment active.";
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -100,6 +108,84 @@ export default function DashboardPage() {
           onRetry={loadData}
         />
       )}
+
+      {/* Autonomous Placement Command Center */}
+      <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-[#0c0d18] via-[#121633] to-[#0a0c16] p-5 shadow-2xl backdrop-blur-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
+                <Bot className="h-4 w-4" />
+              </span>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Autonomous Placement Command Center
+              </h3>
+              <span
+                className={clsx(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border",
+                  isExecuting
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                    : "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                )}
+              >
+                <span
+                  className={clsx(
+                    "h-1.5 w-1.5 rounded-full",
+                    isExecuting ? "bg-amber-400 animate-ping" : "bg-emerald-400"
+                  )}
+                />
+                {isExecuting ? "Agent Executing..." : "Agent Brain Standby"}
+              </span>
+
+              {bluffRiskCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
+                  <ShieldAlert className="h-3 w-3" />
+                  {bluffRiskCount} Bluff Risks Detected
+                </span>
+              )}
+
+              {pendingApprovalsCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-300 animate-pulse">
+                  <Clock className="h-3 w-3" />
+                  {pendingApprovalsCount} Action Requires Approval
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-300/90 max-w-2xl">
+              <span className="text-indigo-400 font-semibold">Latest Reasoning: </span>
+              {latestRunSummary}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={() =>
+                triggerAgent({
+                  triggerType: "USER_GOAL_SUBMITTED",
+                  entityId: "dashboard-quick-diag",
+                  goalPrompt: "Run rapid multi-module placement readiness diagnosis and align sprint tasks.",
+                  autoOpenDrawer: true,
+                })
+              }
+              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Zap className="h-3.5 w-3.5 text-indigo-400" />
+              <span>⚡ Rapid Diagnostic</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openDrawer}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-500 hover:to-cyan-400 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Inspect Agent Brain</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Welcome banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[rgba(27,31,184,0.25)] via-[rgba(27,31,184,0.10)] to-transparent border border-[rgba(100,110,255,0.22)] p-6 shadow-xl">

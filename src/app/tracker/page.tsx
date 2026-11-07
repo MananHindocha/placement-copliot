@@ -32,8 +32,10 @@ import {
   Send,
   Briefcase,
   Award,
+  Zap,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { useAgent } from "@/context/AgentProvider";
 
 // ─── Stage Definitions ────────────────────────────────────────────────────────
 
@@ -175,6 +177,7 @@ export default function TrackerPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const router = useRouter();
+  const { triggerAgent } = useAgent();
 
   const handlePracticeInterview = (card: KanbanCard) => {
     if (typeof window !== "undefined") {
@@ -266,6 +269,16 @@ export default function TrackerPage() {
     try {
       await updateApplicationStatus(cardId, targetStatus);
       showToast(`Moved ${currentCard.company} to ${targetStatus}`);
+
+      // If moving to an active interview or screening round, trigger the agent prep workflow
+      if (targetStatus === "Interview" || targetStatus === "Phone Screen") {
+        triggerAgent({
+          triggerType: "KANBAN_MOVED_TO_INTERVIEW",
+          entityId: cardId,
+          goalPrompt: `Application for ${currentCard.company} (${currentCard.title}) moved to ${targetStatus}. Analyze required technical skills, detect gaps in my digital twin, and inject a tailored 3-day readiness sprint.`,
+          autoOpenDrawer: true,
+        }).catch(console.error);
+      }
     } catch (err: unknown) {
       loadCards();
       setError(err instanceof Error ? err.message : "Failed to update status.");
@@ -285,6 +298,15 @@ export default function TrackerPage() {
       showToast(`Updated to ${newStat}`);
       if (selectedCard?.id === cardId) {
         setSelectedCard((prev) => (prev ? { ...prev, status: newStat } : null));
+      }
+
+      if (newStat === "Interview" || newStat === "Phone Screen") {
+        triggerAgent({
+          triggerType: "KANBAN_MOVED_TO_INTERVIEW",
+          entityId: cardId,
+          goalPrompt: `Application for ${card.company} (${card.title}) moved to ${newStat}. Analyze required technical skills, detect gaps in my digital twin, and inject a tailored 3-day readiness sprint.`,
+          autoOpenDrawer: true,
+        }).catch(console.error);
       }
     } catch {
       loadCards();
@@ -670,6 +692,24 @@ export default function TrackerPage() {
                             </span>
                           </div>
                         )}
+
+                        {/* Quick 1-Click Agent Sprint Prep */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            triggerAgent({
+                              triggerType: "KANBAN_MOVED_TO_INTERVIEW",
+                              entityId: card.id,
+                              goalPrompt: `Prepare tailored interview readiness sprint for ${card.company} (${card.title}).`,
+                              autoOpenDrawer: true,
+                            }).catch(console.error);
+                          }}
+                          className="mt-2 w-full py-1 px-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-[10px] font-semibold text-indigo-300 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Zap className="w-3 h-3 text-indigo-400" />
+                          <span>⚡ Run Agent Prep</span>
+                        </button>
                       </div>
                     );
                   })}

@@ -57,8 +57,10 @@ import {
   ArrowRight,
   BrainCircuit,
   Flame,
+  ShieldAlert,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { useAgent } from "@/context/AgentProvider";
 import { VisualTelemetryAnalyzer, type VisualPostureState } from "@/lib/visual-telemetry";
 import {
   type StudioQuestion,
@@ -138,6 +140,7 @@ export default function InterviewStudioStage({
   const [nonDsaWorkspaceTab, setNonDsaWorkspaceTab] = useState<"verbal" | "ide">("verbal");
 
   // ─── Active Turn & Response State ───────────────────────────────────────────
+  const { digitalTwin, bluffRiskCount, triggerAgent } = useAgent();
   const [response, setResponse] = useState("");
   const [codeSnippet, setCodeSnippet] = useState("");
   const [showScorecardModal, setShowScorecardModal] = useState(false);
@@ -837,6 +840,14 @@ export default function InterviewStudioStage({
       const updated = await getPastInterviewSessions();
       setSessions(updated);
       setTimeout(() => setSaveSuccessMsg(null), 4000);
+
+      // Autonomous Digital Twin update: Feed verified interview evidence to agent
+      triggerAgent({
+        triggerType: "MOCK_INTERVIEW_COMPLETED",
+        entityId: activeQuestion.id || "interview-session",
+        goalPrompt: `Update student digital twin skill evidence matrix based on ${selectedRole} interview performance (Score: ${evalResult.overallScore}/100).`,
+        autoOpenDrawer: false,
+      }).catch(console.error);
     } catch {
       setError("Failed to record interview session.");
     }
@@ -958,6 +969,24 @@ export default function InterviewStudioStage({
 
       {/* Optional Mode Header Slot (e.g. GitHub Analyzer - UNBLURRED so candidate can analyze repo before starting) */}
       {headerSlot && <div className="mb-6">{headerSlot}</div>}
+
+      {/* Adaptive Targeting Alert if candidate has unverified bluff risks */}
+      {bluffRiskCount > 0 && (
+        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-between gap-3 text-xs text-rose-300">
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+            <div>
+              <span className="font-bold text-white">AI Bar-Raiser Adaptive Targeting Active: </span>
+              <span>
+                {bluffRiskCount} claimed resume skill{bluffRiskCount > 1 ? "s have" : " has"} low verification evidence in your Digital Twin. The interviewer will specifically stress-test these topics.
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-200 border border-rose-500/30 shrink-0">
+            Audit Mode
+          </span>
+        </div>
+      )}
 
       {/* ─── MAIN INTERVIEW WORKSPACE (BLURRED DURING PRE-START) ─────────────── */}
       <div className="relative">

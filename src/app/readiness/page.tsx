@@ -40,8 +40,11 @@ import {
   Check,
   Briefcase,
   HelpCircle,
+  Bot,
 } from "lucide-react";
 import { clsx } from "clsx";
+import DigitalTwinMatrix from "@/components/agent/DigitalTwinMatrix";
+import MultiCompanyOverlapCard from "@/components/agent/MultiCompanyOverlapCard";
 
 const DOMAIN_ICONS: Record<string, React.ElementType> = {
   FileText,
@@ -117,6 +120,14 @@ function MilestoneRow({
           <Badge variant={PRIORITY_BADGE[milestone.priority]} size="sm">
             {milestone.priority}
           </Badge>
+          {(milestone.title.includes("[Agent Sprint") ||
+            (milestone.category as string) === "Sprint" ||
+            milestone.description?.toLowerCase().includes("agent")) && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-300 shadow-sm animate-fadeIn">
+              <Bot className="w-3 h-3 text-cyan-400" />
+              <span>🤖 Agent Injected</span>
+            </span>
+          )}
           <div className={clsx("flex items-center gap-1 text-xs", config.color)}>
             <Icon className="w-3 h-3" />
             {config.label}
@@ -443,6 +454,12 @@ export default function ReadinessPage() {
                 ))}
               </div>
             </Card>
+          </div>
+
+          {/* Autonomous Agent Intelligence Layer */}
+          <div className="space-y-6">
+            <DigitalTwinMatrix />
+            <MultiCompanyOverlapCard />
           </div>
 
           {/* Main Grid: Domain Breakdown + Milestones Roadmap */}

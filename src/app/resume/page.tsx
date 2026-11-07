@@ -16,6 +16,7 @@ import { addReadinessMilestone } from "@/lib/services/readiness.service";
 import type { ResumeAnalysis, ParsedResumeDocument, ResumeEntry } from "@/types";
 import { getResumeBulletTargets, replaceResumeBullet } from "@/lib/resume/parser";
 import { printIsolatedResume, downloadDirectPdf } from "@/lib/resume/pdf-export";
+import ResumeDiffApprovalCard from "@/components/agent/ResumeDiffApprovalCard";
 import {
   Upload,
   FileText,
@@ -482,6 +483,9 @@ export default function ResumePage() {
           onRetry={loadInitialAnalysis}
         />
       )}
+
+      {/* Autonomous Agent HITL Resume Diff Stager */}
+      <ResumeDiffApprovalCard onResolved={loadInitialAnalysis} />
 
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
