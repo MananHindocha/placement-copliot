@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { triggerAgentEventAsync } from "@/lib/agent/orchestrator";
 import type {
   InterviewEvaluationRequest,
   InterviewEvaluationResponse,
@@ -675,18 +676,31 @@ export async function POST(req: NextRequest) {
 
     // 1. Try Engine 1: Groq (Llama 3.3 70B)
     const groqResult = await evaluateWithGroq(payload, fallback);
-    if (groqResult) {
-      return NextResponse.json(groqResult);
-    }
 
     // 2. Try Engine 2: Gemini 2.0 Flash
-    const geminiResult = await evaluateWithGemini(payload, fallback);
-    if (geminiResult) {
-      return NextResponse.json(geminiResult);
+    const geminiResult = !groqResult ? await evaluateWithGemini(payload, fallback) : null;
+
+    // 3. Guaranteed final response (Groq -> Gemini -> Deterministic Fallback)
+    const finalResponse = groqResult || geminiResult || fallback;
+
+    // Non-blocking trigger for autonomous placement agent (Track 3)
+    try {
+      triggerAgentEventAsync({
+        userId: "guest-demo-user",
+        triggerType: "MOCK_INTERVIEW_COMPLETED",
+        entityId: payload.questionId || "interview-eval",
+        goalPrompt: `Candidate completed mock interview evaluation for ${payload.role || "technical role"} with score ${finalResponse.overallScore}%. Calibrate skill evidence and update readiness sprints.`,
+        metadata: {
+          score: finalResponse.overallScore,
+          topic: payload.role || "Technical Interview",
+          questionText: payload.questionText?.slice(0, 100),
+        },
+      });
+    } catch {
+      // Non-blocking: never interrupt response
     }
 
-    // 3. Guaranteed Deterministic Heuristic Fallback
-    return NextResponse.json(fallback);
+    return NextResponse.json(finalResponse);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal evaluation error";
     console.error("[Evaluation Route Error]:", message);
