@@ -75,6 +75,9 @@ export async function updateApplicationStatus(
         type: "application",
         message: `Moved ${target.company} to ${newStatus}`,
       });
+      notifyAgentOnStatusChange(id, newStatus, target.company, target.title);
+    } else {
+      notifyAgentOnStatusChange(id, newStatus);
     }
     return;
   }
@@ -97,6 +100,42 @@ export async function updateApplicationStatus(
   }
 
   dispatchCopilotUpdate("applications");
+
+  // Non-blocking trigger for interview prep calibration
+  notifyAgentOnStatusChange(id, newStatus);
+}
+
+/**
+ * Non-blocking autonomous placement agent event dispatcher.
+ * Triggers background interview gap analysis & readiness sprint injection.
+ */
+function notifyAgentOnStatusChange(
+  id: string,
+  newStatus: KanbanStatus,
+  companyName?: string,
+  jobTitle?: string
+): void {
+  if (newStatus === "Interview" || newStatus === "Phone Screen") {
+    if (typeof window !== "undefined") {
+      fetch("/api/agent/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          triggerType: "KANBAN_MOVED_TO_INTERVIEW",
+          entityId: id,
+          goalPrompt: `Application for ${companyName || "company"} (${jobTitle || "role"}) moved to ${newStatus}. Analyze interview gaps, inject readiness sprint, and stage resume keywords.`,
+          metadata: {
+            applicationId: id,
+            status: newStatus,
+            company: companyName,
+            title: jobTitle,
+          },
+        }),
+      }).catch((err) => {
+        console.warn("[Agent Trigger] Non-blocking call failed:", err);
+      });
+    }
+  }
 }
 
 export async function addApplication(
