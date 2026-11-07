@@ -208,6 +208,13 @@ export type KanbanCard = {
   sourceUrl?: string;
   closingDate?: string;
   deadlineProvenance?: DeadlineProvenance;
+  externalJobId?: string;
+  jobSource?: string;
+  jobType?: string;
+  postedDate?: string;
+  companyLogo?: string | null;
+  description?: string;
+  skills?: string[];
 };
 
 // ─── Interview ───────────────────────────────────────────────────────────────
@@ -399,5 +406,16 @@ export type ReadinessDomain = {
   color: string;
   icon: string;
 };
+
+export interface AiGoalRecommendation {
+  id: string;
+  title: string;
+  category: ReadinessMilestone["category"];
+  priority: "high" | "medium" | "low";
+  reason: string;
+  suggestedAction: string;
+  finding: string;
+  targetRole?: string;
+}
 
 export type { DsaOaProblem, DsaTopic, DsaTestCase } from "@/lib/dsa-oa-questions";

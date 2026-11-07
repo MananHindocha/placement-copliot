@@ -15,12 +15,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="h-full flex antialiased">
+    <html lang="en" className="h-full bg-black">
+      <body className="h-full flex antialiased bg-black text-[#F5F6FF]">
         <Sidebar />
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-black">
           <Topbar />
-          <main className="flex-1 overflow-y-auto bg-[#060d1a] p-6">
+          <main className="flex-1 overflow-y-auto bg-black p-4 sm:p-6">
             {children}
           </main>
         </div>

@@ -35,18 +35,37 @@ export function dispatchCopilotUpdate(source: string): void {
 
 // ─── Applications (Kanban) Storage ───────────────────────────────────────────
 
+const KNOWN_DEMO_CARD_IDS = new Set(["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"]);
+
+function isDemoFixture(card: KanbanCard): boolean {
+  if (!card) return false;
+  if (KNOWN_DEMO_CARD_IDS.has(card.id)) return true;
+  const match = card.id.match(/^k(d+)$/);
+  if (match && Number(match[1]) <= 8) return true;
+  return false;
+}
+
 export function getStoredApplications(): KanbanCard[] {
-  if (!isBrowser()) return [...KANBAN_CARDS];
+  if (!isBrowser()) return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
     if (!raw) {
-      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(KANBAN_CARDS));
-      return [...KANBAN_CARDS];
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...KANBAN_CARDS];
+    if (!Array.isArray(parsed)) {
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify([]));
+      return [];
+    }
+    // Clean up known legacy demo fixtures without deleting genuine user-created applications
+    const cleaned = parsed.filter((c) => !isDemoFixture(c));
+    if (cleaned.length !== parsed.length) {
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
-    return [...KANBAN_CARDS];
+    return [];
   }
 }
 
@@ -62,18 +81,37 @@ export function setStoredApplications(cards: KanbanCard[]): void {
 
 // ─── Readiness Tasks Storage ─────────────────────────────────────────────────
 
+const KNOWN_DEMO_MILESTONE_IDS = new Set(["rm1", "rm2", "rm3", "rm4", "rm5", "rm6", "rm7", "rm8"]);
+
+function isDemoMilestone(milestone: ReadinessMilestone): boolean {
+  if (!milestone) return false;
+  if (KNOWN_DEMO_MILESTONE_IDS.has(milestone.id)) return true;
+  const match = milestone.id.match(/^rm(\d+)$/);
+  if (match && Number(match[1]) <= 8) return true;
+  return false;
+}
+
 export function getStoredReadinessMilestones(): ReadinessMilestone[] {
-  if (!isBrowser()) return [...READINESS_MILESTONES];
+  if (!isBrowser()) return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.READINESS);
     if (!raw) {
-      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(READINESS_MILESTONES));
-      return [...READINESS_MILESTONES];
+      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...READINESS_MILESTONES];
+    if (!Array.isArray(parsed)) {
+      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify([]));
+      return [];
+    }
+    // Clean up known legacy demo fixtures without deleting genuine user-created milestones
+    const cleaned = parsed.filter((m) => !isDemoMilestone(m));
+    if (cleaned.length !== parsed.length) {
+      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
-    return [...READINESS_MILESTONES];
+    return [];
   }
 }
 

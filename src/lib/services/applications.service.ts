@@ -106,11 +106,13 @@ export async function addApplication(
 
   if (mode === "demo") {
     const current = getStoredApplications();
-    // Deduplicate: check if company and title match
+    // Deduplicate: check if externalJobId, URL, or company + title match
     const existingIndex = current.findIndex(
       (c) =>
-        c.company.trim().toLowerCase() === card.company.trim().toLowerCase() &&
-        c.title.trim().toLowerCase() === card.title.trim().toLowerCase()
+        (card.externalJobId && c.externalJobId && c.externalJobId === card.externalJobId) ||
+        (card.url && c.url && c.url === card.url) ||
+        (c.company.trim().toLowerCase() === card.company.trim().toLowerCase() &&
+          c.title.trim().toLowerCase() === card.title.trim().toLowerCase())
     );
 
     if (existingIndex >= 0) {

@@ -251,95 +251,7 @@ export const JOBS: Job[] = [
 
 // ─── Kanban Cards ────────────────────────────────────────────────────────────
 
-export const KANBAN_CARDS: KanbanCard[] = [
-  {
-    id: "k1",
-    title: "Software Engineer II",
-    company: "Stripe",
-    logo: "S",
-    status: "Interview",
-    appliedDate: "Oct 10, 2026",
-    nextStep: "Technical Interview",
-    nextStepDate: "Oct 22, 2026",
-    matchScore: 91,
-    priority: "high",
-    notes: "Prep system design + payments domain",
-  },
-  {
-    id: "k2",
-    title: "Frontend Engineer",
-    company: "Notion",
-    logo: "N",
-    status: "Phone Screen",
-    appliedDate: "Oct 12, 2026",
-    nextStep: "HR Call",
-    nextStepDate: "Oct 21, 2026",
-    matchScore: 87,
-    priority: "high",
-  },
-  {
-    id: "k3",
-    title: "Full Stack Engineer",
-    company: "Linear",
-    logo: "L",
-    status: "Applied",
-    appliedDate: "Oct 14, 2026",
-    matchScore: 84,
-    priority: "medium",
-  },
-  {
-    id: "k4",
-    title: "Product Engineer",
-    company: "Vercel",
-    logo: "V",
-    status: "Wishlist",
-    matchScore: 79,
-    priority: "medium",
-  },
-  {
-    id: "k5",
-    title: "SWE Intern",
-    company: "Figma",
-    logo: "F",
-    status: "Applied",
-    appliedDate: "Oct 8, 2026",
-    matchScore: 76,
-    priority: "low",
-  },
-  {
-    id: "k6",
-    title: "Backend Engineer",
-    company: "PlanetScale",
-    logo: "P",
-    status: "Wishlist",
-    matchScore: 72,
-    priority: "low",
-  },
-  {
-    id: "k7",
-    title: "Software Engineer",
-    company: "Shopify",
-    logo: "Sh",
-    status: "Offer",
-    appliedDate: "Sep 28, 2026",
-    nextStep: "Deadline to Accept",
-    nextStepDate: "Oct 28, 2026",
-    matchScore: 88,
-    priority: "high",
-    notes: "Offer: $155k base + equity. Deadline Oct 28.",
-  },
-  {
-    id: "k8",
-    title: "Platform Engineer",
-    company: "Cloudflare",
-    logo: "Cf",
-    status: "Rejected",
-    appliedDate: "Sep 20, 2026",
-    matchScore: 68,
-    priority: "low",
-    notes: "Rejected after 2nd round. Strengthen systems knowledge.",
-  },
-];
+export const KANBAN_CARDS: KanbanCard[] = [];
 
 // ─── Interview Questions ──────────────────────────────────────────────────────
 
@@ -469,87 +381,14 @@ export const INTERVIEW_SESSIONS: InterviewSession[] = [
 
 // ─── Readiness ───────────────────────────────────────────────────────────────
 
-export const READINESS_MILESTONES: ReadinessMilestone[] = [
-  {
-    id: "rm1",
-    category: "resume",
-    title: "Tailor resume for 3 target roles",
-    description: "Use the Resume Screener to achieve 85%+ match on 3 target JDs.",
-    completed: true,
-    dueDate: "Oct 15, 2026",
-    priority: "high",
-  },
-  {
-    id: "rm2",
-    category: "resume",
-    title: "Add quantified impact to all experience bullets",
-    description: "Every bullet should have a metric (%, $, ×, users, etc.).",
-    completed: true,
-    dueDate: "Oct 10, 2026",
-    priority: "high",
-  },
-  {
-    id: "rm3",
-    category: "skills",
-    title: "Complete 10 LeetCode mediums (Arrays/Strings)",
-    description: "Focus on sliding window, two pointers, and hash maps.",
-    completed: false,
-    dueDate: "Oct 28, 2026",
-    priority: "high",
-  },
-  {
-    id: "rm4",
-    category: "interview",
-    title: "Complete 5 mock behavioural interviews",
-    description: "Score ≥ 80 on at least 3 of them.",
-    completed: false,
-    dueDate: "Oct 25, 2026",
-    priority: "high",
-  },
-  {
-    id: "rm5",
-    category: "network",
-    title: "Reach out to 5 employees at target companies",
-    description: "Send a personalised LinkedIn note or cold email.",
-    completed: false,
-    dueDate: "Oct 22, 2026",
-    priority: "medium",
-  },
-  {
-    id: "rm6",
-    category: "applications",
-    title: "Apply to 30 roles in 4 weeks",
-    description: "Prioritise roles with 80%+ match score.",
-    completed: false,
-    dueDate: "Nov 1, 2026",
-    priority: "high",
-  },
-  {
-    id: "rm7",
-    category: "skills",
-    title: "Complete System Design primer",
-    description: "Cover: load balancing, caching, DB sharding, CAP theorem.",
-    completed: true,
-    dueDate: "Oct 12, 2026",
-    priority: "medium",
-  },
-  {
-    id: "rm8",
-    category: "network",
-    title: "Attend 1 tech meetup or career fair",
-    description: "Collect at least 3 business cards or LinkedIn connections.",
-    completed: true,
-    dueDate: "Oct 18, 2026",
-    priority: "low",
-  },
-];
+export const READINESS_MILESTONES: ReadinessMilestone[] = [];
 
 export const READINESS_DOMAINS: ReadinessDomain[] = [
-  { label: "Resume", score: 90, color: "#6366F1", icon: "FileText" },
-  { label: "Skills", score: 62, color: "#10B981", icon: "Code2" },
-  { label: "Networking", score: 55, color: "#F59E0B", icon: "Users" },
-  { label: "Interviews", score: 78, color: "#8B5CF6", icon: "MessageSquare" },
-  { label: "Applications", score: 80, color: "#EC4899", icon: "Send" },
+  { label: "Resume", score: 0, color: "#6366F1", icon: "FileText" },
+  { label: "Skills", score: 0, color: "#10B981", icon: "Code2" },
+  { label: "Networking", score: 0, color: "#F59E0B", icon: "Users" },
+  { label: "Interviews", score: 0, color: "#8B5CF6", icon: "MessageSquare" },
+  { label: "Applications", score: 0, color: "#EC4899", icon: "Send" },
 ];
 
 // ─── Demo User Skills (for filter auto-population) ──────────────────────────

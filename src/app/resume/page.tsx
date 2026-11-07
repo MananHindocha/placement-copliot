@@ -15,6 +15,7 @@ import { setUserSkills, getUserSkills } from "@/lib/services/jobs.service";
 import { addReadinessMilestone } from "@/lib/services/readiness.service";
 import type { ResumeAnalysis, ParsedResumeDocument, ResumeEntry } from "@/types";
 import { getResumeBulletTargets, replaceResumeBullet } from "@/lib/resume/parser";
+import { printIsolatedResume, downloadDirectPdf } from "@/lib/resume/pdf-export";
 import {
   Upload,
   FileText,
@@ -32,6 +33,7 @@ import {
   Cpu,
   RefreshCw,
   Printer,
+  Download,
   AlertCircle,
   ShieldCheck,
   Award,
@@ -114,10 +116,41 @@ export default function ResumePage() {
   // File Upload & Input State
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [targetRole, setTargetRole] = useState("Software Engineer");
-  const [targetJd, setTargetJd] = useState("");
-  const [isJdOpen, setIsJdOpen] = useState(false);
+  const [targetRole, setTargetRole] = useState(() => {
+    if (typeof window === "undefined") return "Software Engineer";
+    try {
+      const raw = window.sessionStorage.getItem("copilot_target_jd_handoff");
+      if (raw) {
+        const handoff = JSON.parse(raw);
+        if (handoff.targetRole) return handoff.targetRole;
+      }
+    } catch {}
+    return "Software Engineer";
+  });
+  const [targetJd, setTargetJd] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = window.sessionStorage.getItem("copilot_target_jd_handoff");
+      if (raw) {
+        const handoff = JSON.parse(raw);
+        if (handoff.jobDescription) return handoff.jobDescription;
+      }
+    } catch {}
+    return "";
+  });
+  const [isJdOpen, setIsJdOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.sessionStorage.getItem("copilot_target_jd_handoff");
+      if (raw) {
+        const handoff = JSON.parse(raw);
+        if (handoff.jobDescription) return true;
+      }
+    } catch {}
+    return false;
+  });
   const [diagnosticTip, setDiagnosticTip] = useState<string | null>(null);
+  const [engineSource, setEngineSource] = useState<"gemini" | "groq" | "heuristic" | null>(null);
   const [pythonParserActive, setPythonParserActive] = useState<boolean | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -132,7 +165,7 @@ export default function ResumePage() {
 
   const handleAddGapsToReadiness = async () => {
     if (!analysis) return;
-    const missing = analysis.keywords.filter((k) => !k.present).map((k: any) => k.keyword || k.word);
+    const missing = analysis.keywords.filter((k) => !k.present).map((k) => k.word);
     const toAdd = missing.length > 0 ? missing.slice(0, 8) : analysis.gaps.slice(0, 5);
 
     if (toAdd.length === 0) return;
@@ -175,18 +208,15 @@ export default function ResumePage() {
   };
 
   useEffect(() => {
-    // Check if coming from jobs with handoff
+    // Notify if handoff was loaded into initial state
     const handoffRaw = typeof window !== "undefined" ? window.sessionStorage.getItem("copilot_target_jd_handoff") : null;
     if (handoffRaw) {
       try {
         const handoff = JSON.parse(handoffRaw);
-        if (handoff.targetRole) setTargetRole(handoff.targetRole);
-        if (handoff.jobDescription) {
-          setTargetJd(handoff.jobDescription);
-          setIsJdOpen(true);
-        }
         window.sessionStorage.removeItem("copilot_target_jd_handoff");
-        showToast(`Loaded job requirements for ${handoff.targetRole}!`);
+        if (handoff.targetRole) {
+          setTimeout(() => showToast(`Loaded job requirements for ${handoff.targetRole}!`), 0);
+        }
       } catch {}
     }
 
@@ -249,6 +279,7 @@ export default function ResumePage() {
       setEditableResume(result.analysis.parsedResume || null);
       setPythonParserActive(result.pythonParserActive);
       setDiagnosticTip(result.diagnosticTip || null);
+      setEngineSource(result.source);
       setAppliedSuggestions(new Set());
 
       if (result.analysis.suggestions.length > 0) {
@@ -281,6 +312,7 @@ export default function ResumePage() {
         setAnalysis(res.analysis);
         setEditableResume(res.analysis.parsedResume || null);
         setDiagnosticTip(res.diagnosticTip || null);
+        setEngineSource(res.source);
         showToast("Re-evaluated resume against new role & JD!");
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Re-evaluation failed.");
@@ -372,45 +404,26 @@ export default function ResumePage() {
     }
 
     setError(null);
-    const printSheet = document.getElementById("resume-print-sheet");
-    if (!printSheet) {
-      setError("The resume preview is unavailable. Reopen the Tailor Workspace and try again.");
+    try {
+      printIsolatedResume(editableResume);
+    } catch {
+      setError("Your browser could not open the PDF print dialog. Try again or use the Download PDF button.");
+    }
+  };
+
+  const handleDownloadVectorPdf = () => {
+    if (!editableResume) {
+      setError("Upload a resume before downloading as PDF.");
       return;
     }
-    const originalTitle = document.title;
-    const candidate = editableResume.candidateName.trim().replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, "_");
-    document.title = candidate ? `${candidate}_Tailored_Resume` : "Tailored_Resume";
-    const printAncestors: HTMLElement[] = [];
-    let ancestor = printSheet.parentElement;
-    while (ancestor && ancestor !== document.body) {
-      ancestor.classList.add("resume-print-ancestor");
-      printAncestors.push(ancestor);
-      ancestor = ancestor.parentElement;
+
+    setError(null);
+    try {
+      downloadDirectPdf(editableResume);
+      showToast("Downloaded tailored vector PDF directly!");
+    } catch {
+      setError("Could not generate vector PDF. Use the Save / Print PDF button instead.");
     }
-    document.body.classList.add("resume-printing");
-    let restored = false;
-    const restorePrintState = () => {
-      if (restored) return;
-      restored = true;
-      document.title = originalTitle;
-      document.body.classList.remove("resume-printing");
-      printAncestors.forEach((element) => element.classList.remove("resume-print-ancestor"));
-      window.removeEventListener("afterprint", restorePrintState);
-    };
-    window.addEventListener("afterprint", restorePrintState);
-
-    const focusedEditor = document.activeElement;
-    if (focusedEditor instanceof HTMLElement && focusedEditor.closest("#resume-print-sheet")) focusedEditor.blur();
-
-    window.requestAnimationFrame(() => {
-      try {
-        window.print();
-        window.setTimeout(restorePrintState, 60_000);
-      } catch {
-        restorePrintState();
-        setError("Your browser could not open the PDF print dialog. Try again or use your browser’s Print command.");
-      }
-    });
   };
 
   const matchScore = analysis?.matchScore ?? 82;
@@ -473,11 +486,29 @@ export default function ResumePage() {
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
             Resume Screener & Tailor
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
               XYZ Formula Engine
             </span>
+            {engineSource === "gemini" && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                Gemini AI Active
+              </span>
+            )}
+            {engineSource === "groq" && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-cyan-400" />
+                Groq AI Active
+              </span>
+            )}
+            {engineSource === "heuristic" && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                <Cpu className="w-3 h-3 text-amber-400" />
+                Deterministic
+              </span>
+            )}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             Extract, score, and rewrite resume bullets with Google-caliber impact formulas.
@@ -485,14 +516,14 @@ export default function ResumePage() {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 p-1 bg-[#0B1120] border border-white/8 rounded-xl shrink-0">
+        <div className="flex items-center gap-1 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab("analyse")}
             className={clsx(
               "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
               activeTab === "analyse"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
                 : "text-slate-400 hover:text-white"
             )}
           >
@@ -505,7 +536,7 @@ export default function ResumePage() {
             className={clsx(
               "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
               activeTab === "tailor"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
                 : "text-slate-400 hover:text-white"
             )}
           >
@@ -522,14 +553,32 @@ export default function ResumePage() {
       {diagnosticTip && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs border bg-white/3 border-white/6 text-slate-300">
           <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+            {engineSource === "gemini" ? (
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : engineSource === "groq" ? (
+              <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
+            ) : (
+              <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+            )}
             <span>{diagnosticTip}</span>
           </div>
-          {pythonParserActive && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-              <Check className="w-3 h-3" /> PyMuPDF Active
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {engineSource === "gemini" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                <Sparkles className="w-3 h-3" /> Gemini 3.5 Flash
+              </span>
+            )}
+            {engineSource === "groq" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                <Zap className="w-3 h-3" /> Groq Ultra-Fast AI
+              </span>
+            )}
+            {pythonParserActive && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                <Check className="w-3 h-3" /> PyMuPDF Active
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -545,7 +594,7 @@ export default function ResumePage() {
             {/* 4-Pillar ATS Diagnostic Header */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Overall JD Match */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">Role & Keyword Fit</span>
                   <Target className="w-4 h-4 text-indigo-400" />
@@ -566,7 +615,7 @@ export default function ResumePage() {
               </div>
 
               {/* ATS Parsability */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">ATS Readability & Structure</span>
                   <ShieldCheck className="w-4 h-4 text-violet-400" />
@@ -580,7 +629,7 @@ export default function ResumePage() {
               </div>
 
               {/* Quantified Impact */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">Measurable Impact</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -594,7 +643,7 @@ export default function ResumePage() {
               </div>
 
               {/* Action Verb Strength */}
-              <div className="p-4 rounded-xl border border-white/8 bg-[#0B1120] relative overflow-hidden">
+              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                   <span className="font-medium">Action Verb Strength</span>
                   <Zap className="w-4 h-4 text-amber-400" />
@@ -619,7 +668,7 @@ export default function ResumePage() {
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                   className={clsx(
-                    "relative border-2 border-dashed rounded-2xl p-6 text-center transition-all bg-[#0B1120]",
+                    "relative border-2 border-dashed rounded-2xl p-6 text-center transition-all bg-[#0B0D18]",
                     dragActive
                       ? "border-indigo-500 bg-indigo-500/10 scale-[1.01]"
                       : "border-white/10 hover:border-indigo-500/40"
@@ -685,7 +734,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Target Role & Collapsible Job Description Bar */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-4 space-y-3">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                       <Target className="w-3.5 h-3.5 text-indigo-400" />
@@ -707,7 +756,7 @@ export default function ResumePage() {
                       value={targetRole}
                       onChange={(e) => setTargetRole(e.target.value)}
                       placeholder="e.g. Frontend Developer, SDE-1"
-                      className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                     <Button
                       type="button"
@@ -732,7 +781,7 @@ export default function ResumePage() {
                         value={targetJd}
                         onChange={(e) => setTargetJd(e.target.value)}
                         placeholder="Paste required skills, requirements or JD text here..."
-                        className="w-full bg-[#050811] border border-white/8 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                       <Button
                         type="button"
@@ -749,7 +798,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Auto-Sync Extracted Skills to Profile & Job Discovery */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-4 space-y-3">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-white">Profile Synchronization</span>
                     <Award className="w-3.5 h-3.5 text-amber-400" />
@@ -773,7 +822,7 @@ export default function ResumePage() {
               {/* Right Column: Strengths, Keyword Gaps & "What to Improve" */}
               <div className="lg:col-span-2 space-y-5">
                 {/* Critical Fixes & Gaps */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-5 space-y-4">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-rose-400" />
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -795,7 +844,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Verified Strengths */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-5 space-y-4">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -817,7 +866,7 @@ export default function ResumePage() {
                 </div>
 
                 {/* Keyword Analysis Breakdown */}
-                <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-5 space-y-3">
+                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
                       Keyword Match Grid ({targetRole})
@@ -879,7 +928,7 @@ export default function ResumePage() {
                   <div
                     key={suggestion.id}
                     className={clsx(
-                      "rounded-2xl border transition-all overflow-hidden bg-[#0B1120]",
+                      "rounded-2xl border transition-all overflow-hidden bg-[#0B0D18]",
                       isApplied
                         ? "border-emerald-500/40 shadow-lg shadow-emerald-500/5"
                         : "border-white/8 hover:border-white/15"
@@ -968,7 +1017,7 @@ export default function ResumePage() {
                               "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5",
                               isApplied
                                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20"
+                                : "bg-[#1B1FB8] hover:bg-[#292EDB] text-white shadow-md shadow-indigo-500/20"
                             )}
                           >
                             {isApplied ? (
@@ -992,23 +1041,36 @@ export default function ResumePage() {
             </div>
 
             {/* Right: Live Resume Document Preview Pane */}
-            <div className="rounded-2xl border border-white/8 bg-[#0B1120] p-6 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/8">
+            <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/8">
                 <div>
                   <h4 className="text-sm font-semibold text-white">Live Resume Document</h4>
                   <p className="text-[11px] text-slate-400">
                     {appliedSuggestions.size} improvement(s) actively reflected in preview
                   </p>
                 </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handlePrintResume}
-                  className="gap-1.5 text-xs"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print / Export PDF
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleDownloadVectorPdf}
+                    className="gap-1.5 text-xs text-slate-300 hover:text-white"
+                    title="Directly download clean vector PDF file"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download PDF
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handlePrintResume}
+                    className="gap-1.5 text-xs shadow-md shadow-indigo-600/30"
+                    title="Save as PDF via browser print with zero blank pages and zero URL stamps"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Save / Print PDF
+                  </Button>
+                </div>
               </div>
 
               <div className="text-[11px] px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">

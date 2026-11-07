@@ -8,6 +8,24 @@ import { getResumeBulletTargets, parseStructuredResume } from "@/lib/resume/pars
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_MULTIPART_BYTES = MAX_FILE_BYTES + 256 * 1024;
 
+// ─── Environment Variable Access ─────────────────────────────────────────────
+
+function getGeminiApiKey(): string | null {
+  const raw = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+  const cleaned = raw.trim().replace(/^["']|["']$/g, "");
+  if (!cleaned || cleaned.includes("your_gemini") || cleaned.length < 10) return null;
+  return cleaned;
+}
+
+function getGroqApiKey(): string | null {
+  const raw = process.env.GROQ_API_KEY || "";
+  const cleaned = raw.trim().replace(/^["']|["']$/g, "");
+  if (!cleaned || cleaned.includes("your_groq") || cleaned.length < 10) return null;
+  return cleaned;
+}
+
+// ─── Data Extraction & Sanitization Helpers ─────────────────────────────────
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -17,9 +35,16 @@ function readString(value: unknown, fallback = ""): string {
 }
 
 function readScore(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.min(100, Math.max(0, Math.round(value)))
-    : fallback;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.min(100, Math.max(0, Math.round(value)));
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return Math.min(100, Math.max(0, Math.round(parsed)));
+    }
+  }
+  return fallback;
 }
 
 function readStringArray(value: unknown, limit: number): string[] {
@@ -32,26 +57,177 @@ function cleanPlainText(value: string): string {
   return value
     .replace(/<\/?[a-z][^>]*>/gi, "")
     .replace(/\*\*/g, "")
-    .replace(/^\s*[-•▪]\s*/, "")
+    .replace(/^\s*[-•▪◦‣]\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+/**
+ * Extracts and safely parses JSON from model responses, handling markdown code
+ * fences, leading/trailing prose, and minor syntax anomalies.
+ */
+function extractJsonPayload(raw: string): unknown | null {
+  if (!raw || typeof raw !== "string") return null;
+  let text = raw.trim();
+
+  // Strip markdown fences
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+
+  // Find outermost { ... }
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    text = text.slice(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Attempt minor repair of trailing commas
+    try {
+      const sanitized = text
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/[\u0000-\u001F]+/g, (m) => (m.includes("\n") ? "\n" : " "));
+      return JSON.parse(sanitized);
+    } catch {
+      return null;
+    }
+  }
+}
+
+// ─── Compact Prompt Builder ──────────────────────────────────────────────────
+
+function buildCompactPrompt(
+  parsedDoc: ParsedResumeDocument,
+  targetRole: string,
+  jobDescription: string
+): string {
+  const targets = getResumeBulletTargets(parsedDoc);
+  const workAndProjectBullets = targets
+    .filter((t) => t.targetSection === "experience" || t.targetSection === "projects")
+    .map((t) => ({
+      bulletId: t.targetBulletId,
+      entryId: t.targetEntryId,
+      section: t.targetSection,
+      label: t.sectionLabel,
+      text: t.text,
+    }));
+
+  const fallbackBullets = targets.map((t) => ({
+    bulletId: t.targetBulletId,
+    entryId: t.targetEntryId,
+    section: t.targetSection,
+    label: t.sectionLabel,
+    text: t.text,
+  }));
+
+  const bulletsToEvaluate = (workAndProjectBullets.length > 0 ? workAndProjectBullets : fallbackBullets).slice(0, 25);
+  const skillsList = parsedDoc.skills.slice(0, 30);
+  const roleName = targetRole.trim() || "Software Engineer";
+  const jdText = jobDescription.trim() ? `\nTarget Job Description:\n${jobDescription.trim().slice(0, 1500)}` : "";
+
+  return `You are a Principal Staff Engineer & Technical Recruiter evaluating a candidate's resume for the role: "${roleName}".${jdText}
+
+Candidate Extracted Skills:
+${JSON.stringify(skillsList)}
+
+Candidate Work & Project Bullets to Evaluate (reference these exact bulletId and entryId values):
+${JSON.stringify(bulletsToEvaluate, null, 2)}
+
+TASK:
+1. Score the resume (0-100 integers):
+   - matchScore: Overall JD & role alignment.
+   - atsScore: Structural ATS readability and keyword coverage.
+   - impactScore: Quantified business/technical outcome density.
+   - verbScore: Assertive technical action verb density.
+2. Strengths: 3 to 5 concise bullet points highlighting verified technical depth and impact.
+3. Gaps: 3 to 5 specific, actionable critical gaps for this role (e.g. missing high-priority skills, lack of scale/metrics).
+4. Keywords: 12 to 20 key technical skills relevant to ${roleName}, whether found in the candidate's bullets/skills (boolean found), and importance ("high" | "medium").
+5. Suggestions: Provide up to 6 high-impact bullet rewrites using Google's XYZ formula:
+   "Accomplished [X] as measured by [Y], by doing [Z]"
+   RULES:
+   - For each rewrite, quote the exact "bulletId", "entryId", "section", and "label" from the input bullets.
+   - "original": Exact text from the input bullet.
+   - "improved": Rewritten version in PLAIN TEXT (NO markdown bold, asterisks, or bullet points).
+   - "reason": Clear recruiter reason explaining why this improves ATS & hiring manager impact.
+   - "impactLevel": "high" or "medium".
+   - Keep the candidate's genuine experience; enhance phrasing, action verbs, and structure.
+
+OUTPUT FORMAT: Return pure JSON without markdown wrapping:
+{
+  "matchScore": 78,
+  "atsScore": 84,
+  "impactScore": 72,
+  "verbScore": 80,
+  "strengths": ["..."],
+  "gaps": ["..."],
+  "keywords": [{ "word": "React", "found": true, "importance": "high" }],
+  "suggestions": [
+    {
+      "targetSection": "experience",
+      "targetEntryId": "exp-0",
+      "targetBulletId": "exp-0-b-1",
+      "sectionLabel": "Experience: Adani Power",
+      "original": "Worked on frontend dashboard...",
+      "improved": "Accomplished [X] as measured by [Y], by doing [Z]",
+      "reason": "Why this rewrite improves impact",
+      "impactLevel": "high"
+    }
+  ]
+}`;
+}
+
+// ─── Exact ID Mapping & Partial-Heal Normalization ──────────────────────────
+
 function normalizeSuggestions(value: unknown, parsedDoc: ParsedResumeDocument): TailorSuggestion[] {
   if (!Array.isArray(value)) return [];
   const targets = getResumeBulletTargets(parsedDoc);
-  const targetById = new Map(targets.map((target) => [target.targetBulletId, target]));
+  const targetById = new Map(targets.map((t) => [t.targetBulletId, t]));
   const normalized: TailorSuggestion[] = [];
+  const seenTargets = new Set<string>();
 
   for (const [index, item] of value.entries()) {
     if (!isRecord(item)) continue;
-    const requestedId = readString(item.targetBulletId);
-    const requestedOriginal = readString(item.original).trim();
-    const target = targetById.get(requestedId) || targets.find((candidate) => candidate.text.trim() === requestedOriginal);
-    if (!target || !requestedOriginal || requestedOriginal !== target.text.trim()) continue;
-    const improved = cleanPlainText(readString(item.improved, readString(item.suggested)));
-    if (!improved || improved === target.text.trim()) continue;
-    const impactLevel = item.impactLevel === "high" ? "high" : "medium";
+
+    const requestedBulletId = readString(item.targetBulletId || item.bulletId).trim();
+    const requestedOriginal = cleanPlainText(readString(item.original));
+    const improvedRaw = readString(item.improved || item.suggested);
+    const improved = cleanPlainText(improvedRaw);
+
+    if (!improved || improved.length < 8) continue;
+
+    // Direct exact targetBulletId match
+    let target = requestedBulletId ? targetById.get(requestedBulletId) : undefined;
+
+    // Fallback 1: match by exact original text
+    if (!target && requestedOriginal) {
+      target = targets.find((t) => cleanPlainText(t.text) === requestedOriginal);
+    }
+
+    // Fallback 2: match by substring prefix
+    if (!target && requestedOriginal && requestedOriginal.length >= 20) {
+      const origSnippet = requestedOriginal.toLowerCase().slice(0, 35);
+      target = targets.find((t) => cleanPlainText(t.text).toLowerCase().includes(origSnippet));
+    }
+
+    // Fallback 3: match if requested original contains target snippet
+    if (!target && requestedOriginal && requestedOriginal.length >= 20) {
+      target = targets.find((t) => requestedOriginal.toLowerCase().includes(cleanPlainText(t.text).toLowerCase().slice(0, 35)));
+    }
+
+    if (!target) continue;
+    if (seenTargets.has(target.targetBulletId)) continue;
+    seenTargets.add(target.targetBulletId);
+
+    // Skip if unchanged
+    if (cleanPlainText(target.text) === improved) continue;
+
+    const impactLevel = item.impactLevel === "high" || item.impact === "high" ? ("high" as const) : ("medium" as const);
+    const reason = readString(
+      item.reason,
+      "Rewritten using the Google XYZ formula for greater quantified recruiter impact."
+    );
+
     normalized.push({
       id: `sug-${index + 1}-${target.targetBulletId}`,
       section: target.targetSection,
@@ -64,10 +240,12 @@ function normalizeSuggestions(value: unknown, parsedDoc: ParsedResumeDocument): 
       improved,
       impact: impactLevel,
       impactLevel,
-      reason: readString(item.reason, "Keeps your original facts while making the contribution easier to scan."),
+      reason,
     });
+
     if (normalized.length >= 8) break;
   }
+
   return normalized;
 }
 
@@ -75,45 +253,96 @@ function buildAiAnalysis(
   value: unknown,
   parsedDoc: ParsedResumeDocument,
   targetRole: string,
+  jobDescription: string,
   pageCount: number
 ): ResumeAnalysis | null {
-  if (!isRecord(value) || typeof value.matchScore !== "number" || !Array.isArray(value.gaps)) return null;
-  const baseline = scoreResumeAccurately(parsedDoc, targetRole, "", pageCount);
-  const keywords = Array.isArray(value.keywords)
-    ? value.keywords.filter(isRecord).map((item) => ({
-        word: readString(item.word),
-        present: item.present === true,
-        importance: item.importance === "high" ? "high" as const : "medium" as const,
-      })).filter((item) => item.word.length > 0).slice(0, 40)
-    : baseline.keywords;
+  if (!isRecord(value)) return null;
+
+  // Local baseline calculation for merging/fallback
+  const baseline = scoreResumeAccurately(parsedDoc, targetRole, jobDescription, pageCount);
+
+  // Check if value has ANY usable evaluation content
+  const hasScores = typeof value.matchScore === "number" || typeof value.atsScore === "number";
+  const hasGaps = Array.isArray(value.gaps) && value.gaps.length > 0;
+  const hasStrengths = Array.isArray(value.strengths) && value.strengths.length > 0;
+  const hasSuggestions = Array.isArray(value.suggestions) && value.suggestions.length > 0;
+  const hasKeywords = Array.isArray(value.keywords) && value.keywords.length > 0;
+
+  if (!hasScores && !hasGaps && !hasStrengths && !hasSuggestions && !hasKeywords) {
+    return null;
+  }
+
+  // Read scores safely with baseline fallback
+  const matchScore = readScore(value.matchScore, baseline.matchScore);
+  const atsScore = readScore(value.atsScore, baseline.atsScore);
+
+  // Section scores: read either nested sectionScores or flat impactScore/verbScore
+  const impactVal = isRecord(value.sectionScores) ? value.sectionScores.impact : value.impactScore;
+  const verbVal = isRecord(value.sectionScores) ? value.sectionScores.style : value.verbScore;
+  const brevityVal = isRecord(value.sectionScores) ? value.sectionScores.brevity : value.brevityScore;
+  const skillsVal = isRecord(value.sectionScores) ? value.sectionScores.skills : value.skillsScore;
+
+  const sectionScores = {
+    impact: readScore(impactVal, baseline.sectionScores?.impact ?? 75),
+    brevity: readScore(brevityVal, baseline.sectionScores?.brevity ?? 80),
+    style: readScore(verbVal, baseline.sectionScores?.style ?? 75),
+    skills: readScore(skillsVal, baseline.sectionScores?.skills ?? 80),
+  };
+
+  // Strengths & Gaps
+  const strengths = readStringArray(value.strengths, 6);
+  const effectiveStrengths = strengths.length > 0 ? strengths : baseline.strengths;
+
+  const gaps = readStringArray(value.gaps, 8);
+  const effectiveGaps = gaps.length > 0 ? gaps : baseline.gaps;
+
+  // Keywords
+  let effectiveKeywords = baseline.keywords;
+  if (Array.isArray(value.keywords) && value.keywords.length > 0) {
+    const parsedKeywords = value.keywords
+      .filter(isRecord)
+      .map((item) => {
+        const word = readString(item.word || item.keyword).trim();
+        const present = item.present === true || item.found === true;
+        const importance = item.importance === "high" ? ("high" as const) : ("medium" as const);
+        return { word, present, importance };
+      })
+      .filter((k) => k.word.length > 0);
+
+    if (parsedKeywords.length > 0) {
+      effectiveKeywords = parsedKeywords.slice(0, 30);
+    }
+  }
+
+  // Suggestions with exact ID mapping
+  const normalized = normalizeSuggestions(value.suggestions, parsedDoc);
+  const effectiveSuggestions = normalized.length > 0 ? normalized : baseline.suggestions;
+
+  // Skills
+  const extractedSkills = readStringArray(value.extractedSkills || value.skills, 40);
+  const effectiveSkills = extractedSkills.length > 0
+    ? Array.from(new Set([...extractedSkills, ...parsedDoc.skills])).slice(0, 30)
+    : parsedDoc.skills;
 
   return {
     ...baseline,
-    matchScore: readScore(value.matchScore, baseline.matchScore),
-    atsScore: readScore(value.atsScore, baseline.atsScore),
+    matchScore,
+    atsScore,
     jobTitle: targetRole || "Software Engineer",
     company: "Target Placement Role",
-    strengths: readStringArray(value.strengths, 6),
-    gaps: readStringArray(value.gaps, 8),
-    suggestions: (() => {
-      const suggestions = normalizeSuggestions(value.suggestions, parsedDoc);
-      return suggestions.length > 0 ? suggestions : baseline.suggestions;
-    })(),
-    keywords,
-    sectionScores: {
-      impact: readScore(isRecord(value.sectionScores) ? value.sectionScores.impact : undefined, baseline.sectionScores?.impact ?? 50),
-      brevity: readScore(isRecord(value.sectionScores) ? value.sectionScores.brevity : undefined, baseline.sectionScores?.brevity ?? 50),
-      style: readScore(isRecord(value.sectionScores) ? value.sectionScores.style : undefined, baseline.sectionScores?.style ?? 50),
-      skills: readScore(isRecord(value.sectionScores) ? value.sectionScores.skills : undefined, baseline.sectionScores?.skills ?? 50),
-    },
-    extractedSkills: readStringArray(value.extractedSkills, 60).length > 0
-      ? readStringArray(value.extractedSkills, 60)
-      : parsedDoc.skills,
+    strengths: effectiveStrengths,
+    gaps: effectiveGaps,
+    suggestions: effectiveSuggestions,
+    keywords: effectiveKeywords,
+    sectionScores,
+    extractedSkills: effectiveSkills,
     meta: { ...baseline.meta, pageCount },
     rawText: parsedDoc.rawText,
     parsedResume: parsedDoc,
   };
 }
+
+// ─── Document Upload Stream Reader ──────────────────────────────────────────
 
 async function readBoundedBody(request: NextRequest, maxBytes: number): Promise<Uint8Array | null> {
   if (!request.body) return null;
@@ -269,14 +498,12 @@ function extractTextFromPdfStreams(buffer: Buffer): string {
       const decompressed = zlib.inflateSync(streamBytes);
       const str = decompressed.toString("utf-8");
 
-      // Extract text inside PDF text operator parentheses: (text) Tj
       const tjMatches = str.match(/\(([^)]+)\)\s*Tj/g) || [];
       for (const tj of tjMatches) {
         const clean = tj.replace(/^\(|\)\s*Tj$/g, "").trim();
         if (clean.length > 1) textChunks.push(clean);
       }
 
-      // Extract array-based PDF text operators: [(some) 10 (text)] TJ
       const tjBlockMatches = str.match(/\[([^\]]+)\]\s*TJ/g) || [];
       for (const tjb of tjBlockMatches) {
         const inner = tjb.replace(/^\[|\]\s*TJ$/g, "");
@@ -303,7 +530,6 @@ async function extractDocumentText(
   const links: string[] = [];
 
   if (ext === "pdf" || mimeType.includes("pdf")) {
-    // 1. Primary: Serverless native unpdf extractor
     try {
       const res = await extractText(new Uint8Array(fileBytes), { mergePages: true });
       if (res && typeof res.text === "string" && res.text.trim().length > 30) {
@@ -314,7 +540,6 @@ async function extractDocumentText(
       console.warn("[unpdf notice]:", err);
     }
 
-    // 2. Secondary fallback: Stream decompression for FlateDecode streams
     if (!text || text.length < 50) {
       try {
         const streamText = extractTextFromPdfStreams(fileBytes);
@@ -334,7 +559,6 @@ async function extractDocumentText(
       console.warn("[mammoth notice]:", err);
     }
   } else {
-    // Plain text
     try {
       text = fileBytes.toString("utf-8").trim();
     } catch {
@@ -342,7 +566,6 @@ async function extractDocumentText(
     }
   }
 
-  // Extract URLs
   const linkMatches = text.match(/https?:\/\/[^\s]+|(?:github\.com|linkedin\.com\/in)\/[^\s]+/gi) || [];
   for (const l of linkMatches) {
     const clean = l.replace(/[),;.]+$/, "").trim();
@@ -351,8 +574,6 @@ async function extractDocumentText(
 
   return { text, pageCount, links: links.slice(0, 8) };
 }
-
-// ─── Structural Resume Parser (ParsedResumeDocument) ────────────────────────
 
 // ─── Deterministic Dynamic Scoring & Critical Gaps Engine ────────────────────
 
@@ -366,7 +587,6 @@ function scoreResumeAccurately(
   const jdLower = (jobDescription || "").toLowerCase();
   const roleLower = (targetRole || "Software Engineer").toLowerCase();
 
-  // 1. Determine Target Keyword Set
   let roleKey = "general";
   if (roleLower.includes("front")) roleKey = "frontend";
   else if (roleLower.includes("back")) roleKey = "backend";
@@ -376,7 +596,6 @@ function scoreResumeAccurately(
 
   const standardRoleKeywords = ROLE_KEYWORD_MAP[roleKey] || ROLE_KEYWORD_MAP.general;
 
-  // Extract custom keywords from user pasted JD if provided
   const customJdKeywords: string[] = [];
   if (jdLower.length > 50) {
     for (const [syn, norm] of Object.entries(SYNONYM_MAP)) {
@@ -393,7 +612,6 @@ function scoreResumeAccurately(
 
   const effectiveKeywords = Array.from(new Set([...customJdKeywords, ...standardRoleKeywords])).slice(0, 24);
 
-  // Check presence with synonyms
   const keywordsList: { word: string; present: boolean; importance: "high" | "medium" }[] = [];
   const foundSkills: string[] = [];
 
@@ -401,7 +619,6 @@ function scoreResumeAccurately(
     const kwLower = kw.toLowerCase();
     let isPresent = textLower.includes(kwLower);
 
-    // Check synonym matches
     if (!isPresent) {
       for (const [syn, norm] of Object.entries(SYNONYM_MAP)) {
         if (norm.toLowerCase() === kwLower && textLower.includes(syn)) {
@@ -423,7 +640,6 @@ function scoreResumeAccurately(
     });
   }
 
-  // 2. Real Metric Density (Quantified Impact)
   const bulletTargets = getResumeBulletTargets(parsedDoc);
   const allBullets = bulletTargets.map((target) => target.text);
 
@@ -433,11 +649,8 @@ function scoreResumeAccurately(
 
   const totalBulletCount = Math.max(allBullets.length, 1);
   const metricRatio = quantifiedBullets.length / totalBulletCount;
-
-  // Real scaled impact score: 0 metrics -> ~35%, 50% metrics -> ~90%
   const impactScore = Math.min(100, Math.max(25, Math.round(35 + metricRatio * 110)));
 
-  // 3. Real Action Verb Strength
   let strongVerbBullets = 0;
   let weakVerbBullets = 0;
 
@@ -452,8 +665,7 @@ function scoreResumeAccurately(
   const verbRatio = (strongVerbBullets - weakVerbBullets * 0.5) / totalBulletCount;
   const verbScore = Math.min(100, Math.max(30, Math.round(50 + verbRatio * 60)));
 
-  // 4. ATS Parsability Score
-  let atsScore = 40; // baseline
+  let atsScore = 40;
   if (parsedDoc.email && parsedDoc.phone) atsScore += 18;
   if (parsedDoc.links.length > 0) atsScore += 10;
   if (parsedDoc.experience.length > 0) atsScore += 12;
@@ -466,7 +678,6 @@ function scoreResumeAccurately(
 
   atsScore = Math.min(100, Math.max(30, atsScore));
 
-  // 5. JD Match Score
   const matchedKeywordCount = keywordsList.filter((k) => k.present).length;
   const matchRatio = matchedKeywordCount / Math.max(keywordsList.length, 1);
   const keywordScore = matchRatio * 65;
@@ -475,7 +686,6 @@ function scoreResumeAccurately(
 
   const matchScore = Math.min(100, Math.max(25, Math.round(keywordScore + sectionsScore + depthScore)));
 
-  // 6. Verified Strengths
   const strengths: string[] = [];
   if (foundSkills.length >= 4) {
     strengths.push(`Core tech coverage: Verified proficiency in ${foundSkills.slice(0, 4).join(", ")}`);
@@ -490,7 +700,6 @@ function scoreResumeAccurately(
     strengths.push("Well-structured balance between hands-on engineering projects and practical work experience");
   }
 
-  // 7. Dynamic Critical Gaps (Never Empty!)
   const gaps: string[] = [];
   const missingHighPriority = keywordsList.filter((k) => !k.present && k.importance === "high").map((k) => k.word);
 
@@ -521,12 +730,10 @@ function scoreResumeAccurately(
     gaps.push("Total resume length is concise (< 350 words) — expand on implementation details, architectural trade-offs, and technical depth.");
   }
 
-  // Fallback safety: ensure gaps array is never empty
   if (gaps.length === 0) {
     gaps.push("Increase keyword alignment with specific production technologies mentioned in target job listings.");
   }
 
-  // Only propose deterministic rewrites that preserve the candidate's facts.
   const suggestions: TailorSuggestion[] = bulletTargets.flatMap((target, index) => {
     const improved = conservativeRewrite(target.text);
     if (!improved || improved === target.text) return [];
@@ -580,7 +787,12 @@ function scoreResumeAccurately(
   };
 }
 
-// ─── Gemini 2.0 Flash AI Enhancement ────────────────────────────────────────
+// ─── Tier 1: Google Gemini AI Engine ─────────────────────────────────────────
+
+const GEMINI_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.8-flash",
+];
 
 async function analyzeWithGemini(
   parsedDoc: ParsedResumeDocument,
@@ -588,63 +800,69 @@ async function analyzeWithGemini(
   jobDescription: string,
   pageCount: number
 ): Promise<ResumeAnalysis | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey || apiKey.includes("your_gemini")) return null;
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return null;
 
-  try {
-  const bulletTargets = getResumeBulletTargets(parsedDoc);
-  const structure = { ...parsedDoc, rawText: undefined };
-  const prompt = `Analyze this resume for ${targetRole || "Software Engineer"}. Use only facts in the resume; never invent metrics or credentials. Suggestions must quote exact bullet text and target its supplied targetBulletId. Return JSON matching the response schema.
-Target job description: ${jobDescription || "Not provided"}
-Full resume text:\n${parsedDoc.rawText}
-Parsed resume structure:\n${JSON.stringify(structure)}
-Valid bullet targets:\n${JSON.stringify(bulletTargets)}`;
+  const prompt = buildCompactPrompt(parsedDoc, targetRole, jobDescription);
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.15,
-            maxOutputTokens: 3000,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                matchScore: { type: "NUMBER" }, atsScore: { type: "NUMBER" },
-                sectionScores: { type: "OBJECT", properties: { impact: { type: "NUMBER" }, brevity: { type: "NUMBER" }, style: { type: "NUMBER" }, skills: { type: "NUMBER" } } },
-                strengths: { type: "ARRAY", items: { type: "STRING" } }, gaps: { type: "ARRAY", items: { type: "STRING" } },
-                suggestions: { type: "ARRAY", items: { type: "OBJECT", properties: { targetBulletId: { type: "STRING" }, original: { type: "STRING" }, improved: { type: "STRING" }, reason: { type: "STRING" }, impactLevel: { type: "STRING", enum: ["high", "medium"] } }, required: ["targetBulletId", "original", "improved", "reason", "impactLevel"] } },
-                keywords: { type: "ARRAY", items: { type: "OBJECT", properties: { word: { type: "STRING" }, present: { type: "BOOLEAN" }, importance: { type: "STRING", enum: ["high", "medium"] } }, required: ["word", "present", "importance"] } },
-                extractedSkills: { type: "ARRAY", items: { type: "STRING" } },
-              }, required: ["matchScore", "atsScore", "sectionScores", "strengths", "gaps", "suggestions", "keywords", "extractedSkills"],
+  for (const model of GEMINI_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.15,
+              maxOutputTokens: 4096,
+              responseMimeType: "application/json",
             },
-          },
-        }),
-        signal: AbortSignal.timeout(9000),
+          }),
+          signal: AbortSignal.timeout(9000),
+        }
+      );
+
+      if (!res.ok) {
+        // If 404 (model deprecated/unavailable) or 503 (temporary high demand), try next Gemini candidate
+        if (res.status === 404 || res.status === 503) {
+          continue;
+        }
+        // If 429 (rate-limited) or 400+, fail over to Groq immediately
+        return null;
       }
-    );
 
-    if (!res.ok) return null;
+      const data: unknown = await res.json();
+      if (!isRecord(data)) continue;
+      const candidates = data.candidates;
+      if (!Array.isArray(candidates) || !isRecord(candidates[0])) continue;
+      const content = candidates[0].content;
+      if (!isRecord(content) || !Array.isArray(content.parts) || !isRecord(content.parts[0])) continue;
+      const responseText = readString(content.parts[0].text);
+      if (!responseText) continue;
 
-    const data: unknown = await res.json();
-    if (!isRecord(data)) return null;
-    const candidates = data.candidates;
-    if (!Array.isArray(candidates) || !isRecord(candidates[0])) return null;
-    const content = candidates[0].content;
-    if (!isRecord(content) || !Array.isArray(content.parts) || !isRecord(content.parts[0])) return null;
-    const responseText = readString(content.parts[0].text);
-    if (!responseText) return null;
-    return buildAiAnalysis(JSON.parse(responseText) as unknown, parsedDoc, targetRole, pageCount);
-  } catch {
-    return null;
+      const parsedJson = extractJsonPayload(responseText);
+      if (!parsedJson) continue;
+
+      const analysis = buildAiAnalysis(parsedJson, parsedDoc, targetRole, jobDescription, pageCount);
+      if (analysis) return analysis;
+    } catch (err: unknown) {
+      console.warn(`[Gemini ${model} fallback notice]:`, err instanceof Error ? err.message : err);
+    }
   }
+
+  return null;
 }
 
-// ─── Groq Llama 3.3 70B AI Fallback ──────────────────────────────────────────
+// ─── Tier 2: Groq High-Speed AI Failover ─────────────────────────────────────
+
+const GROQ_MODELS = [
+  "openai/gpt-oss-120b",
+  "llama-3.3-70b-versatile",
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-20b",
+];
 
 async function analyzeWithGroq(
   parsedDoc: ParsedResumeDocument,
@@ -652,45 +870,58 @@ async function analyzeWithGroq(
   jobDescription: string,
   pageCount: number
 ): Promise<ResumeAnalysis | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.includes("your_groq")) return null;
+  const apiKey = getGroqApiKey();
+  if (!apiKey) return null;
 
-  try {
-  const bulletTargets = getResumeBulletTargets(parsedDoc);
-  const prompt = `You are a Principal Staff Engineer ATS Evaluator. Use only resume facts and do not invent metrics. Analyze the full resume:
-Role: ${targetRole || "Software Engineer"}
-JD: ${jobDescription || "Campus Placement Software Engineer"}
-Full resume text:\n${parsedDoc.rawText}
-Valid bullet targets:\n${JSON.stringify(bulletTargets)}
-Return JSON with matchScore, atsScore, sectionScores, strengths, gaps, suggestions (targetBulletId, exact original, improved, reason, impactLevel), keywords, and extractedSkills.`;
+  const prompt = buildCompactPrompt(parsedDoc, targetRole, jobDescription);
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.15,
-        max_tokens: 1200,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(8000),
-    });
+  for (const model of GROQ_MODELS) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.15,
+          max_tokens: 3500,
+          response_format: { type: "json_object" },
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
 
-    if (!res.ok) return null;
-    const data: unknown = await res.json();
-    if (!isRecord(data) || !Array.isArray(data.choices) || !isRecord(data.choices[0])) return null;
-    const message = data.choices[0].message;
-    if (!isRecord(message)) return null;
-    const content = readString(message.content);
-    if (!content) return null;
-    return buildAiAnalysis(JSON.parse(content) as unknown, parsedDoc, targetRole, pageCount);
-  } catch {
-    return null;
+      if (!res.ok) {
+        // If 404 (model not found on current tier), try next Groq candidate model
+        if (res.status === 404) {
+          continue;
+        }
+        if (res.status === 429) {
+          return null;
+        }
+        continue;
+      }
+
+      const data: unknown = await res.json();
+      if (!isRecord(data) || !Array.isArray(data.choices) || !isRecord(data.choices[0])) continue;
+      const message = data.choices[0].message;
+      if (!isRecord(message)) continue;
+      const content = readString(message.content);
+      if (!content) continue;
+
+      const parsedJson = extractJsonPayload(content);
+      if (!parsedJson) continue;
+
+      const analysis = buildAiAnalysis(parsedJson, parsedDoc, targetRole, jobDescription, pageCount);
+      if (analysis) return analysis;
+    } catch (err: unknown) {
+      console.warn(`[Groq ${model} fallback notice]:`, err instanceof Error ? err.message : err);
+    }
   }
+
+  return null;
 }
 
 // ─── POST Route Handler ──────────────────────────────────────────────────────
@@ -795,10 +1026,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Parse into Structured Resume Document
+    // 3. Lossless Local Structural Extraction First (<50ms)
     const parsedDoc = parseStructuredResume(rawText, fileName, extractedLinks);
 
-    // 4. Run Analysis: Gemini -> Groq -> Heuristic Fallback
+    // 4. Compact Hybrid Evaluation: Gemini Primary -> Groq Failover -> Local Baseline
     let analysis: ResumeAnalysis | null = null;
     let engineSource: "gemini" | "groq" | "heuristic" = "heuristic";
 
@@ -819,13 +1050,20 @@ export async function POST(request: NextRequest) {
       engineSource = "heuristic";
     }
 
+    let engineDiagnostic = "⚡ Heuristic Engine Active (Fallback)";
+    if (engineSource === "gemini") {
+      engineDiagnostic = "✨ Google Gemini AI Active (Primary Engine)";
+    } else if (engineSource === "groq") {
+      engineDiagnostic = "⚡ Groq Ultra-Fast AI Active (Failover Engine)";
+    }
+
     return NextResponse.json({
       analysis,
       source: engineSource,
       pythonParserActive,
       diagnosticTip: pythonParserActive
-        ? "PyMuPDF high-fidelity document extractor active."
-        : "⚡ High-Precision Native Next.js Parser Active (Zero external server required)",
+        ? `PyMuPDF Document Extractor • ${engineDiagnostic}`
+        : `⚡ Native Next.js Parser • ${engineDiagnostic}`,
     });
   } catch (err: unknown) {
     return NextResponse.json(

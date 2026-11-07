@@ -28,9 +28,10 @@ export default function Card({
       className={clsx(
         "rounded-2xl border transition-all duration-200",
         glass
-          ? "bg-white/4 border-white/8 backdrop-blur-sm"
-          : "bg-[#111827] border-white/6",
-        hover && "hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5",
+          ? "bg-[#101326]/80 border-[rgba(100,110,255,0.16)] backdrop-blur-md"
+          : "bg-[#0B0D18] border-[rgba(100,110,255,0.12)]",
+        hover &&
+          "hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/50 hover:shadow-xl hover:shadow-[rgba(27,31,184,0.12)] cursor-pointer",
         paddingMap[padding],
         className
       )}

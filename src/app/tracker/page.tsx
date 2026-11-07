@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ErrorBanner from "@/components/ui/ErrorBanner";
+import JobImportModal from "@/components/tracker/JobImportModal";
 import {
   getApplications,
   updateApplicationStatus,
@@ -12,7 +13,7 @@ import {
   deleteApplication,
   updateApplication,
 } from "@/lib/services/applications.service";
-import type { KanbanCard, KanbanStatus } from "@/types";
+import type { KanbanCard, KanbanStatus, Job } from "@/types";
 import {
   Plus,
   Search,
@@ -20,8 +21,6 @@ import {
   Loader2,
   Calendar,
   Clock,
-  MoreVertical,
-  ChevronRight,
   ExternalLink,
   Trash2,
   X,
@@ -29,11 +28,10 @@ import {
   LayoutGrid,
   List,
   CheckCircle2,
-  ArrowRight,
-  DollarSign,
-  AlertCircle,
   Building,
-  Edit3,
+  Send,
+  Briefcase,
+  Award,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -173,13 +171,10 @@ export default function TrackerPage() {
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
-  const [showAddDrawer, setShowAddDrawer] = useState(false);
+  const [showJobImportModal, setShowJobImportModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const router = useRouter();
-
-  // Inline Quick-Add State per column
-  const [quickAddTexts, setQuickAddTexts] = useState<Record<string, string>>({});
 
   const handlePracticeInterview = (card: KanbanCard) => {
     if (typeof window !== "undefined") {
@@ -188,23 +183,15 @@ export default function TrackerPage() {
         JSON.stringify({
           company: card.company,
           title: card.title,
-          jobDescription: card.notes || `Role at ${card.company} for ${card.title}. Next step: ${card.nextStep || card.status}`,
-          skills: [],
+          jobDescription:
+            card.notes ||
+            `Role at ${card.company} for ${card.title}. Next step: ${card.nextStep || card.status}`,
+          skills: card.skills || [],
         })
       );
     }
     router.push("/interview");
   };
-
-  // Slide-over Add Application Form State
-  const [newCompany, setNewCompany] = useState("");
-  const [newRole, setNewRole] = useState("");
-  const [newStatus, setNewStatus] = useState<KanbanStatus>("Wishlist");
-  const [newPriority, setNewPriority] = useState<"high" | "medium" | "low">("medium");
-  const [newSalary, setNewSalary] = useState("");
-  const [newNotes, setNewNotes] = useState("");
-  const [newNextStep, setNewNextStep] = useState("");
-  const [newNextStepDate, setNewNextStepDate] = useState("");
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -304,79 +291,40 @@ export default function TrackerPage() {
     }
   };
 
-  // ─── Inline Quick Add ──────────────────────────────────────────────────────
+  // ─── Add Job From API Import Modal ────────────────────────────────────────
 
-  const handleQuickAdd = async (stage: StageConfig) => {
-    const text = (quickAddTexts[stage.id] || "").trim();
-    if (!text) return;
-
-    let company = text;
-    let title = "Software Engineer";
-
-    if (text.includes("-")) {
-      const parts = text.split("-");
-      company = parts[0].trim();
-      title = parts.slice(1).join("-").trim();
-    } else if (text.includes("—")) {
-      const parts = text.split("—");
-      company = parts[0].trim();
-      title = parts.slice(1).join("—").trim();
-    }
-
+  const handleAddJobFromApi = async (job: Job) => {
     const newApp: Omit<KanbanCard, "id"> = {
-      company,
-      title,
-      logo: company.slice(0, 2).toUpperCase(),
-      status: stage.defaultStatus,
+      company: job.company,
+      title: job.title,
+      logo: job.logo && !job.logo.startsWith("http") ? job.logo : job.company.slice(0, 2).toUpperCase(),
+      companyLogo: job.logo && job.logo.startsWith("http") ? job.logo : undefined,
+      status: "Wishlist",
       priority: "medium",
-      appliedDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      matchScore: 80,
-    };
-
-    setQuickAddTexts((prev) => ({ ...prev, [stage.id]: "" }));
-
-    try {
-      const created = await addApplication(newApp);
-      setCards((prev) => [created, ...prev]);
-      showToast(`Added ${company} (${title})`);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create application.");
-    }
-  };
-
-  // ─── Detailed Add Modal Submit ─────────────────────────────────────────────
-
-  const handleDetailedAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCompany.trim() || !newRole.trim()) return;
-
-    const newApp: Omit<KanbanCard, "id"> = {
-      company: newCompany.trim(),
-      title: newRole.trim(),
-      logo: newCompany.trim().slice(0, 2).toUpperCase(),
-      status: newStatus,
-      priority: newPriority,
-      salary: newSalary.trim() || undefined,
-      notes: newNotes.trim() || undefined,
-      nextStep: newNextStep.trim() || undefined,
-      nextStepDate: newNextStepDate || undefined,
-      appliedDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      matchScore: 82,
+      matchScore: job.matchScore > 0 ? job.matchScore : 0,
+      salary: job.salaryRange || (job.salary && job.salary !== "Competitive" ? job.salary : undefined),
+      url: job.applyUrl || undefined,
+      sourceUrl: job.sourceUrl || undefined,
+      location: job.location || undefined,
+      source: job.source,
+      externalJobId: job.externalId || job.id,
+      jobType: job.type !== "Unspecified" ? job.type : undefined,
+      postedDate: job.postedDateLabel || job.posted || undefined,
+      closingDate: job.closingDate || undefined,
+      deadlineProvenance: job.deadlineProvenance || "unknown",
+      notes: job.attributionLabel
+        ? `Discovered via ${job.attributionLabel}.`
+        : job.description
+        ? job.description.slice(0, 300)
+        : undefined,
     };
 
     try {
       const created = await addApplication(newApp);
-      setCards((prev) => [created, ...prev]);
-      setShowAddDrawer(false);
-      setNewCompany("");
-      setNewRole("");
-      setNewSalary("");
-      setNewNotes("");
-      setNewNextStep("");
-      setNewNextStepDate("");
-      showToast(`Successfully added ${newApp.company}!`);
+      setCards((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
+      showToast(`Added ${job.company} (${job.title}) to Wishlist`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create application.");
+      setError(err instanceof Error ? err.message : "Failed to add job to tracker.");
     }
   };
 
@@ -411,7 +359,7 @@ export default function TrackerPage() {
     <div className="space-y-6 max-w-full pb-12">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1B1FB8]/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
           {toastMessage}
         </div>
@@ -436,21 +384,21 @@ export default function TrackerPage() {
             </span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Drag cards between columns or use inline Quick-Add to manage interviews effortlessly.
+            Import real job listings into Wishlist, then drag and drop cards to track your interview pipeline.
           </p>
         </div>
 
-        {/* View Switchers & Action Buttons */}
+        {/* View Switchers (Global Add button removed per specification) */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Density Switcher: 4-Stage Compact vs 6-Stage Detailed */}
-          <div className="flex items-center gap-1 p-1 bg-[#0B1120] border border-white/8 rounded-xl text-xs">
+          <div className="flex items-center gap-1 p-1 bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs">
             <button
               type="button"
               onClick={() => setViewDensity("compact")}
               className={clsx(
                 "px-3 py-1 rounded-lg font-medium transition-all",
                 viewDensity === "compact"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-[#1B1FB8] text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
               )}
             >
@@ -462,7 +410,7 @@ export default function TrackerPage() {
               className={clsx(
                 "px-3 py-1 rounded-lg font-medium transition-all",
                 viewDensity === "detailed"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-[#1B1FB8] text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
               )}
             >
@@ -471,7 +419,7 @@ export default function TrackerPage() {
           </div>
 
           {/* Layout Mode: Board vs List */}
-          <div className="flex items-center gap-1 p-1 bg-[#0B1120] border border-white/8 rounded-xl text-xs">
+          <div className="flex items-center gap-1 p-1 bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs">
             <button
               type="button"
               onClick={() => setLayoutMode("board")}
@@ -499,22 +447,11 @@ export default function TrackerPage() {
               <List className="w-3.5 h-3.5" />
             </button>
           </div>
-
-          {/* Add Application Button */}
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setShowAddDrawer(true)}
-            className="gap-1.5 text-xs shadow-md shadow-indigo-500/20"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Application
-          </Button>
         </div>
       </div>
 
       {/* Filter Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B1120] p-3 rounded-2xl border border-white/8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0B0D18] p-3 rounded-2xl border border-[rgba(100,110,255,0.12)]">
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
@@ -523,7 +460,7 @@ export default function TrackerPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by company or role..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#050811] border border-white/6 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-1.5 bg-[#050505] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
@@ -538,7 +475,7 @@ export default function TrackerPage() {
               className={clsx(
                 "px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all",
                 priorityFilter === p
-                  ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/40"
+                  ? "bg-[#1B1FB8]/30 text-indigo-300 border border-indigo-500/40"
                   : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
               )}
             >
@@ -569,6 +506,8 @@ export default function TrackerPage() {
               stage.statuses.includes(c.status)
             );
             const isDropActive = activeDropZone === stage.id;
+            const isFirstStage =
+              stage.id === "wishlist" || stage.id === "Wishlist";
 
             return (
               <div
@@ -577,7 +516,7 @@ export default function TrackerPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, stage.defaultStatus)}
                 className={clsx(
-                  "flex flex-col rounded-2xl bg-[#0B1120] border-t-2 border border-white/8 min-h-[500px] transition-all",
+                  "flex flex-col rounded-2xl bg-[#0B0D18] border-t-2 border border-[rgba(100,110,255,0.12)] min-h-[500px] transition-all",
                   stage.accentColor,
                   isDropActive
                     ? "ring-2 ring-indigo-500/80 bg-indigo-500/5 scale-[1.01]"
@@ -585,7 +524,7 @@ export default function TrackerPage() {
                 )}
               >
                 {/* Column Header */}
-                <div className="p-3.5 border-b border-white/6 flex items-center justify-between">
+                <div className="p-3.5 border-b border-[rgba(100,110,255,0.12)] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-white">
                       {stage.label}
@@ -596,39 +535,22 @@ export default function TrackerPage() {
                   </div>
                 </div>
 
-                {/* Inline Quick Add Input */}
-                <div className="p-2.5 border-b border-white/5 bg-white/1">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={quickAddTexts[stage.id] || ""}
-                      onChange={(e) =>
-                        setQuickAddTexts((prev) => ({
-                          ...prev,
-                          [stage.id]: e.target.value,
-                        }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleQuickAdd(stage);
-                        }
-                      }}
-                      placeholder="+ Quick add (Company - Role)..."
-                      className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 pr-8"
-                    />
+                {/* Prominent Add Button ONLY in First Column */}
+                {isFirstStage && (
+                  <div className="p-2.5 border-b border-[rgba(100,110,255,0.12)] bg-indigo-500/[0.04]">
                     <button
                       type="button"
-                      onClick={() => handleQuickAdd(stage)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400"
-                      title="Quick Add"
+                      onClick={() => setShowJobImportModal(true)}
+                      className="w-full py-2 px-3 rounded-xl bg-[#1B1FB8]/20 hover:bg-[#1B1FB8]/30 text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-500/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm group"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                      <span>+ Add Job Application</span>
                     </button>
                   </div>
-                </div>
+                )}
 
                 {/* Cards Container */}
-                <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto max-h-[70vh]">
+                <div className="p-2.5 space-y-2.5 flex-1 flex flex-col overflow-y-auto max-h-[70vh]">
                   {stageCards.map((card) => {
                     const isCardSelected = selectedCard?.id === card.id;
 
@@ -639,18 +561,29 @@ export default function TrackerPage() {
                         onDragStart={(e) => handleDragStart(e, card.id)}
                         onClick={() => setSelectedCard(card)}
                         className={clsx(
-                          "rounded-xl border p-3.5 bg-[#0F172A] cursor-grab active:cursor-grabbing hover:border-indigo-500/40 hover:bg-[#131c33] transition-all relative group shadow-sm",
+                          "rounded-xl border p-3.5 bg-[#0B0D18] cursor-grab active:cursor-grabbing hover:border-indigo-500/40 hover:bg-[#151A35]/60 hover:shadow-lg hover:shadow-[rgba(27,31,184,0.12)] transition-all relative group shadow-sm",
                           isCardSelected
                             ? "border-indigo-500 ring-1 ring-indigo-500/50"
-                            : "border-white/6"
+                            : "border-[rgba(100,110,255,0.12)]"
                         )}
                       >
-                        {/* 4 Essential Data Points */}
-                        {/* 1. Company Avatar + Name & Status Pill */}
+                        {/* Company Avatar + Name & Status Pill */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
-                              {card.logo || card.company.slice(0, 2).toUpperCase()}
+                            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                              {card.companyLogo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={card.companyLogo}
+                                  alt={card.company}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <span>{card.logo || card.company.slice(0, 2).toUpperCase()}</span>
+                              )}
                             </div>
                             <span className="text-xs font-bold text-white truncate">
                               {card.company}
@@ -673,34 +606,41 @@ export default function TrackerPage() {
                             )}
                           >
                             {ALL_STATUSES.map((s) => (
-                              <option key={s} value={s} className="bg-[#0B1120] text-white">
+                              <option key={s} value={s} className="bg-[#0B0D18] text-white">
                                 {s}
                               </option>
                             ))}
                           </select>
                         </div>
 
-                        {/* 2. Role Title */}
+                        {/* Role Title */}
                         <p className="text-xs text-slate-300 font-medium mb-3 line-clamp-1">
                           {card.title}
                         </p>
 
-                        {/* 3. Match / CTC Badge & Priority */}
+                        {/* Match / CTC Badge & Priority */}
                         <div className="flex items-center justify-between text-[11px] mb-2 pt-2 border-t border-white/5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-emerald-400 font-bold">
-                              {card.matchScore}%
-                            </span>
+                          <div className="flex items-center gap-1.5 truncate">
+                            {card.matchScore > 0 && (
+                              <span className="text-emerald-400 font-bold">
+                                {card.matchScore}%
+                              </span>
+                            )}
                             {card.salary && (
-                              <span className="text-[10px] text-slate-400 font-medium">
-                                • {card.salary}
+                              <span className="text-[10px] text-slate-400 font-medium truncate">
+                                {card.matchScore > 0 ? "• " : ""}{card.salary}
+                              </span>
+                            )}
+                            {!card.salary && (!card.matchScore || card.matchScore === 0) && card.location && (
+                              <span className="text-[10px] text-slate-500 truncate">
+                                {card.location}
                               </span>
                             )}
                           </div>
 
                           <span
                             className={clsx(
-                              "text-[10px] font-semibold px-2 py-0.5 rounded-md border capitalize",
+                              "text-[10px] font-semibold px-2 py-0.5 rounded-md border capitalize shrink-0",
                               PRIORITY_COLOR[card.priority]
                             )}
                           >
@@ -708,7 +648,7 @@ export default function TrackerPage() {
                           </span>
                         </div>
 
-                        {/* 4. Next Action Date / Step */}
+                        {/* Next Action Date / Step or Added Date */}
                         {card.nextStep ? (
                           <div className="flex items-center gap-1.5 text-[10px] text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
                             <Clock className="w-3 h-3 shrink-0" />
@@ -717,19 +657,85 @@ export default function TrackerPage() {
                               {card.nextStepDate ? ` (${card.nextStepDate})` : ""}
                             </span>
                           </div>
-                        ) : (
+                        ) : card.appliedDate ? (
                           <div className="text-[10px] text-slate-500 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            <span>Applied: {card.appliedDate || "Recently"}</span>
+                            <span>Applied: {card.appliedDate}</span>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                            <Briefcase className="w-3 h-3 text-slate-600" />
+                            <span className="truncate">
+                              {card.source ? `Source: ${card.source}` : "Discovered opportunity"}
+                            </span>
                           </div>
                         )}
                       </div>
                     );
                   })}
 
+                  {/* Empty States */}
                   {stageCards.length === 0 && (
-                    <div className="py-8 text-center text-xs text-slate-500">
-                      No applications in this stage.
+                    <div className="flex-1 flex flex-col items-center justify-center py-10 px-4 text-center">
+                      {isFirstStage ? (
+                        <div className="space-y-3">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 border border-[rgba(100,110,255,0.12)] text-slate-400 flex items-center justify-center mx-auto">
+                            <Briefcase className="w-5 h-5 text-indigo-400/80" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-slate-300">
+                              No jobs added yet.
+                            </p>
+                            <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">
+                              Start building your application pipeline by importing jobs from Job Discovery.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowJobImportModal(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B1FB8]/30 hover:bg-[#1B1FB8]/50 text-indigo-200 text-xs font-medium border border-indigo-500/30 transition-all mt-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Import from APIs</span>
+                          </button>
+                        </div>
+                      ) : stage.id === "applied" || stage.id === "Applied" ? (
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="w-8 h-8 rounded-lg bg-white/4 flex items-center justify-center mx-auto text-slate-400">
+                            <Send className="w-4 h-4 text-blue-400/70" />
+                          </div>
+                          <p className="text-xs font-medium text-slate-300">
+                            No applications in this stage
+                          </p>
+                          <p className="text-[10px] text-slate-500 max-w-[180px] mx-auto leading-relaxed">
+                            Drag jobs here once you submit an application or complete an OA.
+                          </p>
+                        </div>
+                      ) : stage.id === "interviewing" || stage.id === "Interview" || stage.id === "Phone Screen" ? (
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="w-8 h-8 rounded-lg bg-white/4 flex items-center justify-center mx-auto text-slate-400">
+                            <Calendar className="w-4 h-4 text-amber-400/70" />
+                          </div>
+                          <p className="text-xs font-medium text-slate-300">
+                            No interviews scheduled
+                          </p>
+                          <p className="text-[10px] text-slate-500 max-w-[180px] mx-auto leading-relaxed">
+                            Move applications here when interview rounds or screenings are confirmed.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="w-8 h-8 rounded-lg bg-white/4 flex items-center justify-center mx-auto text-slate-400">
+                            <Award className="w-4 h-4 text-emerald-400/70" />
+                          </div>
+                          <p className="text-xs font-medium text-slate-300">
+                            No final decisions yet
+                          </p>
+                          <p className="text-[10px] text-slate-500 max-w-[180px] mx-auto leading-relaxed">
+                            Track job offers, negotiations, and outcome decisions here.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -739,89 +745,154 @@ export default function TrackerPage() {
         </div>
       ) : (
         /* Table / List View */
-        <div className="rounded-2xl border border-white/8 bg-[#0B1120] overflow-hidden">
+        <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#050811] text-slate-400 border-b border-white/6 uppercase text-[10px] tracking-wider">
+              <thead className="bg-[#050505] text-slate-400 border-b border-[rgba(100,110,255,0.12)] uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Company</th>
                   <th className="py-3 px-4">Role</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Match</th>
+                  <th className="py-3 px-4">Match / Salary</th>
                   <th className="py-3 px-4">Priority</th>
-                  <th className="py-3 px-4">Next Step</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredCards.map((card) => (
-                  <tr
-                    key={card.id}
-                    onClick={() => setSelectedCard(card)}
-                    className="hover:bg-white/2 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 px-4 font-semibold text-white flex items-center gap-2">
-                      <div className="w-6 h-6 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-bold flex items-center justify-center">
-                        {card.logo || card.company.slice(0, 2).toUpperCase()}
+              <tbody className="divide-y divide-white/6 text-slate-300">
+                {filteredCards.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-16 text-center">
+                      <div className="max-w-sm mx-auto space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+                          <Briefcase className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-semibold text-white">
+                          No applications in pipeline
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          Switch to Kanban view or import open positions from live job APIs directly into your Saved / Wishlist.
+                        </p>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            setLayoutMode("board");
+                            setShowJobImportModal(true);
+                          }}
+                          className="gap-1.5 text-xs shadow-md shadow-indigo-500/20"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Add Job Application</span>
+                        </Button>
                       </div>
-                      {card.company}
-                    </td>
-                    <td className="py-3 px-4 text-slate-300">{card.title}</td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={clsx(
-                          "px-2 py-0.5 rounded-full text-[10px] font-semibold border",
-                          STATUS_PILL_COLOR[card.status]
-                        )}
-                      >
-                        {card.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-emerald-400">
-                      {card.matchScore}%
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={clsx(
-                          "px-2 py-0.5 rounded text-[10px] font-semibold border capitalize",
-                          PRIORITY_COLOR[card.priority]
-                        )}
-                      >
-                        {card.priority}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-400">
-                      {card.nextStep || "—"}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCard(card.id);
-                        }}
-                        className="text-slate-500 hover:text-rose-400 p-1"
-                        title="Delete application"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredCards.map((card) => (
+                    <tr
+                      key={card.id}
+                      onClick={() => setSelectedCard(card)}
+                      className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                          {card.logo || card.company.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span>{card.company}</span>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-medium text-slate-200">
+                        {card.title}
+                      </td>
+
+                      <td
+                        className="py-3.5 px-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <select
+                          value={card.status}
+                          onChange={(e) =>
+                            handleStatusChange(
+                              card.id,
+                              e.target.value as KanbanStatus
+                            )
+                          }
+                          className={clsx(
+                            "text-[10px] font-semibold px-2 py-0.5 rounded-full border cursor-pointer focus:outline-none appearance-none pr-3",
+                            STATUS_PILL_COLOR[card.status]
+                          )}
+                        >
+                          {ALL_STATUSES.map((s) => (
+                            <option
+                              key={s}
+                              value={s}
+                              className="bg-[#0B0D18] text-white"
+                            >
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          {card.matchScore > 0 ? (
+                            <span className="text-emerald-400 font-bold">
+                              {card.matchScore}%
+                            </span>
+                          ) : null}
+                          {card.salary && (
+                            <span className="text-slate-400 text-[11px]">
+                              {card.matchScore > 0 ? "• " : ""}{card.salary}
+                            </span>
+                          )}
+                          {!card.salary && (!card.matchScore || card.matchScore === 0) && (
+                            <span className="text-slate-500 text-[11px]">Not specified</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={clsx(
+                            "text-[10px] font-semibold px-2 py-0.5 rounded-md border capitalize",
+                            PRIORITY_COLOR[card.priority]
+                          )}
+                        >
+                          {card.priority}
+                        </span>
+                      </td>
+
+                      <td
+                        className="py-3.5 px-4 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCard(card.id)}
+                          className="text-slate-500 hover:text-rose-400 p-1 transition-colors"
+                          title="Delete Application"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Right Slide-over Detail Sheet */}
+      {/* Slide-over Detail Panel */}
       {selectedCard && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#0B1120] border-l border-white/10 h-full p-6 overflow-y-auto space-y-6 shadow-2xl">
+          <div className="w-full max-w-md bg-[#0B0D18] border-l border-[rgba(100,110,255,0.16)] h-full p-6 overflow-y-auto space-y-6 shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/8">
+            <div className="flex items-start justify-between pb-4 border-b border-[rgba(100,110,255,0.12)]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-sm flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 font-bold text-sm flex items-center justify-center shrink-0">
                   {selectedCard.logo || selectedCard.company.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
@@ -835,13 +906,13 @@ export default function TrackerPage() {
               <button
                 type="button"
                 onClick={() => setSelectedCard(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5"
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Quick Status Control */}
+            {/* Status Selector */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-300">
                 Pipeline Stage
@@ -854,7 +925,7 @@ export default function TrackerPage() {
                     e.target.value as KanbanStatus
                   )
                 }
-                className="w-full bg-[#050811] border border-white/8 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-[#050505] border border-[rgba(100,110,255,0.12)] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {ALL_STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -864,8 +935,9 @@ export default function TrackerPage() {
               </select>
             </div>
 
+            {/* External Links & Metadata */}
             {(selectedCard.url || selectedCard.sourceUrl || selectedCard.location || selectedCard.closingDate) && (
-              <div className="p-3 rounded-xl bg-white/3 border border-white/6 space-y-2 text-xs">
+              <div className="p-3 rounded-xl bg-white/3 border border-[rgba(100,110,255,0.12)] space-y-2 text-xs">
                 {selectedCard.location && <p className="text-slate-400">Location: {selectedCard.location}</p>}
                 {selectedCard.source && <p className="text-slate-400">Source: {selectedCard.source}</p>}
                 {selectedCard.closingDate && (
@@ -896,7 +968,7 @@ export default function TrackerPage() {
                   Match Score
                 </span>
                 <p className="text-xl font-bold text-emerald-400">
-                  {selectedCard.matchScore}%
+                  {selectedCard.matchScore > 0 ? `${selectedCard.matchScore}%` : "Not evaluated"}
                 </p>
               </div>
 
@@ -911,7 +983,7 @@ export default function TrackerPage() {
             </div>
 
             {/* Next Steps & Action Dates */}
-            <div className="p-4 rounded-xl bg-white/3 border border-white/6 space-y-2">
+            <div className="p-4 rounded-xl bg-white/3 border border-[rgba(100,110,255,0.12)] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
@@ -942,7 +1014,7 @@ export default function TrackerPage() {
                   showToast("Saved application notes.");
                 }}
                 placeholder="Add preparation links, interviewer feedback, or notes..."
-                className="w-full bg-[#050811] border border-white/8 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-[#050505] border border-[rgba(100,110,255,0.12)] rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <span className="text-[10px] text-slate-500">
                 Auto-saves when you click out of the box.
@@ -953,18 +1025,18 @@ export default function TrackerPage() {
             <button
               type="button"
               onClick={() => handlePracticeInterview(selectedCard)}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
               <span>🎙️ Practice Mock Interview for This Role</span>
             </button>
 
             {/* Footer Actions */}
-            <div className="pt-4 border-t border-white/8 flex items-center justify-between">
+            <div className="pt-4 border-t border-[rgba(100,110,255,0.12)] flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => handleDeleteCard(selectedCard.id)}
-                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1"
+                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete Application
@@ -982,159 +1054,13 @@ export default function TrackerPage() {
         </div>
       )}
 
-      {/* Slide-over "Add with Details" Modal */}
-      {showAddDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#0B1120] border-l border-white/10 h-full p-6 overflow-y-auto space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-white/8">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Building className="w-4 h-4 text-indigo-400" />
-                Add Application With Details
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddDrawer(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleDetailedAdd} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Company Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCompany}
-                  onChange={(e) => setNewCompany(e.target.value)}
-                  placeholder="e.g. Google, Razorpay, Flipkart"
-                  className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Role Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  placeholder="e.g. SDE-1, Frontend Developer"
-                  className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Initial Status
-                  </label>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as KanbanStatus)}
-                    className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    {ALL_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Priority
-                  </label>
-                  <select
-                    value={newPriority}
-                    onChange={(e) =>
-                      setNewPriority(e.target.value as "high" | "medium" | "low")
-                    }
-                    className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Expected CTC / Salary
-                </label>
-                <input
-                  type="text"
-                  value={newSalary}
-                  onChange={(e) => setNewSalary(e.target.value)}
-                  placeholder="e.g. ₹20L – ₹28L, Competitive"
-                  className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Next Step
-                  </label>
-                  <input
-                    type="text"
-                    value={newNextStep}
-                    onChange={(e) => setNewNextStep(e.target.value)}
-                    placeholder="e.g. Technical Round 1"
-                    className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Next Step Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newNextStepDate}
-                    onChange={(e) => setNewNextStepDate(e.target.value)}
-                    className="w-full bg-[#050811] border border-white/8 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Notes
-                </label>
-                <textarea
-                  rows={3}
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                  placeholder="Add details, referral info, or links..."
-                  className="w-full bg-[#050811] border border-white/8 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-white/8 flex items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddDrawer(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" variant="primary" size="sm">
-                  Save Application
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* API-Powered Job Import Modal */}
+      <JobImportModal
+        isOpen={showJobImportModal}
+        onClose={() => setShowJobImportModal(false)}
+        onAddJob={handleAddJobFromApi}
+        existingCards={cards}
+      />
     </div>
   );
 }
