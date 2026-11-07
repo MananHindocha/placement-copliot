@@ -19,6 +19,11 @@ import {
   type InjectReadinessSprintArgs,
   type StageResumeDiffArgs,
 } from "./tools-write";
+import {
+  get_student_twin_context,
+  analyze_job_gap,
+  optimize_multi_company_overlap,
+} from "./tools-read";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AgentToolHandler<TArgs = any, TResult = any> = (
@@ -33,15 +38,21 @@ export type AgentToolHandler<TArgs = any, TResult = any> = (
 }>;
 
 export interface AgentToolRegistry {
+  // Manan's Core Mutation Tools (Track 2)
   update_skill_evidence: AgentToolHandler<UpdateSkillEvidenceArgs>;
   inject_readiness_sprint: AgentToolHandler<InjectReadinessSprintArgs>;
   stage_resume_diff: AgentToolHandler<StageResumeDiffArgs>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get_skill_evidence: AgentToolHandler<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get_readiness_status: AgentToolHandler<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get_job_context: AgentToolHandler<any>;
+
+  // Pratham's Canonical Read Tools (Track 1)
+  get_student_twin_context: AgentToolHandler;
+  analyze_job_gap: AgentToolHandler;
+  optimize_multi_company_overlap: AgentToolHandler;
+
+  // Aliases for flexible orchestrator naming
+  get_skill_evidence: AgentToolHandler;
+  get_readiness_status: AgentToolHandler;
+  get_job_context: AgentToolHandler;
+
   [toolName: string]: AgentToolHandler;
 }
 
@@ -225,7 +236,7 @@ export function registerAgentTool(name: string, handler: AgentToolHandler): void
 }
 
 /**
- * Returns the unified dictionary of all 6 tools ready for Sanchit's orchestrator.
+ * Returns the unified dictionary of all tools ready for Sanchit's orchestrator.
  */
 export function getAgentToolRegistry(): AgentToolRegistry {
   return {
@@ -234,7 +245,18 @@ export function getAgentToolRegistry(): AgentToolRegistry {
     inject_readiness_sprint,
     stage_resume_diff,
 
-    // Pratham's Read Tools (Track 1 — using custom overrides or fallback stubs)
+    // Pratham's Canonical Read Tools (Track 1)
+    get_student_twin_context:
+      customToolOverrides.get_student_twin_context ||
+      (get_student_twin_context as unknown as AgentToolHandler),
+    analyze_job_gap:
+      customToolOverrides.analyze_job_gap ||
+      (analyze_job_gap as unknown as AgentToolHandler),
+    optimize_multi_company_overlap:
+      customToolOverrides.optimize_multi_company_overlap ||
+      (optimize_multi_company_overlap as unknown as AgentToolHandler),
+
+    // Read Tool Aliases & Fallbacks
     get_skill_evidence: customToolOverrides.get_skill_evidence || fallbackGetSkillEvidence,
     get_readiness_status: customToolOverrides.get_readiness_status || fallbackGetReadinessStatus,
     get_job_context: customToolOverrides.get_job_context || fallbackGetJobContext,
