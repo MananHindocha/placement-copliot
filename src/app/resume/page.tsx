@@ -17,6 +17,7 @@ import type { ResumeAnalysis, ParsedResumeDocument, ResumeEntry } from "@/types"
 import { getResumeBulletTargets, replaceResumeBullet } from "@/lib/resume/parser";
 import { printIsolatedResume, downloadDirectPdf } from "@/lib/resume/pdf-export";
 import ResumeDiffApprovalCard from "@/components/agent/ResumeDiffApprovalCard";
+import { useAgent } from "@/context/AgentProvider";
 import {
   Upload,
   FileText,
@@ -155,6 +156,7 @@ export default function ResumePage() {
   const [pythonParserActive, setPythonParserActive] = useState<boolean | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  const { triggerAgent } = useAgent();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessToast, setReadinessToast] = useState<string | null>(null);
@@ -288,6 +290,20 @@ export default function ResumePage() {
       }
 
       showToast(`Resume parsed successfully via ${result.source.toUpperCase()} engine!`);
+
+      // ─── TASK 3: FULL-APP AUTONOMOUS CHAIN REACTION ───
+      // Automatically triggers Steps 1->2->3->4 and slides open the Glass-Box Execution Drawer
+      triggerAgent({
+        triggerType: "RESUME_UPLOADED_BOOTSTRAP",
+        entityId: `resume-upload-${Date.now()}`,
+        goalPrompt: `Autonomous onboarding chain reaction for "${file.name}": calibrate Career Digital Twin (8 skills, detect bluff risks), inject 4 remedial milestones into Readiness Plan, scout and seed top 4 matched placement roles into Kanban, and stage a project-grounded resume diff awaiting approval.`,
+        metadata: {
+          fileName: file.name,
+          atsScore: result.analysis.matchScore,
+          targetRole,
+        },
+        autoOpenDrawer: true,
+      }).catch(console.error);
     } catch (err: unknown) {
       clearInterval(progressTimer);
       setError(err instanceof Error ? err.message : "Document analysis failed.");
@@ -315,6 +331,18 @@ export default function ResumePage() {
         setDiagnosticTip(res.diagnosticTip || null);
         setEngineSource(res.source);
         showToast("Re-evaluated resume against new role & JD!");
+
+        triggerAgent({
+          triggerType: "RESUME_UPLOADED_BOOTSTRAP",
+          entityId: `resume-re-eval-${Date.now()}`,
+          goalPrompt: `Re-evaluated resume for ${targetRole}: calibrate Digital Twin, inject 4 readiness milestones, and stage project-grounded resume diffs.`,
+          metadata: {
+            fileName: analysis.parsedResume?.fileName || "Current_Resume.pdf",
+            atsScore: res.analysis.matchScore,
+            targetRole,
+          },
+          autoOpenDrawer: true,
+        }).catch(console.error);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Re-evaluation failed.");
       } finally {

@@ -21,6 +21,9 @@ import {
   FileCheck,
   Zap,
   TrendingUp,
+  X,
+  Mic,
+  BookOpen,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -212,6 +215,7 @@ function SkillEvidenceCard({
 export function DigitalTwinMatrix() {
   const { digitalTwin, triggerAgent, bluffRiskCount } = useAgent();
   const [filterMode, setFilterMode] = useState<"all" | "bluff" | "high" | "unverified">("all");
+  const [showRemediationModal, setShowRemediationModal] = useState(false);
 
   const skills = digitalTwin?.skills || [];
 
@@ -231,9 +235,13 @@ export function DigitalTwinMatrix() {
   };
 
   const handleAuditAllBluffRisks = () => {
+    setFilterMode("bluff");
+    setShowRemediationModal(true);
     triggerAgent({
       triggerType: "USER_GOAL_SUBMITTED",
-      goalPrompt: "Audit all skills across my Career Digital Twin, calculate bluff risks against current job requirements, and inject remedial study tasks.",
+      entityId: "bluff-risk-audit",
+      goalPrompt:
+        "Audit all bluff risks across my Career Digital Twin (PostgreSQL Indexing & Distributed Caching), generate a targeted 2-question verification probe, and inject remedial study tasks into my Readiness Plan.",
       autoOpenDrawer: true,
     });
   };
@@ -362,6 +370,98 @@ export function DigitalTwinMatrix() {
               onVerifyDrill={handleVerifyDrill}
             />
           ))}
+        </div>
+      )}
+
+      {/* ─── QUICK BLUFF REMEDIATION MODAL ─── */}
+      {showRemediationModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="relative w-full max-w-xl bg-gradient-to-br from-[#120a16] via-[#1a0f22] to-[#0d0914] border border-rose-500/40 rounded-2xl p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between pb-3 border-b border-rose-500/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    ⚡ Quick Bluff Risk Remediation Audit
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      {bluffRiskCount || 2} RISKS ACTIVE
+                    </span>
+                  </h3>
+                  <p className="text-xs text-rose-300/80 mt-0.5">
+                    Skills claimed as HIGH on your resume but lacking verified mock interview citations.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRemediationModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl bg-black/40 border border-rose-500/25 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">1. PostgreSQL B-Tree Indexing &amp; MVCC Isolation</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    Claimed: HIGH · Verified: LOW
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Razorpay &amp; Stripe interviewers heavily test transaction isolation levels and deadlock resolution. Current confidence is damped (20%).
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-black/40 border border-rose-500/25 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">2. Distributed Caching &amp; Redis Eviction Under Load</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    Claimed: HIGH · Verified: LOW
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Recent interview evaluation scored 42% on eviction policies (LRU/LFU) and cache stampede prevention.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-[11px] text-slate-400">
+                Agent trace running in slide-over drawer
+              </span>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <Link
+                  href="/interview"
+                  onClick={() => setShowRemediationModal(false)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/25 transition-all"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>🎙️ Take 3-Min Verbal Probe</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRemediationModal(false);
+                    triggerAgent({
+                      triggerType: "USER_GOAL_SUBMITTED",
+                      goalPrompt: "Inject a 2-day recovery sprint into my Readiness Plan to clear PostgreSQL and Redis bluff risks before upcoming interviews.",
+                      autoOpenDrawer: true,
+                    });
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-950/40 transition-all cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>📚 Inject Remedial Tasks</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </Card>

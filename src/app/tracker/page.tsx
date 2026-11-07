@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ErrorBanner from "@/components/ui/ErrorBanner";
@@ -12,6 +13,7 @@ import {
   addApplication,
   deleteApplication,
   updateApplication,
+  scoutAndSeedPipeline,
 } from "@/lib/services/applications.service";
 import type { KanbanCard, KanbanStatus, Job } from "@/types";
 import {
@@ -33,6 +35,9 @@ import {
   Briefcase,
   Award,
   Zap,
+  Bot,
+  FileText,
+  Target,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
@@ -205,8 +210,13 @@ export default function TrackerPage() {
     setLoading(true);
     setError(null);
     getApplications()
-      .then((data) => {
-        setCards(data);
+      .then(async (data) => {
+        if (!data || data.length === 0) {
+          const seeded = await scoutAndSeedPipeline();
+          setCards(seeded);
+        } else {
+          setCards(data);
+        }
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -215,12 +225,36 @@ export default function TrackerPage() {
       });
   };
 
+  const handleAutoScoutAndSeed = async () => {
+    try {
+      setLoading(true);
+      const seeded = await scoutAndSeedPipeline();
+      setCards(seeded);
+      showToast("🤖 Auto-scouted 4 top matched roles based on your Career Digital Twin!");
+      triggerAgent({
+        triggerType: "USER_GOAL_SUBMITTED",
+        entityId: "pipeline-seed",
+        goalPrompt: "Evaluate student Career Digital Twin skills against active placement opportunities and seed 4 high-match target roles into the Kanban tracker.",
+        autoOpenDrawer: true,
+      }).catch(console.error);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to seed matched roles.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     getApplications()
-      .then((data) => {
+      .then(async (data) => {
         if (!isMounted) return;
-        setCards(data);
+        if (!data || data.length === 0) {
+          const seeded = await scoutAndSeedPipeline();
+          if (isMounted) setCards(seeded);
+        } else {
+          setCards(data);
+        }
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -229,8 +263,21 @@ export default function TrackerPage() {
         setLoading(false);
       });
 
+    const handleUpdate = () => {
+      getApplications().then((data) => {
+        if (isMounted && data) setCards(data);
+      });
+    };
+
+    window.addEventListener("copilot-data-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("agent-state-mutated", handleUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener("copilot-data-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("agent-state-mutated", handleUpdate);
     };
   }, []);
 
@@ -410,8 +457,17 @@ export default function TrackerPage() {
           </p>
         </div>
 
-        {/* View Switchers (Global Add button removed per specification) */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* View Switchers & Auto-Scout Button */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleAutoScoutAndSeed}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-md shadow-indigo-500/25 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Bot className="w-3.5 h-3.5 text-cyan-200" />
+            <span>🤖 Auto-Scout &amp; Seed Top 4 Matched Roles</span>
+          </button>
+
           {/* Density Switcher: 4-Stage Compact vs 6-Stage Detailed */}
           <div className="flex items-center gap-1 p-1 bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-xl text-xs">
             <button
@@ -693,6 +749,39 @@ export default function TrackerPage() {
                           </div>
                         )}
 
+                        {/* Agent Prepared Status & Quick Links */}
+                        {(card.status === "Interview" ||
+                          card.status === "Phone Screen" ||
+                          (card.notes && card.notes.includes("Bluff Risk"))) && (
+                          <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
+                                <Bot className="w-2.5 h-2.5 text-cyan-400" />
+                                🤖 Agent Prepared
+                              </span>
+                              <span className="text-[9px] text-slate-500 font-mono">Calibrated</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <Link
+                                href="/readiness"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 py-1 px-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 font-semibold text-center transition-colors flex items-center justify-center gap-1"
+                              >
+                                <Target className="w-3 h-3 text-indigo-400" />
+                                <span>Milestones</span>
+                              </Link>
+                              <Link
+                                href="/resume"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 py-1 px-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-300 font-semibold text-center transition-colors flex items-center justify-center gap-1"
+                              >
+                                <FileText className="w-3 h-3 text-purple-400" />
+                                <span>Staged Diff</span>
+                              </Link>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Quick 1-Click Agent Sprint Prep */}
                         <button
                           type="button"
@@ -730,14 +819,24 @@ export default function TrackerPage() {
                               Start building your application pipeline by importing jobs from Job Discovery.
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setShowJobImportModal(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B1FB8]/30 hover:bg-[#1B1FB8]/50 text-indigo-200 text-xs font-medium border border-indigo-500/30 transition-all mt-1"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Import from APIs</span>
-                          </button>
+                          <div className="flex items-center justify-center gap-2 flex-wrap pt-1">
+                            <button
+                              type="button"
+                              onClick={handleAutoScoutAndSeed}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+                            >
+                              <Bot className="w-3.5 h-3.5 text-cyan-200" />
+                              <span>🤖 Auto-Scout 4 Roles</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowJobImportModal(true)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition-all cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Import APIs</span>
+                            </button>
+                          </div>
                         </div>
                       ) : stage.id === "applied" || stage.id === "Applied" ? (
                         <div className="space-y-1.5 text-slate-500">

@@ -467,6 +467,36 @@ export async function inject_readiness_sprint(
 
   if (tasksToInsert.length > 0) {
     mockAgentStore.insertTasks(userId, tasksToInsert);
+
+    // Browser runtime sync: update local readiness tasks store so UI updates live
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem("copilot_readiness_tasks_v1");
+        const current = raw ? JSON.parse(raw) : [];
+        const currentTitles = new Set(current.map((m: any) => m.title.toLowerCase().trim()));
+        const newMilestones = tasksToInsert
+          .filter((t) => !currentTitles.has(t.title.toLowerCase().trim()))
+          .map((t) => ({
+            id: t.id,
+            title: t.title,
+            category: (["skills", "resume", "interview", "applications", "network"].includes(t.category?.toLowerCase())
+              ? t.category.toLowerCase()
+              : "skills") as any,
+            description: t.description || "",
+            completed: false,
+            priority: (t.priority?.toLowerCase() || "medium") as any,
+            dueDate: t.due_date ? new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined,
+          }));
+        if (newMilestones.length > 0) {
+          const merged = [...current, ...newMilestones];
+          window.localStorage.setItem("copilot_readiness_tasks_v1", JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent("copilot-data-updated", { detail: { source: "readiness" } }));
+          window.dispatchEvent(new CustomEvent("agent-state-mutated"));
+        }
+      } catch (err) {
+        console.warn("[inject_readiness_sprint] Browser storage sync failed:", err);
+      }
+    }
   }
 
   const summary = `Readiness sprint "${args.sprintTitle}": inserted ${tasksToInsert.length} task(s), skipped ${skippedDuplicates} duplicate(s).`;
@@ -591,6 +621,10 @@ export async function stage_resume_diff(
 
   // Always register in mockAgentStore
   mockAgentStore.saveApproval(approvalRecord);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("agent-state-mutated"));
+  }
 
   const summary = `Staged ${args.proposedBulletChanges.length} grounded resume diff(s) for role "${args.targetRole}" (Job: ${args.jobId}). Awaiting human approval. Estimated ATS lift: +${estimatedAtsScoreDelta} points.`;
 

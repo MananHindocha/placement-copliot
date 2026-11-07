@@ -487,7 +487,8 @@ GUIDELINES:
 2. For Kanban interview movements: analyze job gaps, inject a 3-day targeted sprint, and stage an evidence-grounded resume diff for human approval.
 3. For mock interview results: calibrate skill confidence damped by session score, and inject a remedial sprint if score < 65%.
 4. NEVER apply resume modifications directly; always use stage_resume_diff.
-5. Maximize evidence grounding and concise actionable sprint tasks.`;
+5. Maximize evidence grounding and concise actionable sprint tasks.
+6. For RESUME_UPLOADED_BOOTSTRAP: calibrate digital twin, inject 4 remedial milestones to address bluff risks, scout and seed top 4 matched placements into Kanban, and stage a grounded resume diff.`;
 
     const contents: any[] = [
       {

@@ -5,6 +5,7 @@ import {
   setStoredApplications,
   logActivity,
   dispatchCopilotUpdate,
+  BOOTSTRAP_KANBAN_APPLICATIONS,
 } from "@/lib/storage-sync";
 import type { KanbanCard, KanbanStatus } from "@/types";
 import type { ApplicationRow } from "./types";
@@ -328,4 +329,45 @@ export async function updateApplication(
   }
 
   dispatchCopilotUpdate("applications");
+}
+
+export async function scoutAndSeedPipeline(): Promise<KanbanCard[]> {
+  const mode = getEffectiveDataMode();
+  if (mode === "demo") {
+    setStoredApplications(BOOTSTRAP_KANBAN_APPLICATIONS);
+    logActivity({
+      type: "application",
+      message: "Autonomous agent seeded top 4 matched placements into Kanban pipeline",
+    });
+    return BOOTSTRAP_KANBAN_APPLICATIONS;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return BOOTSTRAP_KANBAN_APPLICATIONS;
+    }
+
+    for (const app of BOOTSTRAP_KANBAN_APPLICATIONS) {
+      try {
+        await supabase.from("applications").insert({
+          user_id: user.id,
+          company: app.company,
+          title: app.title,
+          status: app.status,
+          match_score: app.matchScore,
+          priority: app.priority,
+          notes: app.notes,
+          job_source: app.source,
+        });
+      } catch {
+        // Ignore single duplicate inserts
+      }
+    }
+
+    return await getApplications();
+  } catch {
+    return BOOTSTRAP_KANBAN_APPLICATIONS;
+  }
 }

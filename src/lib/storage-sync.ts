@@ -35,37 +35,89 @@ export function dispatchCopilotUpdate(source: string): void {
 
 // ─── Applications (Kanban) Storage ───────────────────────────────────────────
 
-const KNOWN_DEMO_CARD_IDS = new Set(["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"]);
-
-function isDemoFixture(card: KanbanCard): boolean {
-  if (!card) return false;
-  if (KNOWN_DEMO_CARD_IDS.has(card.id)) return true;
-  const match = card.id.match(/^k(d+)$/);
-  if (match && Number(match[1]) <= 8) return true;
-  return false;
-}
+export const BOOTSTRAP_KANBAN_APPLICATIONS: KanbanCard[] = [
+  {
+    id: "app-razorpay-01",
+    company: "Razorpay",
+    logo: "RZ",
+    title: "Backend SDE (Payments Core)",
+    status: "Applied",
+    matchScore: 91,
+    priority: "high",
+    salary: "₹24–32 LPA",
+    nextStep: "Technical OA (PostgreSQL & Concurrency)",
+    skills: ["PostgreSQL", "Go / Node.js", "Redis", "Distributed Transactions"],
+    source: "demo",
+    jobSource: "Campus Placement / Direct Scout",
+    notes: "Core payments gateway processing high-concurrency transactions. ⚠️ 1 Bluff Risk Overlap (PostgreSQL).",
+    appliedDate: new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0],
+  },
+  {
+    id: "app-vercel-02",
+    company: "Vercel",
+    logo: "VC",
+    title: "Full-Stack Product Engineer (Next.js/TS)",
+    status: "Wishlist",
+    matchScore: 94,
+    priority: "high",
+    salary: "$130k–$160k",
+    nextStep: "Portfolio & App Architecture Review",
+    skills: ["Next.js", "TypeScript", "React Server Components", "Tailwind CSS"],
+    source: "demo",
+    jobSource: "Vercel Talent Network",
+    notes: "Flagship frontend engineering role. ✅ High Bar-Raiser Fit with candidate project portfolio.",
+    appliedDate: new Date(Date.now() - 4 * 86400000).toISOString().split("T")[0],
+  },
+  {
+    id: "app-atlassian-03",
+    company: "Atlassian",
+    logo: "AT",
+    title: "Software Engineer (Distributed Systems)",
+    status: "Wishlist",
+    matchScore: 86,
+    priority: "medium",
+    salary: "₹28–36 LPA",
+    nextStep: "System Design Screening",
+    skills: ["Java / TypeScript", "Kafka", "Distributed Systems", "AWS"],
+    source: "demo",
+    jobSource: "In-House Referral Scout",
+    notes: "Distributed systems team. ⚡ OA Prep Ready for microservices scale.",
+    appliedDate: new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0],
+  },
+  {
+    id: "app-stripe-04",
+    company: "Stripe",
+    logo: "ST",
+    title: "API Infrastructure Intern/SDE-1",
+    status: "Applied",
+    matchScore: 88,
+    priority: "high",
+    salary: "$55/hr or ₹30 LPA",
+    nextStep: "Phone Screen & API Design",
+    skills: ["API Design", "Idempotency", "Redis", "Data Pipelines"],
+    source: "demo",
+    jobSource: "University Talent Scout",
+    notes: "Global payments infrastructure API team. ⚠️ Needs Redis Verification.",
+    appliedDate: new Date(Date.now() - 1 * 86400000).toISOString().split("T")[0],
+  },
+];
 
 export function getStoredApplications(): KanbanCard[] {
   if (!isBrowser()) return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
     if (!raw) {
-      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify([]));
-      return [];
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(BOOTSTRAP_KANBAN_APPLICATIONS));
+      return BOOTSTRAP_KANBAN_APPLICATIONS;
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify([]));
-      return [];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(BOOTSTRAP_KANBAN_APPLICATIONS));
+      return BOOTSTRAP_KANBAN_APPLICATIONS;
     }
-    // Clean up known legacy demo fixtures without deleting genuine user-created applications
-    const cleaned = parsed.filter((c) => !isDemoFixture(c));
-    if (cleaned.length !== parsed.length) {
-      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(cleaned));
-    }
-    return cleaned;
+    return parsed;
   } catch {
-    return [];
+    return BOOTSTRAP_KANBAN_APPLICATIONS;
   }
 }
 
@@ -81,37 +133,61 @@ export function setStoredApplications(cards: KanbanCard[]): void {
 
 // ─── Readiness Tasks Storage ─────────────────────────────────────────────────
 
-const KNOWN_DEMO_MILESTONE_IDS = new Set(["rm1", "rm2", "rm3", "rm4", "rm5", "rm6", "rm7", "rm8"]);
-
-function isDemoMilestone(milestone: ReadinessMilestone): boolean {
-  if (!milestone) return false;
-  if (KNOWN_DEMO_MILESTONE_IDS.has(milestone.id)) return true;
-  const match = milestone.id.match(/^rm(\d+)$/);
-  if (match && Number(match[1]) <= 8) return true;
-  return false;
-}
+export const BOOTSTRAP_READINESS_MILESTONES: ReadinessMilestone[] = [
+  {
+    id: "rm-boot-1",
+    title: "Baseline Resume & Skill Graph Ingestion",
+    category: "resume",
+    priority: "low",
+    completed: true,
+    description: "[🤖 Agent Verified] Initial career baseline ingested from resume graph.",
+    dueDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  },
+  {
+    id: "rm-boot-2",
+    title: "Clear Bluff Risk: Master PostgreSQL B-Tree Indexing & MVCC Isolation",
+    category: "skills",
+    priority: "high",
+    completed: false,
+    description: "[🤖 Agent Injected] Reason: Flagged as Resume Bluff Risk in Digital Twin · Estimated: 4h",
+    dueDate: new Date(Date.now() + 3 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  },
+  {
+    id: "rm-boot-3",
+    title: "Clear Bluff Risk: Distributed Caching & Redis Eviction Under Load",
+    category: "skills",
+    priority: "high",
+    completed: false,
+    description: "[🤖 Agent Injected] Reason: Flagged as Resume Bluff Risk in Digital Twin · Estimated: 5h",
+    dueDate: new Date(Date.now() + 5 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  },
+  {
+    id: "rm-boot-4",
+    title: "Verify System Design & Rate Limiter Architecture via Mock Probe",
+    category: "interview",
+    priority: "medium",
+    completed: false,
+    description: "[🤖 Agent Injected] Reason: Claimed on resume but currently Unverified · Estimated: 3h",
+    dueDate: new Date(Date.now() + 7 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  },
+];
 
 export function getStoredReadinessMilestones(): ReadinessMilestone[] {
   if (!isBrowser()) return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.READINESS);
     if (!raw) {
-      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify([]));
-      return [];
+      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(BOOTSTRAP_READINESS_MILESTONES));
+      return BOOTSTRAP_READINESS_MILESTONES;
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify([]));
-      return [];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(BOOTSTRAP_READINESS_MILESTONES));
+      return BOOTSTRAP_READINESS_MILESTONES;
     }
-    // Clean up known legacy demo fixtures without deleting genuine user-created milestones
-    const cleaned = parsed.filter((m) => !isDemoMilestone(m));
-    if (cleaned.length !== parsed.length) {
-      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(cleaned));
-    }
-    return cleaned;
+    return parsed;
   } catch {
-    return [];
+    return BOOTSTRAP_READINESS_MILESTONES;
   }
 }
 

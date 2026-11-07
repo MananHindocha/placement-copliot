@@ -6,6 +6,7 @@ import {
   setStoredReadinessMilestones,
   logActivity,
   dispatchCopilotUpdate,
+  BOOTSTRAP_READINESS_MILESTONES,
 } from "@/lib/storage-sync";
 import type { ReadinessMilestone, ReadinessDomain, AiGoalRecommendation } from "@/types";
 import { getResumeWorkspace } from "@/lib/services/resume.service";
@@ -37,7 +38,27 @@ export async function getReadinessMilestones(): Promise<ReadinessMilestone[]> {
     throw new Error(`Failed to load readiness tasks from database: ${error.message}`);
   }
 
-  return ((data as ReadinessTaskRow[]) || []).map((row: ReadinessTaskRow) => ({
+  const taskRows = (data as ReadinessTaskRow[]) || [];
+  if (taskRows.length === 0) {
+    // Auto-bootstrap default readiness milestones for new live user
+    for (const m of BOOTSTRAP_READINESS_MILESTONES) {
+      try {
+        await supabase.from("readiness_tasks").insert({
+          user_id: user.id,
+          category: m.category,
+          title: m.title,
+          description: m.description,
+          priority: m.priority,
+          completed: m.completed,
+        });
+      } catch {
+        // Ignore single duplicate inserts
+      }
+    }
+    return BOOTSTRAP_READINESS_MILESTONES;
+  }
+
+  return taskRows.map((row: ReadinessTaskRow) => ({
     id: row.id,
     category: row.category,
     title: row.title,

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Button from "@/components/ui/Button";
 import ErrorBanner from "@/components/ui/ErrorBanner";
+import { useAgent } from "@/context/AgentProvider";
 import {
   getReadinessMilestones,
   getReadinessDomains,
@@ -156,6 +157,7 @@ function MilestoneRow({
 }
 
 export default function ReadinessPage() {
+  const { digitalTwin, bluffRiskCount } = useAgent();
   const [milestones, setMilestones] = useState<ReadinessMilestone[]>([]);
   const [domains, setDomains] = useState<ReadinessDomain[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,9 +238,11 @@ export default function ReadinessPage() {
 
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
+    window.addEventListener("agent-state-mutated", handleUpdate);
     return () => {
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("agent-state-mutated", handleUpdate);
     };
   }, [loadData, loadRecommendations]);
 
@@ -340,11 +344,28 @@ export default function ReadinessPage() {
   const total = milestones.length;
   const overallPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Safe overall readiness: only computes from active domain milestones
-  const activeDomains = domains.filter((d) => d.score > 0);
-  const overallReadiness = total > 0 && domains.length > 0
-    ? Math.round(domains.reduce((s, d) => s + d.score, 0) / domains.length)
-    : 0;
+  // Live weighted formula: Digital Twin Verified Confidence (65%) + Completed Roadmap Milestones (35%)
+  const skills = digitalTwin?.skills || [];
+  const skillScoreAvg = useMemo(() => {
+    if (!skills || skills.length === 0) return 72;
+    const CONFIDENCE_VALUE: Record<string, number> = {
+      HIGH: 100,
+      MEDIUM: 70,
+      UNVERIFIED: 40,
+      LOW: 20,
+    };
+    const totalScore = skills.reduce((sum, s) => {
+      if (s.bluff_risk) return sum + 20;
+      return sum + (CONFIDENCE_VALUE[s.verified_confidence] ?? 40);
+    }, 0);
+    return Math.round(totalScore / skills.length);
+  }, [skills]);
+
+  const milestoneScore = total > 0 ? (completed / total) * 100 : skillScoreAvg;
+  const overallReadiness = Math.min(
+    100,
+    Math.max(15, Math.round(skillScoreAvg * 0.65 + milestoneScore * 0.35))
+  );
 
   const pending = milestones.filter((m) => !m.completed);
   const done = milestones.filter((m) => m.completed);
@@ -400,18 +421,12 @@ export default function ReadinessPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">Overall Readiness</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {total === 0
-                    ? "Add goals to begin"
-                    : overallReadiness >= 80
-                    ? "Ready to interview!"
-                    : overallReadiness >= 60
-                    ? "Strong progress"
-                    : "Keep building"}
+                <p className="text-xs text-indigo-300 mt-1 font-medium">
+                  Synced with Digital Twin • {bluffRiskCount} Bluff Risk{bluffRiskCount !== 1 ? "s" : ""} Active
                 </p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400">
                   <TrendingUp className="w-3 h-3" />
-                  <span>{total > 0 ? `${overallPct}% completed` : "Roadmap unstarted"}</span>
+                  <span>{completed} of {total} milestones done ({overallPct}%)</span>
                 </div>
               </div>
             </Card>
