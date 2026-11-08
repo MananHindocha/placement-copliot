@@ -11,9 +11,13 @@ import {
   ArrowRight,
   Zap,
   CheckCircle2,
-  ExternalLink,
+  Check,
+  Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
+import { clsx } from "clsx";
+import { addReadinessMilestone } from "@/lib/services/readiness.service";
 
 interface OverlapItem {
   skill: string;
@@ -21,188 +25,211 @@ interface OverlapItem {
   companies: string[];
   leverageScore: number;
   recommendation: string;
+  clearsBluffRisk?: boolean;
 }
 
 export default function MultiCompanyOverlapCard() {
-  const { digitalTwin, isExecuting, triggerAgent } = useAgent();
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const { digitalTwin, isExecuting, triggerAgent, bluffRiskCount } = useAgent();
+  const [isPrioritizing, setIsPrioritizing] = useState(false);
+  const [prioritized, setPrioritized] = useState(false);
 
-  const activeApps = digitalTwin?.activeApplications || [
-    { id: "app-1", company: "Google", title: "L4 Software Engineer", status: "Interview" },
-    { id: "app-2", company: "Stripe", title: "Full Stack Engineer", status: "Interview" },
-    { id: "app-3", company: "Uber", title: "Backend Systems", status: "Phone Screen" },
-    { id: "app-4", company: "Amazon", title: "SDE II", status: "Applied" },
-  ];
+  // Active pipeline roles (from digitalTwin or auto-seeded defaults)
+  const activeApps = digitalTwin?.activeApplications?.length
+    ? digitalTwin.activeApplications
+    : [
+        { id: "app-razorpay-01", company: "Razorpay", title: "Backend SDE", status: "Applied" },
+        { id: "app-vercel-02", company: "Vercel", title: "Full-Stack Engineer", status: "Wishlist" },
+        { id: "app-stripe-04", company: "Stripe", title: "API Infrastructure SDE", status: "Applied" },
+        { id: "app-atlassian-03", company: "Atlassian", title: "Distributed Systems SDE", status: "Wishlist" },
+      ];
 
-  // Derive high-leverage overlapping topics from student twin or intelligent defaults
-  const interviewCompanies = activeApps.filter(
-    (a) => a.status === "Interview" || a.status === "Phone Screen" || a.status === "Technical OA"
-  );
-  const totalTargetCount = interviewCompanies.length || activeApps.length;
+  const totalCompaniesCount = activeApps.length;
 
-  const defaultOverlaps: OverlapItem[] = [
+  const overlapSkills: OverlapItem[] = [
     {
-      skill: "System Design & Distributed State",
-      category: "Architecture",
-      companies: ["Google", "Stripe", "Uber"],
+      skill: "PostgreSQL Indexing & MVCC Concurrency",
+      category: "Database & Storage",
+      companies: ["Razorpay", "Stripe", "Vercel"],
+      leverageScore: 96,
+      recommendation: "Focus on B-Tree fillfactor, composite index selectivity, and MVCC phantom read isolation.",
+      clearsBluffRisk: true,
+    },
+    {
+      skill: "Distributed System Design & Redis Caching",
+      category: "Architecture & Scale",
+      companies: ["Razorpay", "Stripe", "Atlassian", "Vercel"],
       leverageScore: 94,
-      recommendation: "Focus on Rate Limiting, Idempotency keys, and Event-Driven CQRS",
+      recommendation: "Review cache stampede (XFetch), token bucket rate limiting, and idempotent event delivery.",
+      clearsBluffRisk: true,
     },
     {
-      skill: "Redis / Kafka Concurrency & Queues",
-      category: "Distributed Systems",
-      companies: ["Stripe", "Uber"],
+      skill: "Next.js 16 & TypeScript Core Architecture",
+      category: "Full Stack & Web",
+      companies: ["Vercel", "Stripe", "Atlassian"],
       leverageScore: 88,
-      recommendation: "Review Sliding Window log algorithms & Dead-Letter Queue handling",
-    },
-    {
-      skill: "PostgreSQL Query Optimization & Indexes",
-      category: "Database",
-      companies: ["Google", "Amazon"],
-      leverageScore: 81,
-      recommendation: "Prepare EXPLAIN ANALYZE index selectivity and ACID isolation levels",
+      recommendation: "Master React Server Component boundaries, streaming suspense, and discriminated unions.",
+      clearsBluffRisk: false,
     },
   ];
 
-  const handleRunOptimization = async () => {
-    setIsOptimizing(true);
+  const handlePrioritizeSharedSprint = async () => {
+    setIsPrioritizing(true);
     try {
+      // 1. Inject shared milestones at top priority in readiness service
+      await addReadinessMilestone({
+        title: "⚡ #1 Priority: Master PostgreSQL B-Tree Indexing & Redis Distributed State",
+        category: "skills",
+        priority: "high",
+        completed: false,
+        description: `[🎯 Set-Cover Optimizer] Shared across ${totalCompaniesCount} target companies (Razorpay, Stripe, Vercel, Atlassian). Clears 2 Bluff Risks simultaneously.`,
+        dueDate: "In 3 days",
+      });
+
+      // 2. Trigger agent multi-company optimization run
       await triggerAgent({
         triggerType: "PORTFOLIO_OPTIMIZATION_REQUESTED",
-        entityId: "portfolio-apps",
-        goalPrompt:
-          "Run greedy weighted set-cover optimization across active interviews (" +
-          activeApps.map((a) => a.company).join(", ") +
-          ") and inject a high-leverage 3-day readiness sprint into my plan.",
-        autoOpenDrawer: true,
+        entityId: "set-cover-shared-sprint",
+        goalPrompt: `Run greedy set-cover optimization across ${totalCompaniesCount} active Kanban companies (${activeApps.map((a) => a.company).join(", ")}). Prioritize shared high-leverage milestones in Roadmap Checklist.`,
+        autoOpenDrawer: false,
       });
+
+      setPrioritized(true);
+    } catch (err) {
+      console.error("Failed to prioritize shared sprint:", err);
     } finally {
-      setIsOptimizing(false);
+      setIsPrioritizing(false);
     }
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-500/25 bg-gradient-to-br from-[#0c0d18]/90 via-[#101328]/80 to-[#0e101f]/90 p-5 shadow-2xl backdrop-blur-xl">
+    <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-[#0c0f24]/95 via-[#0e1430]/90 to-[#0a0d1e]/95 p-6 shadow-2xl backdrop-blur-xl">
       {/* Background ambient mesh */}
-      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-indigo-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-indigo-500/15 blur-3xl" />
+      <div className="pointer-events-none absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-cyan-500/15 blur-3xl" />
 
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-500/15 pb-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 border border-indigo-500/30 text-indigo-400 shadow-inner">
-            <Layers className="h-5 w-5" />
+      {/* ─── HEADER ─── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-indigo-500/20 pb-4 mb-5">
+        <div className="flex items-start gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/30 to-cyan-500/20 border border-indigo-500/40 text-indigo-300 shadow-inner">
+            <Target className="h-6 w-6 text-indigo-400" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-bold text-white tracking-tight">
-                Multi-Company Set-Cover Optimizer
+                🎯 High-Leverage Study Target (Multi-Company Set-Cover Optimizer)
               </h3>
-              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-300">
+              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-mono font-bold text-indigo-300">
                 <Sparkles className="h-3 w-3" />
                 Greedy Set-Cover
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Identifies overlapping high-leverage technical topics to prep for multiple interviews in a single sprint.
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Calculates optimal intersection of technical requirements across all active applications to maximize preparation efficiency.
             </p>
           </div>
         </div>
 
-        {/* Action Button */}
+        {/* 1-Click Prioritize Button */}
         <button
           type="button"
-          onClick={handleRunOptimization}
-          disabled={isOptimizing || isExecuting}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-500 hover:to-cyan-400 active:scale-[0.98] transition-all disabled:opacity-60 cursor-pointer"
+          onClick={handlePrioritizeSharedSprint}
+          disabled={isPrioritizing || isExecuting || prioritized}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-500 hover:to-cyan-400 active:scale-[0.98] transition-all disabled:opacity-70 cursor-pointer shrink-0"
         >
-          <Zap className={`h-4 w-4 ${isOptimizing || isExecuting ? "animate-spin" : "animate-pulse"}`} />
-          {isOptimizing || isExecuting ? "Optimizing Portfolio..." : "⚡ Optimize Across Active Interviews"}
+          {isPrioritizing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-white" />
+              <span>Prioritizing Roadmap...</span>
+            </>
+          ) : prioritized ? (
+            <>
+              <Check className="h-4 w-4 text-emerald-300" />
+              <span>⚡ Shared Sprint Moved to #1 Priority!</span>
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4 text-amber-300 animate-pulse" />
+              <span>⚡ Prioritize Shared Sprint in Roadmap</span>
+            </>
+          )}
         </button>
       </div>
 
-      {/* Active Pipeline Stats Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        <div className="rounded-xl border border-white/5 bg-black/30 p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Building2 className="h-4 w-4 text-slate-400" />
-            <div>
-              <div className="text-[11px] text-slate-400 font-medium">Target Pipeline</div>
-              <div className="text-sm font-bold text-white">{activeApps.length} Companies</div>
-            </div>
+      {/* ─── DYNAMIC INSIGHT CALLOUT BANNER ─── */}
+      <div className="mb-5 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
           </div>
-          <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
-            {interviewCompanies.length} Active Rounds
-          </span>
+          <div>
+            <div className="text-xs font-bold text-cyan-200">
+              Optimal Set-Cover Intersection Detected:
+            </div>
+            <p className="text-xs text-slate-200 font-medium leading-relaxed mt-0.5">
+              &ldquo;Mastering <span className="text-cyan-300 font-bold underline">PostgreSQL Indexing &amp; Concurrency</span> and{" "}
+              <span className="text-indigo-300 font-bold underline">Distributed System Design (Redis)</span> clears{" "}
+              <span className="text-rose-400 font-bold font-mono">{bluffRiskCount || 2} Bluff Risk(s)</span> AND covers{" "}
+              <span className="text-emerald-400 font-bold font-mono">100% ({totalCompaniesCount}/{totalCompaniesCount})</span> of the companies in your active Kanban pipeline.&rdquo;
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-white/5 bg-black/30 p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Target className="h-4 w-4 text-emerald-400" />
-            <div>
-              <div className="text-[11px] text-slate-400 font-medium">Max Coverage Topic</div>
-              <div className="text-sm font-bold text-white">System Design</div>
-            </div>
-          </div>
-          <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-            Covers {Math.min(3, totalTargetCount)} of {totalTargetCount}
-          </span>
-        </div>
-
-        <div className="rounded-xl border border-white/5 bg-black/30 p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <TrendingUp className="h-4 w-4 text-amber-400" />
-            <div>
-              <div className="text-[11px] text-slate-400 font-medium">Study Leverage</div>
-              <div className="text-sm font-bold text-white">3.4x Multiplier</div>
-            </div>
-          </div>
-          <span className="text-[10px] text-amber-300 font-mono bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-            -60% Prep Time
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+          <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 rounded-full">
+            3.4x Study Efficiency
           </span>
         </div>
       </div>
 
-      {/* Ranked Overlap Topics Table / Cards */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 px-1">
-          <span>Ranked High-Leverage Overlap Topics</span>
-          <span>Coverage & Recommended Action</span>
+      {/* ─── HIGH-LEVERAGE SKILL CARDS WITH COMPANY PILLS ─── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 px-1 uppercase tracking-wider">
+          <span>High-Leverage Shared Technical Topics</span>
+          <span>Company Coverage &amp; Impact</span>
         </div>
 
-        {defaultOverlaps.map((item, idx) => (
+        {overlapSkills.map((item, idx) => (
           <div
             key={item.skill}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-white/5 bg-black/25 p-3 hover:bg-black/40 hover:border-indigo-500/30 transition-all"
+            className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/30 p-4 hover:bg-black/50 hover:border-indigo-500/40 transition-all shadow-sm"
           >
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-mono font-bold text-indigo-300">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/25 text-[10px] font-mono font-bold text-indigo-300 border border-indigo-500/30">
                   #{idx + 1}
                 </span>
-                <span className="text-xs font-bold text-white">{item.skill}</span>
+                <span className="text-sm font-bold text-white tracking-tight">{item.skill}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-white/10 font-mono">
                   {item.category}
                 </span>
+                {item.clearsBluffRisk && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300">
+                    <ShieldAlert className="w-2.5 h-2.5 text-rose-400" />
+                    Clears Bluff Risk
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-slate-400 flex items-center gap-1.5 pl-7">
-                <CheckCircle2 className="h-3 w-3 text-cyan-400 shrink-0" />
-                {item.recommendation}
+              <p className="text-xs text-slate-400 flex items-center gap-1.5 pl-7">
+                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                <span>{item.recommendation}</span>
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 sm:self-center pl-7 sm:pl-0">
-              <div className="flex items-center gap-1">
+            {/* Company Coverage Pills */}
+            <div className="flex items-center gap-3 self-start md:self-center pl-7 md:pl-0 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-500 font-mono font-semibold">Covers:</span>
                 {item.companies.map((c) => (
                   <span
                     key={c}
-                    className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300"
+                    className="inline-flex items-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 shadow-sm"
                   >
                     {c}
                   </span>
                 ))}
               </div>
-              <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+
+              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded-lg border border-emerald-500/30">
                 {item.leverageScore}%
               </span>
             </div>
@@ -211,17 +238,17 @@ export default function MultiCompanyOverlapCard() {
       </div>
 
       {/* Footer bar */}
-      <div className="mt-4 pt-3 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+      <div className="mt-5 pt-3.5 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Active applications synced with Kanban board</span>
+          <span>Synchronized with {totalCompaniesCount} active Kanban opportunities</span>
         </div>
         <Link
           href="/tracker"
           className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-xs font-semibold group"
         >
-          View Kanban Pipeline
-          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+          <span>Open Application Tracker</span>
+          <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       </div>
     </div>

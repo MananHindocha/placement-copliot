@@ -156,7 +156,7 @@ export default function ResumePage() {
   const [pythonParserActive, setPythonParserActive] = useState<boolean | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const { triggerAgent } = useAgent();
+  const { triggerAgent, runAutonomousBootstrap } = useAgent();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessToast, setReadinessToast] = useState<string | null>(null);
@@ -547,8 +547,19 @@ export default function ResumePage() {
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl shrink-0">
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          {/* Prominent 1-Click Bootstrap Trigger */}
+          <button
+            type="button"
+            onClick={() => runAutonomousBootstrap()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-200" />
+            <span>🤖 Run Full-App Autonomous Bootstrap</span>
+          </button>
+
+          {/* Tab Switcher */}
+          <div className="flex items-center gap-1 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab("analyse")}
@@ -579,6 +590,7 @@ export default function ResumePage() {
             )}
           </button>
         </div>
+      </div>
       </div>
 
       {/* Diagnostic Tip / Microservice Health Pill */}

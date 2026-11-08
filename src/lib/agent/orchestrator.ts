@@ -167,6 +167,27 @@ export const AGENT_FUNCTION_DECLARATIONS = [
       },
     },
   },
+  {
+    name: "sync_digital_twin_from_resume",
+    description: "Extracts skills from uploaded resume into skill_evidence_matrix, marking core verified skills and flagging unverified claims as bluff risks.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        fileName: { type: "STRING", description: "Uploaded resume filename" },
+        atsScore: { type: "NUMBER", description: "Calculated ATS match score" },
+      },
+    },
+  },
+  {
+    name: "auto_seed_kanban_pipeline",
+    description: "Automatically shortlists and seeds the top 4 matched placements into the Kanban Application Tracker.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        targetRole: { type: "STRING", description: "Target role title" },
+      },
+    },
+  },
 ];
 
 // ─── Zod Schemas for Runtime Argument Validation ─────────────────────────────
@@ -204,6 +225,13 @@ const ToolSchemas = {
   }),
   optimize_multi_company_overlap: z.object({
     activeApplicationsCount: z.number().optional(),
+  }),
+  sync_digital_twin_from_resume: z.object({
+    fileName: z.string().optional(),
+    atsScore: z.number().optional(),
+  }),
+  auto_seed_kanban_pipeline: z.object({
+    targetRole: z.string().optional(),
   }),
 };
 
@@ -364,6 +392,33 @@ async function executeToolCall(
       output: {
         commonSkills: ["System Design", "Microservices", "PostgreSQL Optimization"],
         highYieldFocus: "Distributed Systems & Caching",
+      },
+    };
+  }
+
+  if (toolName === "sync_digital_twin_from_resume") {
+    return {
+      output: {
+        skillsExtracted: 8,
+        coreVerified: ["TypeScript", "React & Next.js", "Data Structures & Algorithms", "REST API Design"],
+        bluffRisksFlagged: ["PostgreSQL & Database Design", "Redis & Distributed Caching"],
+        unverifiedClaims: ["System Design Trade-offs"],
+        status: "CALIBRATED",
+      },
+    };
+  }
+
+  if (toolName === "auto_seed_kanban_pipeline") {
+    return {
+      output: {
+        seededRolesCount: 4,
+        placements: [
+          { company: "Razorpay", title: "Backend SDE", matchScore: 91, status: "Applied & OA" },
+          { company: "Vercel", title: "Full-Stack Engineer", matchScore: 94, status: "Saved / Wishlist" },
+          { company: "Stripe", title: "API Infrastructure SDE", matchScore: 88, status: "Applied & OA" },
+          { company: "Atlassian", title: "Distributed Systems SDE", matchScore: 86, status: "Saved / Wishlist" },
+        ],
+        pipelineStatus: "INITIALIZED",
       },
     };
   }

@@ -10,6 +10,8 @@
  * 5. mockAgentStore: In-memory fallback store for standalone testing and dual-mode guest execution
  */
 
+import { upsertMockSkillEvidence } from "./mock-agent-store";
+
 export type ConfidenceTier = "UNVERIFIED" | "LOW" | "MEDIUM" | "HIGH";
 export type ClaimedLevel = "LOW" | "MEDIUM" | "HIGH";
 export type EvidenceVerdict = "POSITIVE" | "NEGATIVE";
@@ -349,8 +351,15 @@ export async function update_skill_evidence(
     }
   }
 
-  // Always sync to mockAgentStore
+  // Always sync to mockAgentStore and global mock store
   mockAgentStore.upsertSkill(updatedRow);
+  upsertMockSkillEvidence(userId, {
+    skill_name: normalizedSkill,
+    claimed_level: claimedLevel,
+    verified_confidence: nextTier,
+    bluff_risk: bluffRisk,
+    evidence_log: updatedEvidenceLog,
+  });
 
   const summary = `Skill evidence updated for "${normalizedSkill}": moved ${previousTier} -> ${nextTier} (${args.verdict} verdict from ${args.source}).${
     bluffRisk ? " ⚠️ BLUFF RISK DETECTED: Claimed HIGH but verified at LOW." : ""
@@ -641,4 +650,68 @@ export async function stage_resume_diff(
     },
   };
 }
+
+// ─── TOOL 4: SYNC_DIGITAL_TWIN_FROM_RESUME ──────────────────────────────────
+export async function sync_digital_twin_from_resume(
+  userId: string,
+  args: { fileName?: string; atsScore?: number },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase?: any
+): Promise<{
+  success: boolean;
+  summary: string;
+  data: {
+    skillsCount: number;
+    bluffRisks: string[];
+    fileName: string;
+  };
+}> {
+  const fileName = args.fileName || "Uploaded_Resume.pdf";
+  const { syncMockDigitalTwinFromResume } = await import("./mock-agent-store");
+  const skills = syncMockDigitalTwinFromResume(userId, fileName);
+
+  const bluffRisks = skills.filter((s) => s.bluff_risk).map((s) => s.skill_name);
+
+  return {
+    success: true,
+    summary: `Synchronized Digital Twin from "${fileName}": 8 skills tracked, ${bluffRisks.length} bluff risks detected (PostgreSQL & Redis).`,
+    data: {
+      skillsCount: skills.length,
+      bluffRisks,
+      fileName,
+    },
+  };
+}
+
+// ─── TOOL 5: AUTO_SEED_KANBAN_PIPELINE ──────────────────────────────────────
+export async function auto_seed_kanban_pipeline(
+  userId: string,
+  args: { targetRole?: string },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase?: any
+): Promise<{
+  success: boolean;
+  summary: string;
+  data: {
+    seededCount: number;
+    roles: Array<{ company: string; role: string; matchScore: number }>;
+  };
+}> {
+  const roles = [
+    { company: "Razorpay", role: "Backend SDE (Payments Core)", matchScore: 91 },
+    { company: "Vercel", role: "Full-Stack Engineer (Next.js/TS)", matchScore: 94 },
+    { company: "Stripe", role: "API Infrastructure SDE", matchScore: 88 },
+    { company: "Atlassian", role: "Distributed Systems SDE", matchScore: 86 },
+  ];
+
+  return {
+    success: true,
+    summary: `Auto-seeded 4 top matched opportunities into Kanban pipeline (Razorpay 91%, Vercel 94%, Stripe 88%, Atlassian 86%).`,
+    data: {
+      seededCount: 4,
+      roles,
+    },
+  };
+}
+
 

@@ -87,18 +87,18 @@ const DEFAULT_SKILL_MATRIX: SkillEvidenceItem[] = [
     id: "se-5",
     skill_name: "PostgreSQL & Database Design",
     claimed_level: "HIGH",
-    verified_confidence: "MEDIUM",
-    bluff_risk: false,
+    verified_confidence: "LOW",
+    bluff_risk: true,
     evidence_log: [
       {
-        timestamp: new Date(Date.now() - 86400000 * 6).toISOString(),
-        source: "Mock Interview: Relational Databases",
-        verdict: "Good query indexing knowledge, minor confusion regarding isolation levels (Serializable vs Repeatable Read)",
-        citation: "Explain phantom reads vs non-repeatable reads",
-        score: 74,
+        timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
+        source: "Mock Interview: Relational Databases & Concurrency",
+        verdict: "FAILED TO VERIFY CLAIM: Claimed High expertise on resume, but struggled with B-Tree vs Hash index trade-offs and MVCC phantom read isolation anomalies",
+        citation: "Interviewer Question: Explain B-Tree vs Hash index performance and MVCC phantom reads in PostgreSQL",
+        score: 45,
       },
     ],
-    updated_at: new Date(Date.now() - 86400000 * 6).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
   },
   {
     id: "se-6",
@@ -153,33 +153,42 @@ const DEFAULT_SKILL_MATRIX: SkillEvidenceItem[] = [
   },
 ];
 
-// Active Kanban applications in student pipeline
+// Active Kanban applications in student pipeline (Top 4 matched placements)
 const DEFAULT_ACTIVE_APPLICATIONS = [
   {
-    id: "app-stripe-01",
-    company: "Stripe",
-    title: "Software Engineer II (Backend)",
-    status: "Interview",
-    matchScore: 82,
-    nextStep: "Technical Architecture & System Design Round",
-    priority: "high",
-  },
-  {
-    id: "app-notion-02",
-    company: "Notion",
-    title: "Full Stack Engineer",
-    status: "Phone Screen",
-    matchScore: 85,
-    nextStep: "Engineering Manager Technical Screen",
-    priority: "high",
-  },
-  {
-    id: "app-linear-03",
-    company: "Linear",
-    title: "Product Engineer",
+    id: "app-razorpay-01",
+    company: "Razorpay",
+    title: "Backend SDE (Payments Core)",
     status: "Applied",
-    matchScore: 78,
-    nextStep: "Take-Home Assessment Review",
+    matchScore: 91,
+    nextStep: "Technical OA (PostgreSQL & Concurrency)",
+    priority: "high",
+  },
+  {
+    id: "app-vercel-02",
+    company: "Vercel",
+    title: "Full-Stack Engineer (Next.js/TS)",
+    status: "Wishlist",
+    matchScore: 94,
+    nextStep: "Portfolio & App Architecture Review",
+    priority: "high",
+  },
+  {
+    id: "app-stripe-04",
+    company: "Stripe",
+    title: "API Infrastructure SDE",
+    status: "Applied",
+    matchScore: 88,
+    nextStep: "Phone Screen & API Design",
+    priority: "high",
+  },
+  {
+    id: "app-atlassian-03",
+    company: "Atlassian",
+    title: "Distributed Systems SDE",
+    status: "Wishlist",
+    matchScore: 86,
+    nextStep: "System Design Screening",
     priority: "medium",
   },
 ];
@@ -396,6 +405,68 @@ export function getMockStudentDigitalTwin(userId: string): StudentDigitalTwinSna
       ],
     },
   };
+}
+
+/**
+ * Synchronizes Career Digital Twin from resume upload (Bootstrap Step 1).
+ */
+export function syncMockDigitalTwinFromResume(
+  userId: string,
+  fileName?: string
+): SkillEvidenceItem[] {
+  const state = getStoreState();
+  const refreshed = DEFAULT_SKILL_MATRIX.map((s) => ({
+    ...s,
+    user_id: userId,
+    evidence_log: [
+      {
+        timestamp: new Date().toISOString(),
+        source: `Resume Ingestion (${fileName || "Uploaded Resume"})`,
+        verdict: s.bluff_risk
+          ? `UNVERIFIED CLAIM: Claimed ${s.claimed_level} level in resume, but lacks verified mock or drill evidence.`
+          : `PARSED: Verified foundation detected from resume projects and coursework.`,
+        citation: `Extracted from parsed resume bullet points.`,
+        score: s.verified_confidence === "HIGH" ? 90 : s.verified_confidence === "MEDIUM" ? 75 : 45,
+      },
+      ...s.evidence_log,
+    ],
+  }));
+
+  state.skillEvidenceMap.set(userId, refreshed);
+  return refreshed;
+}
+
+/**
+ * Tones down a bluff risk claim on the resume to defensible 'MEDIUM' working knowledge.
+ */
+export function toneDownMockSkillClaim(
+  userId: string,
+  skillName: string,
+  defensibleRewrite?: string
+): SkillEvidenceItem | null {
+  const skills = getMockSkillEvidence(userId);
+  const target = skills.find(
+    (s) => s.skill_name.trim().toLowerCase() === skillName.trim().toLowerCase()
+  );
+
+  if (!target) return null;
+
+  target.claimed_level = "MEDIUM";
+  target.bluff_risk = false;
+  target.updated_at = new Date().toISOString();
+
+  target.evidence_log = [
+    {
+      timestamp: new Date().toISOString(),
+      source: "Agent Defense Remediation (Recalibration)",
+      verdict: "HONEST RECALIBRATION: Claim adjusted from High (Expert) to Medium (Working Knowledge) to eliminate interview bluff risk.",
+      citation: defensibleRewrite || "Recalibrated bullet point to defensible production application experience.",
+      score: 75,
+    },
+    ...target.evidence_log,
+  ].slice(0, 10);
+
+  return target;
 }
 
 /**

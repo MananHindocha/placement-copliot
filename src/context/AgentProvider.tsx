@@ -17,6 +17,8 @@ import type {
 } from "@/lib/agent/types";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import SkillMicroProbeModal from "@/components/agent/SkillMicroProbeModal";
+import BluffRiskAuditModal from "@/components/agent/BluffRiskAuditModal";
 
 export interface TriggerAgentPayload {
   triggerType: AgentTriggerType;
@@ -36,17 +38,35 @@ export interface AgentContextValue {
   activeToast: { message: string; type: "success" | "error" | "info" } | null;
   bluffRiskCount: number;
   pendingApprovalsCount: number;
+  isBluffAuditModalOpen: boolean;
+  probeSkill: string | null;
   openDrawer: () => void;
   closeDrawer: () => void;
   toggleDrawer: () => void;
+  openBluffAuditModal: () => void;
+  closeBluffAuditModal: () => void;
+  openProbeModal: (skillName: string) => void;
+  closeProbeModal: () => void;
   setActiveRun: (run: AgentRunRecord | null) => void;
   dismissToast: () => void;
   refreshAgentState: () => Promise<void>;
   triggerAgent: (payload: TriggerAgentPayload) => Promise<AgentRunRecord | null>;
+  runAutonomousBootstrap: () => Promise<AgentRunRecord | null>;
   resolveApproval: (
     approvalId: string,
     decision: "APPROVED" | "REJECTED"
   ) => Promise<{ success: boolean; message: string }>;
+  updateSkillEvidence: (
+    skillName: string,
+    verdict?: "POSITIVE" | "NEGATIVE",
+    source?: string,
+    citation?: string
+  ) => Promise<boolean>;
+  toneDownSkillClaim: (
+    skillName: string,
+    originalBullet?: string,
+    defensibleRewrite?: string
+  ) => Promise<boolean>;
 }
 
 const AgentContext = createContext<AgentContextValue | null>(null);
@@ -62,6 +82,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
+  const [isBluffAuditModalOpen, setIsBluffAuditModalOpen] = useState(false);
+  const [probeSkill, setProbeSkill] = useState<string | null>(null);
+
+  const openBluffAuditModal = useCallback(() => setIsBluffAuditModalOpen(true), []);
+  const closeBluffAuditModal = useCallback(() => setIsBluffAuditModalOpen(false), []);
+  const openProbeModal = useCallback((skillName: string) => setProbeSkill(skillName), []);
+  const closeProbeModal = useCallback(() => setProbeSkill(null), []);
 
   const showToast = useCallback(
     (message: string, type: "success" | "error" | "info" = "info") => {
@@ -321,6 +348,121 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     [refreshAgentState, showToast]
   );
 
+  // ─── UPDATE SKILL EVIDENCE (60-SEC ADVERSARIAL DRILL) ──────────────────────
+  const updateSkillEvidence = useCallback(
+    async (
+      skillName: string,
+      verdict: "POSITIVE" | "NEGATIVE" = "POSITIVE",
+      source: string = "READINESS_DRILL",
+      citation?: string
+    ): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/agent/evidence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "UPDATE_EVIDENCE",
+            skillName,
+            verdict,
+            source,
+            evidenceCitation: citation || `Cleared 60-sec Adversarial Micro-Probe on ${skillName}`,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Failed to calibrate skill evidence");
+        }
+
+        if (data.digitalTwin) {
+          setDigitalTwin(data.digitalTwin);
+        }
+
+        await refreshAgentState();
+
+        window.dispatchEvent(
+          new CustomEvent("agent-state-mutated", { detail: { skillName, verdict } })
+        );
+        window.dispatchEvent(
+          new CustomEvent("copilot-data-updated", { detail: { source: "evidence-update" } })
+        );
+
+        showToast(
+          `🎉 Competency verified for ${skillName}! Promoted +1 tier on Damped Ladder.`,
+          "success"
+        );
+        return true;
+      } catch (err: any) {
+        console.error("[AgentProvider] updateSkillEvidence error:", err);
+        showToast(err.message || "Failed to update skill evidence", "error");
+        return false;
+      }
+    },
+    [refreshAgentState, showToast]
+  );
+
+  // ─── TONE DOWN BLUFF RISK CLAIM (AUTO-STAGE DEFENSIBLE REWRITE) ─────────────
+  const toneDownSkillClaim = useCallback(
+    async (
+      skillName: string,
+      originalBullet?: string,
+      defensibleRewrite?: string
+    ): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/agent/evidence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "TONE_DOWN_CLAIM",
+            skillName,
+            originalBullet,
+            defensibleRewrite,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Failed to tone down resume claim");
+        }
+
+        if (data.digitalTwin) {
+          setDigitalTwin(data.digitalTwin);
+        }
+
+        await refreshAgentState();
+
+        window.dispatchEvent(
+          new CustomEvent("agent-state-mutated", { detail: { skillName, action: "TONE_DOWN" } })
+        );
+        window.dispatchEvent(
+          new CustomEvent("copilot-data-updated", { detail: { source: "claim-recalibration" } })
+        );
+
+        showToast(
+          `🛡️ Recalibrated "${skillName}" to defensible Working Knowledge! Bluff risk cleared.`,
+          "success"
+        );
+        return true;
+      } catch (err: any) {
+        console.error("[AgentProvider] toneDownSkillClaim error:", err);
+        showToast(err.message || "Failed to recalibrate claim", "error");
+        return false;
+      }
+    },
+    [refreshAgentState, showToast]
+  );
+
+  // ─── RUN FULL-APP AUTONOMOUS BOOTSTRAP ─────────────────────────────────────
+  const runAutonomousBootstrap = useCallback(async (): Promise<AgentRunRecord | null> => {
+    return triggerAgent({
+      triggerType: "RESUME_UPLOADED_BOOTSTRAP",
+      entityId: "bootstrap-manual",
+      goalPrompt:
+        "Execute 4-Step Full-App Autonomous Bootstrap Chain: calibrate Career Digital Twin from resume, inject 4-milestone readiness sprint, seed 4 high-match Kanban applications, and stage project-grounded resume diff.",
+      autoOpenDrawer: true,
+    });
+  }, [triggerAgent]);
+
   const bluffRiskCount = useMemo(() => {
     return (
       digitalTwin?.bluffRiskSkills?.length ||
@@ -344,14 +486,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       activeToast,
       bluffRiskCount,
       pendingApprovalsCount,
+      isBluffAuditModalOpen,
+      probeSkill,
       openDrawer,
       closeDrawer,
       toggleDrawer,
+      openBluffAuditModal,
+      closeBluffAuditModal,
+      openProbeModal,
+      closeProbeModal,
       setActiveRun,
       dismissToast,
       refreshAgentState,
       triggerAgent,
+      runAutonomousBootstrap,
       resolveApproval,
+      updateSkillEvidence,
+      toneDownSkillClaim,
     }),
     [
       digitalTwin,
@@ -363,18 +514,46 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       activeToast,
       bluffRiskCount,
       pendingApprovalsCount,
+      isBluffAuditModalOpen,
+      probeSkill,
       openDrawer,
       closeDrawer,
       toggleDrawer,
+      openBluffAuditModal,
+      closeBluffAuditModal,
+      openProbeModal,
+      closeProbeModal,
       setActiveRun,
       dismissToast,
       refreshAgentState,
       triggerAgent,
+      runAutonomousBootstrap,
       resolveApproval,
+      updateSkillEvidence,
+      toneDownSkillClaim,
     ]
   );
 
-  return <AgentContext.Provider value={contextValue}>{children}</AgentContext.Provider>;
+  return (
+    <AgentContext.Provider value={contextValue}>
+      {children}
+      {probeSkill && (
+        <SkillMicroProbeModal
+          skillName={probeSkill}
+          isOpen={Boolean(probeSkill)}
+          onClose={closeProbeModal}
+        />
+      )}
+      <BluffRiskAuditModal
+        isOpen={isBluffAuditModalOpen}
+        onClose={closeBluffAuditModal}
+        onLaunchProbe={(skillName) => {
+          closeBluffAuditModal();
+          openProbeModal(skillName);
+        }}
+      />
+    </AgentContext.Provider>
+  );
 }
 
 export function useAgent(): AgentContextValue {

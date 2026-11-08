@@ -254,14 +254,16 @@ export async function executeDeterministicFallback(
     traceSteps.push({
       step_number: currentStep++,
       timestamp: new Date().toISOString(),
-      tool_name: "update_skill_evidence",
-      input_summary: `Ingested ${fileName} (${atsScore}% ATS score). Extracted candidate claimed skill graph.`,
-      output_summary: `Synchronized Career Digital Twin: 8 skills tracked. Flagged PostgreSQL Concurrency and Redis Caching as BLUFF_RISK (Claimed HIGH, Verified LOW). System Design marked UNVERIFIED.`,
+      tool_name: "sync_digital_twin_from_resume",
+      input_summary: `Ingested ${fileName} (${atsScore}% ATS score). Extracted candidate claimed skill graph into skill_evidence_matrix.`,
+      output_summary: `Synchronized Career Digital Twin: 8 skills tracked. Flagged PostgreSQL & Database Design and Redis Caching as LOW (bluff_risk: true). System Design marked UNVERIFIED.`,
       status: "SUCCESS",
       latency_ms: Math.max(120, Date.now() - step1Start + 140),
       data: {
         skillsExtracted: 8,
-        bluffRisks: ["PostgreSQL B-Tree & Concurrency", "Redis & Distributed Caching"],
+        coreVerified: ["TypeScript", "React & Next.js", "Data Structures & Algorithms", "REST API Design"],
+        bluffRisks: ["PostgreSQL & Database Design", "Redis & Distributed Caching"],
+        unverified: ["System Design Trade-offs"],
         atsScore,
       },
     });
@@ -323,12 +325,21 @@ export async function executeDeterministicFallback(
     traceSteps.push({
       step_number: currentStep++,
       timestamp: new Date().toISOString(),
-      tool_name: "scout_and_seed_pipeline",
+      tool_name: "auto_seed_kanban_pipeline",
       input_summary: `Evaluated student skill profile against 140+ active technology placements (Target: Full Stack / SDE).`,
-      output_summary: `Auto-seeded 4 top matched opportunities into Kanban Application Tracker (Razorpay 91%, Vercel 94%, Atlassian 86%, Stripe 88%). Pipeline cold-start resolved.`,
+      output_summary: `Auto-seeded 4 top matched opportunities into Kanban Application Tracker (Razorpay 91%, Vercel 94%, Stripe 88%, Atlassian 86%) with match % and Bluff Risk overlap badges. Pipeline cold-start resolved.`,
       status: "SUCCESS",
       latency_ms: Math.max(160, Date.now() - step3Start + 180),
-      data: { seededCount: 4, averageMatch: 90 },
+      data: {
+        seededCount: 4,
+        averageMatch: 90,
+        roles: [
+          "Razorpay — Backend SDE (91% Match)",
+          "Vercel — Full-Stack Engineer (94% Match)",
+          "Stripe — API Infrastructure SDE (88% Match)",
+          "Atlassian — Distributed Systems SDE (86% Match)",
+        ],
+      },
     });
 
     // Step 4: Grounded Resume Diff Staging (Human-in-the-Loop)

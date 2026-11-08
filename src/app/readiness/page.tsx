@@ -157,7 +157,7 @@ function MilestoneRow({
 }
 
 export default function ReadinessPage() {
-  const { digitalTwin, bluffRiskCount } = useAgent();
+  const { digitalTwin, bluffRiskCount, runAutonomousBootstrap } = useAgent();
   const [milestones, setMilestones] = useState<ReadinessMilestone[]>([]);
   const [domains, setDomains] = useState<ReadinessDomain[]>([]);
   const [loading, setLoading] = useState(true);
@@ -344,27 +344,29 @@ export default function ReadinessPage() {
   const total = milestones.length;
   const overallPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Live weighted formula: Digital Twin Verified Confidence (65%) + Completed Roadmap Milestones (35%)
+  // ─── FEATURE 3: LIVE READINESS SCORE FORMULA TIED TO DIGITAL TWIN & MILESTONES ───
+  // Map each skill in digitalTwin.skills to numerical confidence ratio:
+  // HIGH = 1.0, MEDIUM = 0.7, UNVERIFIED = 0.4, LOW (or bluff_risk) = 0.2
   const skills = digitalTwin?.skills || [];
-  const skillScoreAvg = useMemo(() => {
-    if (!skills || skills.length === 0) return 72;
-    const CONFIDENCE_VALUE: Record<string, number> = {
-      HIGH: 100,
-      MEDIUM: 70,
-      UNVERIFIED: 40,
-      LOW: 20,
+  const digitalTwinConfidenceRatio = useMemo(() => {
+    if (!skills || skills.length === 0) return 74;
+    const RATIO_MAP: Record<string, number> = {
+      HIGH: 1.0,
+      MEDIUM: 0.7,
+      UNVERIFIED: 0.4,
+      LOW: 0.2,
     };
-    const totalScore = skills.reduce((sum, s) => {
-      if (s.bluff_risk) return sum + 20;
-      return sum + (CONFIDENCE_VALUE[s.verified_confidence] ?? 40);
+    const totalRatio = skills.reduce((sum, s) => {
+      if (s.bluff_risk) return sum + 0.2;
+      return sum + (RATIO_MAP[s.verified_confidence] ?? 0.4);
     }, 0);
-    return Math.round(totalScore / skills.length);
+    return Math.round((totalRatio / skills.length) * 100);
   }, [skills]);
 
-  const milestoneScore = total > 0 ? (completed / total) * 100 : skillScoreAvg;
+  const completedMilestonesRatio = total > 0 ? (completed / total) * 100 : digitalTwinConfidenceRatio;
   const overallReadiness = Math.min(
     100,
-    Math.max(15, Math.round(skillScoreAvg * 0.65 + milestoneScore * 0.35))
+    Math.max(10, Math.round(0.6 * digitalTwinConfidenceRatio + 0.4 * completedMilestonesRatio))
   );
 
   const pending = milestones.filter((m) => !m.completed);
@@ -396,6 +398,30 @@ export default function ReadinessPage() {
         </div>
       ) : (
         <>
+          {/* Top Page Header with 1-Click Autonomous Bootstrap */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/8">
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2.5 flex-wrap">
+                <span>Placement Readiness Plan</span>
+                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Live Weighted Formula: 60% Digital Twin + 40% Milestones
+                </span>
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Calibrated readiness trajectory computed from empirical interview telemetry, verified skills, and roadmap completions.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => runAutonomousBootstrap()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all cursor-pointer shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-200" />
+              <span>🤖 Run Full-App Autonomous Bootstrap</span>
+            </button>
+          </div>
+
           {/* Top Telemetry & Streak Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Readiness Ring Gauge */}
@@ -473,8 +499,8 @@ export default function ReadinessPage() {
 
           {/* Autonomous Agent Intelligence Layer */}
           <div className="space-y-6">
-            <DigitalTwinMatrix />
             <MultiCompanyOverlapCard />
+            <DigitalTwinMatrix />
           </div>
 
           {/* Main Grid: Domain Breakdown + Milestones Roadmap */}
@@ -555,6 +581,29 @@ export default function ReadinessPage() {
 
             {/* Right Column: Milestones Roadmap Checklist */}
             <div className="lg:col-span-2 space-y-4">
+              {/* Interactive Checklist Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0B0F20] border border-indigo-500/25">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    <Target className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white tracking-tight">
+                      Agent Roadmap Milestones Checklist
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Check/uncheck tasks to watch the live Readiness Score gauge recalculate in real time.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                    {completed} / {total} done ({overallPct}%)
+                  </span>
+                </div>
+              </div>
+
               {/* Filter Tabs & Add Goal Action */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/4 border border-[rgba(100,110,255,0.12)] text-xs">

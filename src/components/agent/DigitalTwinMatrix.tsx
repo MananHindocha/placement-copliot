@@ -7,6 +7,8 @@ import type { SkillEvidenceItem, ConfidenceTier, ClaimedLevel } from "@/lib/agen
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import SkillMicroProbeModal from "@/components/agent/SkillMicroProbeModal";
+import BluffRiskAuditModal from "@/components/agent/BluffRiskAuditModal";
 import {
   Brain,
   ShieldAlert,
@@ -160,16 +162,21 @@ function SkillEvidenceCard({
             )}
           </button>
 
-          {(skill.bluff_risk || skill.verified_confidence === "UNVERIFIED" || skill.verified_confidence === "LOW") && (
-            <button
-              type="button"
-              onClick={() => onVerifyDrill(skill.skill_name)}
-              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition-all flex items-center gap-1 shadow-sm cursor-pointer"
-            >
-              <Zap className="w-3 h-3 text-amber-300" />
-              <span>Verify via Quick Drill</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => onVerifyDrill(skill.skill_name)}
+            className={clsx(
+              "px-3 py-1.5 rounded-xl font-semibold text-[11px] transition-all flex items-center gap-1.5 shadow-sm cursor-pointer",
+              skill.bluff_risk
+                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/30 animate-pulse"
+                : skill.verified_confidence === "UNVERIFIED" || skill.verified_confidence === "LOW"
+                ? "bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white shadow-amber-900/20"
+                : "bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30"
+            )}
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-300" />
+            <span>⚡ Challenge / Verify Skill (60s Probe)</span>
+          </button>
         </div>
 
         {/* Expandable Evidence Citation Log Timeline */}
@@ -216,6 +223,8 @@ export function DigitalTwinMatrix() {
   const { digitalTwin, triggerAgent, bluffRiskCount } = useAgent();
   const [filterMode, setFilterMode] = useState<"all" | "bluff" | "high" | "unverified">("all");
   const [showRemediationModal, setShowRemediationModal] = useState(false);
+  const [probeSkill, setProbeSkill] = useState<string | null>(null);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   const skills = digitalTwin?.skills || [];
 
@@ -227,23 +236,11 @@ export function DigitalTwinMatrix() {
   });
 
   const handleVerifyDrill = (skillName: string) => {
-    triggerAgent({
-      triggerType: "USER_GOAL_SUBMITTED",
-      goalPrompt: `Generate an evidence verification drill for skill "${skillName}" to calibrate confidence and remediate bluff risk.`,
-      autoOpenDrawer: true,
-    });
+    setProbeSkill(skillName);
   };
 
   const handleAuditAllBluffRisks = () => {
-    setFilterMode("bluff");
-    setShowRemediationModal(true);
-    triggerAgent({
-      triggerType: "USER_GOAL_SUBMITTED",
-      entityId: "bluff-risk-audit",
-      goalPrompt:
-        "Audit all bluff risks across my Career Digital Twin (PostgreSQL Indexing & Distributed Caching), generate a targeted 2-question verification probe, and inject remedial study tasks into my Readiness Plan.",
-      autoOpenDrawer: true,
-    });
+    setIsAuditModalOpen(true);
   };
 
   return (
@@ -464,6 +461,24 @@ export function DigitalTwinMatrix() {
           </div>
         </div>
       )}
+      {/* 60-Sec Adversarial Micro-Probe Modal */}
+      {probeSkill && (
+        <SkillMicroProbeModal
+          skillName={probeSkill}
+          isOpen={Boolean(probeSkill)}
+          onClose={() => setProbeSkill(null)}
+        />
+      )}
+
+      {/* Bluff Risk Diagnostic Remediation Modal */}
+      <BluffRiskAuditModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        onLaunchProbe={(skillName) => {
+          setIsAuditModalOpen(false);
+          setProbeSkill(skillName);
+        }}
+      />
     </Card>
   );
 }

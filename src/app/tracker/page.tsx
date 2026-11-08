@@ -38,9 +38,13 @@ import {
   Bot,
   FileText,
   Target,
+  Brain,
+  AlertTriangle,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
+import CompanyWarRoomModal from "@/components/agent/CompanyWarRoomModal";
+import SkillMicroProbeModal from "@/components/agent/SkillMicroProbeModal";
 
 // ─── Stage Definitions ────────────────────────────────────────────────────────
 
@@ -180,6 +184,8 @@ export default function TrackerPage() {
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [showJobImportModal, setShowJobImportModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [warRoomCard, setWarRoomCard] = useState<KanbanCard | null>(null);
+  const [probeSkill, setProbeSkill] = useState<string | null>(null);
 
   const router = useRouter();
   const { triggerAgent } = useAgent();
@@ -696,22 +702,22 @@ export default function TrackerPage() {
                           {card.title}
                         </p>
 
-                        {/* Match / CTC Badge & Priority */}
-                        <div className="flex items-center justify-between text-[11px] mb-2 pt-2 border-t border-white/5">
-                          <div className="flex items-center gap-1.5 truncate">
+                        {/* Match, Bluff Risk Overlap & Priority */}
+                        <div className="flex items-center justify-between text-[11px] mb-2 pt-2 border-t border-white/5 flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {card.matchScore > 0 && (
-                              <span className="text-emerald-400 font-bold">
-                                {card.matchScore}%
+                              <span className="text-emerald-400 font-bold font-mono text-[10px] bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded">
+                                {card.matchScore}% Match
+                              </span>
+                            )}
+                            {card.notes && (card.notes.includes("Bluff Risk") || card.notes.includes("Redis") || card.notes.includes("PostgreSQL")) && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300">
+                                <span>⚠️ Bluff Risk Overlap</span>
                               </span>
                             )}
                             {card.salary && (
                               <span className="text-[10px] text-slate-400 font-medium truncate">
-                                {card.matchScore > 0 ? "• " : ""}{card.salary}
-                              </span>
-                            )}
-                            {!card.salary && (!card.matchScore || card.matchScore === 0) && card.location && (
-                              <span className="text-[10px] text-slate-500 truncate">
-                                {card.location}
+                                {card.salary}
                               </span>
                             )}
                           </div>
@@ -749,55 +755,24 @@ export default function TrackerPage() {
                           </div>
                         )}
 
-                        {/* Agent Prepared Status & Quick Links */}
-                        {(card.status === "Interview" ||
-                          card.status === "Phone Screen" ||
-                          (card.notes && card.notes.includes("Bluff Risk"))) && (
-                          <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
-                                <Bot className="w-2.5 h-2.5 text-cyan-400" />
-                                🤖 Agent Prepared
-                              </span>
-                              <span className="text-[9px] text-slate-500 font-mono">Calibrated</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                              <Link
-                                href="/readiness"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex-1 py-1 px-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 font-semibold text-center transition-colors flex items-center justify-center gap-1"
-                              >
-                                <Target className="w-3 h-3 text-indigo-400" />
-                                <span>Milestones</span>
-                              </Link>
-                              <Link
-                                href="/resume"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex-1 py-1 px-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-300 font-semibold text-center transition-colors flex items-center justify-center gap-1"
-                              >
-                                <FileText className="w-3 h-3 text-purple-400" />
-                                <span>Staged Diff</span>
-                              </Link>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Quick 1-Click Agent Sprint Prep */}
+                        {/* ─── FEATURE 5: GLOWING OPEN AGENT WAR-ROOM BUTTON ─── */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            triggerAgent({
-                              triggerType: "KANBAN_MOVED_TO_INTERVIEW",
-                              entityId: card.id,
-                              goalPrompt: `Prepare tailored interview readiness sprint for ${card.company} (${card.title}).`,
-                              autoOpenDrawer: true,
-                            }).catch(console.error);
+                            setWarRoomCard(card);
                           }}
-                          className="mt-2 w-full py-1 px-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-[10px] font-semibold text-indigo-300 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          className={clsx(
+                            "mt-2.5 w-full py-1.5 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer",
+                            card.status === "Interview" || card.status === "Phone Screen"
+                              ? "bg-gradient-to-r from-amber-600/30 via-indigo-600/30 to-emerald-600/30 border-amber-400/60 text-amber-200 shadow-amber-500/25 animate-pulse hover:border-amber-400"
+                              : card.status === "Applied"
+                              ? "bg-indigo-600/20 hover:bg-indigo-600/35 border-indigo-500/50 text-indigo-200 shadow-indigo-500/20"
+                              : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                          )}
                         >
-                          <Zap className="w-3 h-3 text-indigo-400" />
-                          <span>⚡ Run Agent Prep</span>
+                          <Brain className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>🧠 Open Agent War-Room</span>
                         </button>
                       </div>
                     );
@@ -1200,6 +1175,28 @@ export default function TrackerPage() {
         onAddJob={handleAddJobFromApi}
         existingCards={cards}
       />
+
+      {/* ─── FEATURE 5: COMPANY WAR-ROOM MODAL ─── */}
+      {warRoomCard && (
+        <CompanyWarRoomModal
+          card={warRoomCard}
+          isOpen={Boolean(warRoomCard)}
+          onClose={() => setWarRoomCard(null)}
+          onLaunchProbe={(skillName) => {
+            setWarRoomCard(null);
+            setProbeSkill(skillName);
+          }}
+        />
+      )}
+
+      {/* ─── FEATURE 2: SKILL MICRO-PROBE MODAL ─── */}
+      {probeSkill && (
+        <SkillMicroProbeModal
+          skillName={probeSkill}
+          isOpen={Boolean(probeSkill)}
+          onClose={() => setProbeSkill(null)}
+        />
+      )}
     </div>
   );
 }

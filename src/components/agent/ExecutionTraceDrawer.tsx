@@ -69,6 +69,18 @@ const TOOL_CONFIG: Record<
     color: "text-pink-400",
     badgeBg: "bg-pink-500/10 border-pink-500/30 text-pink-300",
   },
+  sync_digital_twin_from_resume: {
+    label: "Sync Career Digital Twin from Resume",
+    icon: Brain,
+    color: "text-sky-400",
+    badgeBg: "bg-sky-500/10 border-sky-500/30 text-sky-300",
+  },
+  auto_seed_kanban_pipeline: {
+    label: "Auto-Seed Matched Kanban Pipeline",
+    icon: Target,
+    color: "text-cyan-400",
+    badgeBg: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300",
+  },
   scout_and_seed_pipeline: {
     label: "Auto-Scout & Seed Matched Roles",
     icon: Target,
@@ -223,6 +235,7 @@ export function ExecutionTraceDrawer() {
     pendingApprovalsCount,
     closeDrawer,
     openDrawer,
+    openBluffAuditModal,
     setActiveRun,
     triggerAgent,
   } = useAgent();
@@ -313,7 +326,14 @@ export function ExecutionTraceDrawer() {
               </span>
             )}
             {bluffRiskCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-mono font-bold">
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openBluffAuditModal();
+                }}
+                className="px-1.5 py-0.5 rounded-md bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-[10px] font-mono font-bold transition-all cursor-pointer"
+                title="Click to Audit Bluff Risks"
+              >
                 {bluffRiskCount} Bluff
               </span>
             )}
@@ -619,21 +639,12 @@ export function ExecutionTraceDrawer() {
 
                         <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-white/8">
                           <Link
-                            href="/resume"
-                            onClick={closeDrawer}
-                            className="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-xs text-purple-300 font-semibold transition-all flex items-center gap-1.5"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            <span>Review Staged Resume Diff (1 Pending)</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </Link>
-                          <Link
                             href="/readiness"
                             onClick={closeDrawer}
                             className="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs text-emerald-300 font-semibold transition-all flex items-center gap-1.5"
                           >
                             <Target className="w-3.5 h-3.5" />
-                            <span>View Updated Readiness Plan</span>
+                            <span>View Readiness Milestones</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
                           <Link
@@ -642,7 +653,16 @@ export function ExecutionTraceDrawer() {
                             className="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs text-cyan-300 font-semibold transition-all flex items-center gap-1.5"
                           >
                             <Layers className="w-3.5 h-3.5" />
-                            <span>Open Seeded Kanban Pipeline (4 Roles)</span>
+                            <span>Open Seeded Kanban (4 Jobs)</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                          <Link
+                            href="/resume"
+                            onClick={closeDrawer}
+                            className="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-xs text-purple-300 font-semibold transition-all flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Review Staged Resume Diff</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
                         </div>
