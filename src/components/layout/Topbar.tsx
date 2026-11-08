@@ -289,6 +289,16 @@ export default function Topbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+          {/* AI Robot Assistant Quick Jump */}
+          <Link
+            href="/dashboard#robot-assistant"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-indigo-400/40 bg-gradient-to-r from-indigo-600/25 via-cyan-500/20 to-indigo-600/25 text-cyan-200 hover:border-cyan-400 hover:text-white transition-all cursor-pointer shadow-sm group"
+            title="Open AI Robot Assistant Hub"
+          >
+            <span className="text-sm group-hover:scale-110 transition-transform">🤖</span>
+            <span className="font-bold">Robot Assistant</span>
+          </Link>
+
           {/* Interactive Mode & System Status Pill */}
           <button
             type="button"

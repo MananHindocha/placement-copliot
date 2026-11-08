@@ -23,10 +23,12 @@ import {
   Zap,
   ShieldAlert,
   CheckCircle2,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
+import RobotConciergeHub from "@/components/agent/RobotConciergeHub";
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   application: Send,
@@ -50,6 +52,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<UserProfile | null>(isDemo ? DEMO_USER_PROFILE : null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showOverviewAnalytics, setShowOverviewAnalytics] = useState(false);
 
   const loadData = useCallback(() => {
     Promise.all([getDashboardOverview(), getUserProfile()])
@@ -109,8 +112,48 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Autonomous Placement Command Center */}
-      <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-[#0c0d18] via-[#121633] to-[#0a0c16] p-5 shadow-2xl backdrop-blur-xl">
+      {/* ─── AI ROBOT ASSISTANT HUB (HUB-AND-SPOKE WORKSPACE) ────────── */}
+      <RobotConciergeHub />
+
+      {/* ─── COMPREHENSIVE OVERVIEW & ANALYTICS (COLLAPSIBLE) ─────────── */}
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={() => setShowOverviewAnalytics((prev) => !prev)}
+          className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/10 bg-black/40 hover:bg-[#121633]/40 hover:border-indigo-500/30 transition-all cursor-pointer group shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 group-hover:scale-105 transition-transform">
+              <ActivityIcon className="h-4 w-4" />
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">Placement Performance &amp; Activity Feed</span>
+                <span className="text-[10px] font-semibold text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                  Detailed Stats &amp; Schedule
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                View 4-metric KPIs, recent activity feed, readiness domain breakdown, and scheduled interviews
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
+            <span>{showOverviewAnalytics ? "Hide Overview" : "Show Overview"}</span>
+            <ChevronDown
+              className={clsx(
+                "h-4 w-4 transition-transform duration-300",
+                showOverviewAnalytics && "rotate-180"
+              )}
+            />
+          </div>
+        </button>
+
+        {showOverviewAnalytics && (
+          <div className="mt-6 space-y-6">
+            {/* Autonomous Placement Command Center */}
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-[#0c0d18] via-[#121633] to-[#0a0c16] p-5 shadow-2xl backdrop-blur-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -421,6 +464,9 @@ export default function DashboardPage() {
           </Card>
         </>
       ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
