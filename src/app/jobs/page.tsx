@@ -1210,24 +1210,42 @@ export default function JobsPage() {
                         )}
                       </div>
 
-                      {/* Skill tags (first 4) — highlight if in filter selection */}
+                      {/* Skill tags (first 4) — matched against real resume */}
                       {job.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {job.tags.slice(0, 4).map((tag) => (
-                            <span
-                              key={tag}
-                              className={clsx(
-                                "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                                filters.skills.includes(tag)
-                                  ? "bg-indigo-500/20 text-indigo-300"
-                                  : "bg-white/5 text-slate-500"
-                              )}
-                            >
-                              {tag}
-                            </span>
-                          ))}
+                          {job.tags.slice(0, 4).map((tag) => {
+                            const isUserSkill = userSkills.some(
+                              (s) =>
+                                s.toLowerCase() === tag.toLowerCase() ||
+                                tag.toLowerCase().includes(s.toLowerCase()) ||
+                                s.toLowerCase().includes(tag.toLowerCase())
+                            );
+                            return (
+                              <span
+                                key={tag}
+                                className={clsx(
+                                  "px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                                  userSkills.length > 0 && isUserSkill
+                                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                    : userSkills.length > 0
+                                    ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                    : "bg-white/5 text-slate-400 border-white/5"
+                                )}
+                                title={
+                                  userSkills.length > 0
+                                    ? isUserSkill
+                                      ? "In Your Resume"
+                                      : "Need to Cover"
+                                    : tag
+                                }
+                              >
+                                {userSkills.length > 0 && (isUserSkill ? "✓ " : "⚡ ")}
+                                {tag}
+                              </span>
+                            );
+                          })}
                           {job.tags.length > 4 && (
-                            <span className="px-1.5 py-0.5 text-[10px] text-slate-600">
+                            <span className="px-1.5 py-0.5 text-[10px] text-slate-500">
                               +{job.tags.length - 4}
                             </span>
                           )}
@@ -1354,13 +1372,32 @@ export default function JobsPage() {
                   ) : null}
                 </div>
 
-                {/* Tags */}
+                {/* Tags — matched against real resume */}
                 <div className="flex flex-wrap gap-2 mb-5">
-                  {activeJob.tags.map((tag) => (
-                    <Badge key={tag} variant="slate" size="sm">
-                      {tag}
-                    </Badge>
-                  ))}
+                  {activeJob.tags.map((tag) => {
+                    const isUserSkill = userSkills.some(
+                      (s) =>
+                        s.toLowerCase() === tag.toLowerCase() ||
+                        tag.toLowerCase().includes(s.toLowerCase()) ||
+                        s.toLowerCase().includes(tag.toLowerCase())
+                    );
+                    return (
+                      <span
+                        key={tag}
+                        className={clsx(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border",
+                          userSkills.length > 0 && isUserSkill
+                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                            : userSkills.length > 0
+                            ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                            : "bg-white/5 text-slate-300 border-white/10"
+                        )}
+                      >
+                        {userSkills.length > 0 && (isUserSkill ? "✅ In Your Resume: " : "⚡ Need to Cover: ")}
+                        {tag}
+                      </span>
+                    );
+                  })}
                 </div>
 
                 {/* Description */}

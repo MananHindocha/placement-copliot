@@ -7,6 +7,8 @@ import {
   logActivity,
   dispatchCopilotUpdate,
   BOOTSTRAP_READINESS_MILESTONES,
+  getStoredRealResume,
+  getStoredResumeWorkspace,
 } from "@/lib/storage-sync";
 import type { ReadinessMilestone, ReadinessDomain, AiGoalRecommendation } from "@/types";
 import { getResumeWorkspace } from "@/lib/services/resume.service";
@@ -16,7 +18,77 @@ export async function getReadinessMilestones(): Promise<ReadinessMilestone[]> {
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
-    return getStoredReadinessMilestones();
+    const stored = getStoredReadinessMilestones();
+    if (stored && stored.length > 0) return stored;
+
+    const workspace = getStoredResumeWorkspace();
+    const realResume = getStoredRealResume();
+
+    if (workspace?.analysis || realResume) {
+      const fileName = workspace?.fileName || realResume?.fileName || "Uploaded Resume";
+      const rawSkills: any[] =
+        workspace?.analysis?.extractedSkills ??
+        (workspace?.analysis as any)?.skills ??
+        workspace?.analysis?.parsedResume?.skills ??
+        realResume?.skills ??
+        [];
+
+      const skillsCount = Array.isArray(rawSkills) ? rawSkills.length : 0;
+      const projectsCount = workspace?.analysis?.parsedResume?.projects?.length ?? realResume?.projectsCount ?? 0;
+      const targetRole = workspace?.analysis?.jobTitle || realResume?.inferredTargetRoles?.[0] || "Target Roles";
+
+      const missingSkills =
+        (realResume?.missingRecommendedSkills && realResume.missingRecommendedSkills.length > 0)
+          ? realResume.missingRecommendedSkills
+          : (workspace?.analysis?.gaps || []).map((g) => ({
+              skill: g,
+              whyNeeded: "Identified gap from resume diagnostic scan",
+              targetRole,
+            }));
+
+      const practiceSkills: Array<{ name: string; reason: string }> =
+        realResume?.skills && realResume.skills.length > 0
+          ? realResume.skills.filter((s) => s.strength === "Needs Practice").map((s) => ({ name: s.name, reason: s.reason }))
+          : Array.isArray(rawSkills)
+          ? rawSkills
+              .filter((s: any) => typeof s === "object" && s?.strength === "Needs Practice")
+              .map((s: any) => ({ name: s.name, reason: s.reason || "Targeted practice required" }))
+          : [];
+
+      const generated: ReadinessMilestone[] = [
+        {
+          id: "rm-baseline-1",
+          title: `Baseline Ingestion: ${fileName}`,
+          category: "resume",
+          priority: "low",
+          completed: true,
+          description: `Extracted ${skillsCount} verified skills & ${projectsCount} projects.`,
+          dueDate: "Completed",
+        },
+        ...missingSkills.map((m, idx) => ({
+          id: `rm-rec-${idx + 1}`,
+          title: `Master ${m.skill} for ${m.targetRole || targetRole}`,
+          category: "skills" as const,
+          priority: "high" as const,
+          completed: false,
+          description: m.whyNeeded,
+          dueDate: "In 7 days",
+        })),
+        ...practiceSkills.map((s, idx) => ({
+          id: `rm-practice-${idx + 1}`,
+          title: `Strengthen ${s.name} with Practice Drills`,
+          category: "skills" as const,
+          priority: "medium" as const,
+          completed: false,
+          description: s.reason,
+          dueDate: "In 5 days",
+        })),
+      ];
+      setStoredReadinessMilestones(generated);
+      return generated;
+    }
+
+    return [];
   }
 
   const supabase = createClient();

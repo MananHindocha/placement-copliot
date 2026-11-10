@@ -7,8 +7,6 @@ import type { SkillEvidenceItem, ConfidenceTier, ClaimedLevel } from "@/lib/agen
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import SkillMicroProbeModal from "@/components/agent/SkillMicroProbeModal";
-import BluffRiskAuditModal from "@/components/agent/BluffRiskAuditModal";
 import {
   Brain,
   ShieldAlert,
@@ -220,11 +218,9 @@ function SkillEvidenceCard({
 }
 
 export function DigitalTwinMatrix() {
-  const { digitalTwin, triggerAgent, bluffRiskCount } = useAgent();
+  const { digitalTwin, triggerAgent, bluffRiskCount, openProbeModal, openBluffAuditModal } = useAgent();
   const [filterMode, setFilterMode] = useState<"all" | "bluff" | "high" | "unverified">("all");
   const [showRemediationModal, setShowRemediationModal] = useState(false);
-  const [probeSkill, setProbeSkill] = useState<string | null>(null);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   const skills = digitalTwin?.skills || [];
 
@@ -236,11 +232,11 @@ export function DigitalTwinMatrix() {
   });
 
   const handleVerifyDrill = (skillName: string) => {
-    setProbeSkill(skillName);
+    openProbeModal(skillName);
   };
 
   const handleAuditAllBluffRisks = () => {
-    setIsAuditModalOpen(true);
+    openBluffAuditModal();
   };
 
   return (
@@ -461,24 +457,6 @@ export function DigitalTwinMatrix() {
           </div>
         </div>
       )}
-      {/* 60-Sec Adversarial Micro-Probe Modal */}
-      {probeSkill && (
-        <SkillMicroProbeModal
-          skillName={probeSkill}
-          isOpen={Boolean(probeSkill)}
-          onClose={() => setProbeSkill(null)}
-        />
-      )}
-
-      {/* Bluff Risk Diagnostic Remediation Modal */}
-      <BluffRiskAuditModal
-        isOpen={isAuditModalOpen}
-        onClose={() => setIsAuditModalOpen(false)}
-        onLaunchProbe={(skillName) => {
-          setIsAuditModalOpen(false);
-          setProbeSkill(skillName);
-        }}
-      />
     </Card>
   );
 }

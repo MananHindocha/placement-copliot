@@ -971,7 +971,7 @@ export default function InterviewStudioStage({
       {headerSlot && <div className="mb-6">{headerSlot}</div>}
 
       {/* Adaptive Targeting Alert if candidate has unverified bluff risks */}
-      {bluffRiskCount > 0 && (
+      {bluffRiskCount > 0 && digitalTwin?.skills && digitalTwin.skills.length > 0 && (
         <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-between gap-3 text-xs text-rose-300">
           <div className="flex items-center gap-2.5">
             <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />

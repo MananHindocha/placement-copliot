@@ -1,34 +1,43 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import StatCard from "@/components/ui/StatCard";
+import React, { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
+import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
-import ErrorBanner from "@/components/ui/ErrorBanner";
-import { getDashboardOverview, type DashboardOverview } from "@/lib/services/dashboard.service";
-import { getUserProfile, DEMO_USER_PROFILE, type UserProfile } from "@/lib/services/auth.service";
-import { getEffectiveDataMode } from "@/lib/supabase/config";
 import {
-  ArrowRight,
-  Activity as ActivityIcon,
-  Send,
   FileText,
-  MessageSquare,
   Briefcase,
   Target,
-  Sparkles,
   CalendarCheck,
-  Clock,
-  Bot,
-  Zap,
-  ShieldAlert,
+  MessageSquare,
+  Sparkles,
+  ArrowRight,
   CheckCircle2,
+  AlertCircle,
+  Zap,
+  Check,
   ChevronDown,
+  Layers,
+  Award,
+  Flame,
+  Activity as ActivityIcon,
+  Clock,
+  Send,
+  Code2,
+  TrendingUp,
 } from "lucide-react";
-import Link from "next/link";
 import { clsx } from "clsx";
-import { useAgent } from "@/context/AgentProvider";
-import RobotConciergeHub from "@/components/agent/RobotConciergeHub";
+import {
+  getStoredRealResume,
+  setStoredRealResume,
+  getStoredApplications,
+  getStoredActivities,
+  type RealParsedResume,
+} from "@/lib/storage-sync";
+import type { KanbanCard, Activity } from "@/types";
+import RealResumeUploader from "@/components/resume/RealResumeUploader";
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   application: Send,
@@ -46,35 +55,36 @@ const ACTIVITY_COLORS: Record<string, string> = {
   readiness: "bg-sky-500/15 text-sky-400",
 };
 
-export default function DashboardPage() {
-  const isDemo = getEffectiveDataMode() === "demo";
-  const [data, setData] = useState<DashboardOverview | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(isDemo ? DEMO_USER_PROFILE : null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showOverviewAnalytics, setShowOverviewAnalytics] = useState(false);
+const DOMAIN_READINESS_ITEMS = [
+  { label: "Data Structures & Algorithms", score: 78, color: "#777CFF" },
+  { label: "System Design & Architecture", score: 65, color: "#F59E0B" },
+  { label: "Behavioral & HR Evaluation", score: 84, color: "#10B981" },
+  { label: "Full-Stack Project Portfolio", score: 88, color: "#8B5CF6" },
+];
 
-  const loadData = useCallback(() => {
-    Promise.all([getDashboardOverview(), getUserProfile()])
-      .then(([overview, userProf]) => {
-        setData(overview);
-        setProfile(userProf);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard overview.");
-        setLoading(false);
-      });
+export default function DashboardPage() {
+  const router = useRouter();
+  const [realResume, setRealResume] = useState<RealParsedResume | null>(null);
+  const [applications, setApplications] = useState<KanbanCard[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [bulletApplied, setBulletApplied] = useState(false);
+  const [showAppliedSuccess, setShowAppliedSuccess] = useState(false);
+
+  // Sync real resume, applications, and activities from storage
+  const syncState = useCallback(() => {
+    const stored = getStoredRealResume();
+    setRealResume(stored);
+    if (stored?.bulletImprovements?.[0]?.applied) {
+      setBulletApplied(true);
+    }
+    setApplications(getStoredApplications());
+    setActivities(getStoredActivities());
   }, []);
 
   useEffect(() => {
-    loadData();
+    syncState();
 
-    // Listen for cross-module updates
-    const handleUpdate = () => {
-      loadData();
-    };
-
+    const handleUpdate = () => syncState();
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
 
@@ -82,212 +92,299 @@ export default function DashboardPage() {
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
-  }, [loadData]);
+  }, [syncState]);
 
-  // Overall readiness composite from the 4th stat card or domain average
-  const readinessStat = data?.stats.find((s) => s.label === "Placement Readiness");
-  const overallReadiness = readinessStat
-    ? parseInt(String(readinessStat.value).replace(/[^0-9]/g, ""), 10) || 74
-    : 74;
+  const hasResume = realResume !== null && Array.isArray(realResume.skills) && realResume.skills.length > 0;
 
-  const firstName = profile?.fullName
-    ? profile.fullName.split(" ")[0]
-    : isDemo
-    ? "Arjun"
-    : "Student";
+  // Apply bullet improvement
+  const handleApplyBullet = () => {
+    if (!realResume || !realResume.bulletImprovements?.[0]) return;
+    const updated = {
+      ...realResume,
+      atsScore: Math.min((realResume.atsScore || 78) + (realResume.bulletImprovements[0].atsBoost || 6), 98),
+      bulletImprovements: realResume.bulletImprovements.map((b, idx) =>
+        idx === 0 ? { ...b, applied: true } : b
+      ),
+    };
+    setStoredRealResume(updated);
+    setRealResume(updated);
+    setBulletApplied(true);
+    setShowAppliedSuccess(true);
+    setTimeout(() => setShowAppliedSuccess(false), 4000);
+  };
 
-  const scheduledInterviewsCount = data?.upcomingInterviews.length || 0;
-  const { runs, activeRun, pendingApprovalsCount, bluffRiskCount, isExecuting, openDrawer, triggerAgent } = useAgent();
-
-  const latestRunSummary = activeRun?.final_summary || runs[0]?.goal || "Continuous digital-twin alignment active.";
+  // Derived metrics from real state
+  const totalApps = applications.length;
+  const scheduledInterviews = applications.filter((c) =>
+    ["Technical Round", "HR Round", "Phone Screen", "Interview"].includes(c.status)
+  );
+  const avgMatchScore =
+    applications.length > 0
+      ? Math.round(applications.reduce((acc, c) => acc + (c.matchScore || 0), 0) / applications.length)
+      : realResume?.atsScore || 78;
+  const placementReadiness = Math.min(
+    100,
+    Math.max(25, Math.round(((realResume?.atsScore || 75) * 0.6) + (totalApps > 0 ? 30 : 15)))
+  );
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Error Banner */}
-      {error && (
-        <ErrorBanner
-          title="Unable to sync live dashboard data"
-          message={error}
-          onRetry={loadData}
-        />
-      )}
-
-      {/* ─── AI ROBOT ASSISTANT HUB (HUB-AND-SPOKE WORKSPACE) ────────── */}
-      <RobotConciergeHub />
-
-      {/* ─── COMPREHENSIVE OVERVIEW & ANALYTICS (COLLAPSIBLE) ─────────── */}
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={() => setShowOverviewAnalytics((prev) => !prev)}
-          className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/10 bg-black/40 hover:bg-[#121633]/40 hover:border-indigo-500/30 transition-all cursor-pointer group shadow-md"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 group-hover:scale-105 transition-transform">
-              <ActivityIcon className="h-4 w-4" />
-            </div>
-            <div className="text-left">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">Placement Performance &amp; Activity Feed</span>
-                <span className="text-[10px] font-semibold text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
-                  Detailed Stats &amp; Schedule
-                </span>
+      {/* ─── STATE A: ZERO STATE (BEFORE RESUME UPLOAD) ────────────────── */}
+      {!hasResume ? (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <RealResumeUploader
+            headline="Upload Your Real Resume (PDF, DOCX, or TXT)"
+            description="Drag & drop your resume file or click below. The AI Robot will extract your real skills, detect genuine projects, and calculate an authentic ATS score."
+          />
+        </div>
+      ) : (
+        /* ─── STATE B: REAL RESUME ACTIVE (AFTER REAL UPLOAD) ──────────── */
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* 1. Top Profile & File Info Banner */}
+          <div className="relative overflow-hidden rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-[#0c102a] via-[#0d1434] to-[#070914] p-6 shadow-2xl backdrop-blur-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </span>
+                  <h2 className="text-lg font-bold text-white tracking-tight">
+                    Candidate Profile: {realResume.candidateName || "Verified Engineering Candidate"}
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Extracted from <span className="font-semibold text-cyan-300">{realResume.fileName}</span> • Inferred Roles:{" "}
+                  <span className="text-indigo-300 font-semibold">{realResume.inferredTargetRoles?.join(" • ") || "Software Engineer"}</span>
+                </p>
               </div>
-              <p className="text-xs text-slate-400">
-                View 4-metric KPIs, recent activity feed, readiness domain breakdown, and scheduled interviews
-              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/jobs")}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-xs font-bold text-black shadow-lg hover:from-amber-400 hover:to-orange-400 transition-all cursor-pointer"
+                >
+                  <Briefcase className="h-3.5 w-3.5" />
+                  <span>Fetch Matching Jobs →</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Profile Metrics Chips */}
+            <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
+                <span className="text-xs text-slate-400 font-medium">ATS Match Score</span>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-emerald-400">{realResume.atsScore}%</span>
+                  <span className="text-[11px] text-emerald-400/80 font-medium">Real Scan</span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
+                <span className="text-xs text-slate-400 font-medium">Real Skills Extracted</span>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-white">{realResume.skills.length}</span>
+                  <span className="text-[11px] text-slate-400">Verified</span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
+                <span className="text-xs text-slate-400 font-medium">Projects Detected</span>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-cyan-300">{realResume.projectsCount || realResume.projects?.length || 0}</span>
+                  <span className="text-[11px] text-slate-400">In Resume</span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
+                <span className="text-xs text-slate-400 font-medium">Study Topics Needed</span>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-amber-400">{realResume.missingRecommendedSkills?.length || 0}</span>
+                  <span className="text-[11px] text-slate-400">Recommended</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
-            <span>{showOverviewAnalytics ? "Hide Overview" : "Show Overview"}</span>
-            <ChevronDown
-              className={clsx(
-                "h-4 w-4 transition-transform duration-300",
-                showOverviewAnalytics && "rotate-180"
-              )}
+          {/* 2. Original StatCards Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Total Applications"
+              value={totalApps}
+              delta={totalApps > 0 ? `${totalApps} tracked` : "Pipeline unseeded"}
+              deltaPositive={totalApps > 0}
+              icon="Send"
+              color="indigo"
+            />
+            <StatCard
+              label="Scheduled Interviews"
+              value={scheduledInterviews.length}
+              delta={scheduledInterviews.length > 0 ? "Upcoming rounds" : "None scheduled"}
+              deltaPositive={scheduledInterviews.length > 0}
+              icon="CalendarCheck"
+              color="emerald"
+            />
+            <StatCard
+              label="Average Match Score"
+              value={`${avgMatchScore}%`}
+              delta={avgMatchScore >= 80 ? "High role fit" : "Moderate fit"}
+              deltaPositive={avgMatchScore >= 80}
+              icon="TrendingUp"
+              color="amber"
+            />
+            <StatCard
+              label="Placement Readiness"
+              value={`${placementReadiness}%`}
+              delta={placementReadiness >= 75 ? "Interview ready" : "Prep ongoing"}
+              deltaPositive={placementReadiness >= 75}
+              icon="Target"
+              color="violet"
             />
           </div>
-        </button>
 
-        {showOverviewAnalytics && (
-          <div className="mt-6 space-y-6">
-            {/* Autonomous Placement Command Center */}
-            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-[#0c0d18] via-[#121633] to-[#0a0c16] p-5 shadow-2xl backdrop-blur-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
-                <Bot className="h-4 w-4" />
-              </span>
-              <h3 className="text-base font-bold text-white tracking-tight">
-                Autonomous Placement Command Center
-              </h3>
-              <span
-                className={clsx(
-                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border",
-                  isExecuting
-                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                    : "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-                )}
+          {/* 3. Real Extracted Skills Matrix */}
+          <div className="rounded-3xl border border-white/10 bg-[#0a0d1c] p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-white/8 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Real Extracted Skills From {realResume.fileName}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Categorized by verified strength from your projects and coursework.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => router.push("/readiness")}
+                className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 cursor-pointer"
               >
-                <span
-                  className={clsx(
-                    "h-1.5 w-1.5 rounded-full",
-                    isExecuting ? "bg-amber-400 animate-ping" : "bg-emerald-400"
-                  )}
-                />
-                {isExecuting ? "Agent Executing..." : "Agent Brain Standby"}
-              </span>
-
-              {bluffRiskCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
-                  <ShieldAlert className="h-3 w-3" />
-                  {bluffRiskCount} Bluff Risks Detected
-                </span>
-              )}
-
-              {pendingApprovalsCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-300 animate-pulse">
-                  <Clock className="h-3 w-3" />
-                  {pendingApprovalsCount} Action Requires Approval
-                </span>
-              )}
+                <span>View Full Readiness Plan</span>
+                <ArrowRight className="h-3 w-3" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-300/90 max-w-2xl">
-              <span className="text-indigo-400 font-semibold">Latest Reasoning: </span>
-              {latestRunSummary}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-            <button
-              type="button"
-              onClick={() =>
-                triggerAgent({
-                  triggerType: "USER_GOAL_SUBMITTED",
-                  entityId: "dashboard-quick-diag",
-                  goalPrompt: "Run rapid multi-module placement readiness diagnosis and align sprint tasks.",
-                  autoOpenDrawer: true,
-                })
-              }
-              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Zap className="h-3.5 w-3.5 text-indigo-400" />
-              <span>⚡ Rapid Diagnostic</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={openDrawer}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-500 hover:to-cyan-400 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Inspect Agent Brain</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[rgba(27,31,184,0.25)] via-[rgba(27,31,184,0.10)] to-transparent border border-[rgba(100,110,255,0.22)] p-6 shadow-xl">
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-[#777CFF]" />
-            <span className="text-xs text-[#777CFF] font-medium uppercase tracking-wider">
-              AI Insights &amp; Cross-Module Sync Active
-            </span>
-          </div>
-          <h2 className="text-xl font-bold text-[#F5F6FF] mb-1">
-            Good afternoon, {firstName} 👋
-          </h2>
-          <p className="text-[#A2A7C0] text-sm max-w-xl">
-            You have{" "}
-            <span className="text-[#F5F6FF] font-semibold">
-              {scheduledInterviewsCount} interview{scheduledInterviewsCount !== 1 ? "s" : ""}
-            </span>{" "}
-            scheduled and your overall placement readiness is currently{" "}
-            <span className="text-emerald-400 font-semibold">{overallReadiness}%</span>.
-          </p>
-        </div>
-        <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-[#1B1FB8]/15 blur-2xl pointer-events-none" />
-        <div className="absolute -right-4 -bottom-8 w-32 h-32 rounded-full bg-[#454BFF]/10 blur-xl pointer-events-none" />
-      </div>
-
-      {loading && !data ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="p-5 rounded-2xl bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] space-y-3">
-                <div className="flex justify-between items-center">
-                  <div className="h-3 w-20 skeleton" />
-                  <div className="h-8 w-8 rounded-xl skeleton" />
+            <div className="flex flex-wrap gap-2 pt-1">
+              {realResume.skills.map((skill, idx) => (
+                <div
+                  key={idx}
+                  className={clsx(
+                    "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold border",
+                    skill.strength === "Verified Strong"
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                      : skill.strength === "Good Foundation"
+                      ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                      : "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                  )}
+                  title={skill.reason}
+                >
+                  <span>{skill.name}</span>
+                  <span className="text-[10px] opacity-70">• {skill.strength}</span>
                 </div>
-                <div className="h-7 w-28 skeleton" />
-                <div className="h-3 w-16 skeleton" />
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : data ? (
-        <>
-          {/* Stats row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {data.stats.map((stat) => (
-              <StatCard key={stat.label} {...stat} />
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Main content grid */}
+          {/* 4. Real Before / After Suggestion Card */}
+          {realResume.bulletImprovements?.[0] && (
+            <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-[#121736] via-[#0d122b] to-[#070914] p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-cyan-400" />
+                  <h4 className="text-sm font-bold text-white">
+                    Suggested High-Impact Bullet Rewrite (Extracted from {realResume.bulletImprovements[0].projectName})
+                  </h4>
+                </div>
+
+                {bulletApplied ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300">
+                    <Check className="h-3.5 w-3.5 stroke-[3]" />
+                    Applied to Profile
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-3 py-1 text-xs font-bold text-amber-300">
+                    +{realResume.bulletImprovements[0].atsBoost || 6}% ATS Score Boost
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-2xl border border-rose-500/25 bg-rose-950/15 p-4 space-y-1.5">
+                  <span className="font-bold text-rose-300">❌ Original Bullet from your PDF:</span>
+                  <p className="text-slate-300 leading-relaxed italic">
+                    &quot;{realResume.bulletImprovements[0].originalBullet}&quot;
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-1.5">
+                  <span className="font-bold text-emerald-300">✅ High-Impact STAR Format Rewrite:</span>
+                  <p className="text-slate-100 font-medium leading-relaxed">
+                    &quot;{realResume.bulletImprovements[0].improvedBullet}&quot;
+                  </p>
+                </div>
+              </div>
+
+              {!bulletApplied && (
+                <div className="pt-1 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={handleApplyBullet}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>✓ Apply Rewrite &amp; Boost ATS Score</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5. Real Detected Projects */}
+          {realResume.projects && realResume.projects.length > 0 && (
+            <div className="rounded-3xl border border-white/10 bg-[#090d1c] p-6 space-y-4 shadow-xl">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Projects Detected in Your Resume ({realResume.projects.length})
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {realResume.projects.map((proj, idx) => (
+                  <div key={idx} className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400 font-bold text-xs">
+                        #{idx + 1}
+                      </span>
+                      <h4 className="text-sm font-bold text-white truncate">{proj.name}</h4>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed">{proj.summary}</p>
+
+                    {proj.techStack && proj.techStack.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {proj.techStack.map((tech, tidx) => (
+                          <span
+                            key={tidx}
+                            className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-cyan-300"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6. Activity Feed & Domain Readiness Gauges Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Activity feed */}
+            {/* Live Activity Feed */}
             <div className="lg:col-span-2">
               <Card padding="none">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(100,110,255,0.12)]">
                   <div className="flex items-center gap-2">
                     <ActivityIcon className="w-4 h-4 text-[#777CFF]" />
-                    <h3 className="text-sm font-semibold text-[#F5F6FF]">Recent Activity</h3>
+                    <h3 className="text-sm font-semibold text-[#F5F6FF]">Recent Activity Feed</h3>
                   </div>
                   <Link
                     href="/tracker"
@@ -296,13 +393,13 @@ export default function DashboardPage() {
                     View tracker <ArrowRight className="w-3 h-3" />
                   </Link>
                 </div>
-                <div className="divide-y divide-[rgba(255,255,255,0.06)] max-h-[380px] overflow-y-auto">
-                  {data.activities.length === 0 ? (
+                <div className="divide-y divide-[rgba(255,255,255,0.06)] max-h-[360px] overflow-y-auto">
+                  {activities.length === 0 ? (
                     <p className="px-5 py-6 text-xs text-[#737A99] text-center">
                       No recent activity recorded yet.
                     </p>
                   ) : (
-                    data.activities.slice(0, 8).map((activity) => {
+                    activities.slice(0, 8).map((activity) => {
                       const Icon = ACTIVITY_ICONS[activity.type] ?? ActivityIcon;
                       const color = ACTIVITY_COLORS[activity.type] ?? ACTIVITY_COLORS.application;
                       return (
@@ -333,38 +430,21 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Readiness meter + quick actions */}
+            {/* Domain Readiness Breakdown */}
             <div className="space-y-4">
-              {/* Readiness Card */}
               <Card>
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="w-4 h-4 text-[#777CFF]" />
-                  <h3 className="text-sm font-semibold text-[#F5F6FF]">Placement Readiness</h3>
-                </div>
-                {/* Ring */}
-                <div className="flex items-center justify-center mb-5">
-                  <div className="relative flex items-center justify-center w-24 h-24">
-                    <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
-                      <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(100,110,255,0.12)" strokeWidth="8" />
-                      <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        fill="none"
-                        stroke="#1B1FB8"
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                        strokeDasharray={`${2 * Math.PI * 40}`}
-                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - overallReadiness / 100)}`}
-                      />
-                    </svg>
-                    <div className="absolute text-center">
-                      <span className="text-2xl font-bold text-[#F5F6FF]">{overallReadiness}%</span>
-                    </div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-[#777CFF]" />
+                    <h3 className="text-sm font-semibold text-[#F5F6FF]">Domain Readiness</h3>
                   </div>
+                  <Link href="/readiness" className="text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
+                    Plan →
+                  </Link>
                 </div>
-                <div className="space-y-3">
-                  {data.readinessDomains.map((domain) => (
+
+                <div className="space-y-3.5">
+                  {DOMAIN_READINESS_ITEMS.map((domain) => (
                     <div key={domain.label}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-[#A2A7C0]">{domain.label}</span>
@@ -372,9 +452,9 @@ export default function DashboardPage() {
                           {domain.score}%
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-[#080A14] border border-[rgba(100,110,255,0.10)] overflow-hidden">
+                      <div className="h-2 rounded-full bg-[#080A14] border border-[rgba(100,110,255,0.10)] overflow-hidden">
                         <div
-                          className="h-1.5 rounded-full transition-all duration-700"
+                          className="h-full rounded-full transition-all duration-700"
                           style={{
                             width: `${domain.score}%`,
                             backgroundColor: domain.color,
@@ -384,73 +464,48 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+
                 <Link href="/readiness">
-                  <div className="mt-4 flex items-center justify-center gap-1 text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
-                    View full plan <ArrowRight className="w-3 h-3" />
+                  <div className="mt-5 flex items-center justify-center gap-1 text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
+                    View roadmap &amp; sprint milestones <ArrowRight className="w-3 h-3" />
                   </div>
                 </Link>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card>
-                <h3 className="text-sm font-semibold text-[#F5F6FF] mb-3">Quick Navigation</h3>
-                <div className="space-y-1.5">
-                  {[
-                    { label: "Tailor resume for target role", href: "/resume", icon: FileText, color: "text-violet-400" },
-                    { label: "Browse matched tech jobs", href: "/jobs", icon: Briefcase, color: "text-amber-400" },
-                    { label: "Practice AI mock interview", href: "/interview", icon: MessageSquare, color: "text-emerald-400" },
-                    { label: "Manage Kanban pipeline", href: "/tracker", icon: CalendarCheck, color: "text-[#777CFF]" },
-                  ].map((action) => {
-                    const Icon = action.icon;
-                    return (
-                      <Link
-                        key={action.href}
-                        href={action.href}
-                        className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-[#151A35]/50 border border-transparent hover:border-[rgba(100,110,255,0.14)] transition-all group"
-                      >
-                        <Icon className={clsx("w-4 h-4 shrink-0", action.color)} />
-                        <span className="text-xs text-[#A2A7C0] group-hover:text-[#F5F6FF] transition-colors">
-                          {action.label}
-                        </span>
-                        <ArrowRight className="w-3.5 h-3.5 ml-auto text-[#737A99] group-hover:text-[#A2A7C0] transition-colors" />
-                      </Link>
-                    );
-                  })}
-                </div>
               </Card>
             </div>
           </div>
 
-          {/* Dynamic Upcoming Schedule Widget */}
+          {/* 7. Upcoming Interviews Widget */}
           <Card>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <CalendarCheck className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-[#F5F6FF]">Upcoming Interviews &amp; Action Dates</h3>
+                <h3 className="text-sm font-semibold text-[#F5F6FF]">Upcoming Interviews &amp; Action Deadlines</h3>
               </div>
               <Link href="/tracker" className="text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
                 Manage in Tracker →
               </Link>
             </div>
 
-            {data.upcomingInterviews.length > 0 ? (
+            {scheduledInterviews.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.upcomingInterviews.map((interview) => (
+                {scheduledInterviews.map((interview) => (
                   <div
                     key={interview.id}
                     className="flex items-center gap-4 p-4 rounded-xl bg-[#080A14] border border-[rgba(100,110,255,0.14)] hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/40 transition-all"
                   >
                     <div className="w-10 h-10 rounded-xl bg-[rgba(27,31,184,0.20)] border border-[rgba(100,110,255,0.25)] flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-[#A5A9FF]">{interview.logo}</span>
+                      <span className="text-sm font-bold text-[#A5A9FF]">{interview.logo || interview.company.slice(0, 2).toUpperCase()}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#F5F6FF] truncate">{interview.company}</p>
-                      <p className="text-xs text-[#A2A7C0] truncate">{interview.role}</p>
+                      <p className="text-xs text-[#A2A7C0] truncate">{interview.title}</p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <Badge variant="indigo" size="sm">
-                          {interview.type}
+                          {interview.status}
                         </Badge>
-                        <span className="text-xs text-[#737A99] truncate">{interview.date}</span>
+                        <span className="text-xs text-[#737A99] truncate">
+                          {interview.nextStepDate || interview.nextStep || "Upcoming"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -458,15 +513,87 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="p-8 text-center text-[#737A99] text-xs border border-dashed border-[rgba(100,110,255,0.16)] rounded-xl bg-[#080A14]/40">
-                No interviews scheduled yet. Move applications to &quot;Phone Screen&quot; or &quot;Interview&quot; in the Tracker to populate this schedule.
+                No interviews scheduled yet. Move applications to &quot;Technical Round&quot; or &quot;HR Round&quot; in the Tracker to populate this schedule.
               </div>
             )}
           </Card>
-        </>
-      ) : null}
+
+          {/* 8. Quick Navigation Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              onClick={() => router.push("/jobs")}
+              className="group cursor-pointer rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#141209] to-[#070914] p-5 shadow-lg hover:border-amber-400/50 hover:-translate-y-0.5 transition-all"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                <Briefcase className="h-5 w-5" />
+              </div>
+              <h4 className="text-sm font-bold text-white group-hover:text-amber-300">
+                1. Pick Target Role &amp; Find Jobs
+              </h4>
+              <p className="mt-1 text-xs text-slate-400">
+                Match your {realResume.skills.length} skills against current tech job openings.
+              </p>
+              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-amber-400">
+                Explore Jobs →
+              </span>
+            </div>
+
+            <div
+              onClick={() => router.push("/readiness")}
+              className="group cursor-pointer rounded-2xl border border-sky-500/20 bg-gradient-to-b from-[#09131d] to-[#070914] p-5 shadow-lg hover:border-sky-400/50 hover:-translate-y-0.5 transition-all"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 mb-3 group-hover:scale-110 transition-transform">
+                <Target className="h-5 w-5" />
+              </div>
+              <h4 className="text-sm font-bold text-white group-hover:text-sky-300">
+                2. Readiness Study Plan
+              </h4>
+              <p className="mt-1 text-xs text-slate-400">
+                Covers your {realResume.missingRecommendedSkills.length} recommended topics.
+              </p>
+              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-sky-400">
+                View Plan →
+              </span>
+            </div>
+
+            <div
+              onClick={() => router.push("/tracker")}
+              className="group cursor-pointer rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-[#091712] to-[#070914] p-5 shadow-lg hover:border-emerald-400/50 hover:-translate-y-0.5 transition-all"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
+                <CalendarCheck className="h-5 w-5" />
+              </div>
+              <h4 className="text-sm font-bold text-white group-hover:text-emerald-300">
+                3. Application Tracker
+              </h4>
+              <p className="mt-1 text-xs text-slate-400">
+                Manage your active pipeline and deadline reminders.
+              </p>
+              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-emerald-400">
+                Open Kanban →
+              </span>
+            </div>
+
+            <div
+              onClick={() => router.push("/interview")}
+              className="group cursor-pointer rounded-2xl border border-purple-500/20 bg-gradient-to-b from-[#150a1d] to-[#070914] p-5 shadow-lg hover:border-purple-400/50 hover:-translate-y-0.5 transition-all"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400 mb-3 group-hover:scale-110 transition-transform">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <h4 className="text-sm font-bold text-white group-hover:text-purple-300">
+                4. Mock Interview Coach
+              </h4>
+              <p className="mt-1 text-xs text-slate-400">
+                Practice role-specific questions and get instant feedback.
+              </p>
+              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-purple-400">
+                Start Practice →
+              </span>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

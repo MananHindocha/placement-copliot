@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type {
   StudentDigitalTwinSnapshot,
@@ -84,6 +85,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   } | null>(null);
   const [isBluffAuditModalOpen, setIsBluffAuditModalOpen] = useState(false);
   const [probeSkill, setProbeSkill] = useState<string | null>(null);
+  const lastStateVersionRef = useRef<string>("0");
 
   const openBluffAuditModal = useCallback(() => setIsBluffAuditModalOpen(true), []);
   const closeBluffAuditModal = useCallback(() => setIsBluffAuditModalOpen(false), []);
@@ -113,6 +115,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/agent/twin", { cache: "no-store" });
       if (!res.ok) return;
+
+      const version = res.headers.get("X-Agent-State-Version");
+      if (version && version !== lastStateVersionRef.current) {
+        lastStateVersionRef.current = version;
+        // version changed — the data we just fetched is already the new data, so just set it
+      }
+
       const data = await res.json();
       if (data.success) {
         if (data.digitalTwin) setDigitalTwin(data.digitalTwin);
@@ -305,6 +314,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ approvalId, decision }),
         });
 
+        const version = res.headers.get("X-Agent-State-Version");
+        if (version && version !== lastStateVersionRef.current) {
+          lastStateVersionRef.current = version;
+          refreshAgentState();
+        }
+
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.error || "Failed to resolve approval");
@@ -369,6 +384,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           }),
         });
 
+        const version = res.headers.get("X-Agent-State-Version");
+        if (version && version !== lastStateVersionRef.current) {
+          lastStateVersionRef.current = version;
+          refreshAgentState();
+        }
+
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.error || "Failed to calibrate skill evidence");
@@ -419,6 +440,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
             defensibleRewrite,
           }),
         });
+
+        const version = res.headers.get("X-Agent-State-Version");
+        if (version && version !== lastStateVersionRef.current) {
+          lastStateVersionRef.current = version;
+          refreshAgentState();
+        }
 
         const data = await res.json();
         if (!res.ok || !data.success) {

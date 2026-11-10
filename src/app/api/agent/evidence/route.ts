@@ -112,13 +112,20 @@ export async function POST(req: NextRequest) {
       }
 
       const twin = getMockStudentDigitalTwin(userId);
-      return NextResponse.json({
-        success: true,
-        message: `Claim for ${skillName} toned down to Medium (Working Knowledge). Bluff risk cleared.`,
-        skill: updatedSkill,
-        digitalTwin: twin,
-        stagedApproval,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Claim for ${skillName} toned down to Medium (Working Knowledge). Bluff risk cleared.`,
+          skill: updatedSkill,
+          digitalTwin: twin,
+          stagedApproval,
+        },
+        {
+          headers: {
+            "X-Agent-State-Version": Date.now().toString(),
+          },
+        }
+      );
     }
 
     if (action === "SYNC_FROM_RESUME") {
@@ -126,12 +133,19 @@ export async function POST(req: NextRequest) {
       const skills = syncMockDigitalTwinFromResume(userId, fileName);
       const twin = getMockStudentDigitalTwin(userId);
 
-      return NextResponse.json({
-        success: true,
-        message: `Digital Twin synchronized from ${fileName}.`,
-        skills,
-        digitalTwin: twin,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Digital Twin synchronized from ${fileName}.`,
+          skills,
+          digitalTwin: twin,
+        },
+        {
+          headers: {
+            "X-Agent-State-Version": Date.now().toString(),
+          },
+        }
+      );
     }
 
     // Default: UPDATE_EVIDENCE (e.g. from 60-second micro-probe)
@@ -159,12 +173,19 @@ export async function POST(req: NextRequest) {
 
     const twin = getMockStudentDigitalTwin(userId);
 
-    return NextResponse.json({
-      success: true,
-      message: updateResult.summary,
-      data: updateResult.data,
-      digitalTwin: twin,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: updateResult.summary,
+        data: updateResult.data,
+        digitalTwin: twin,
+      },
+      {
+        headers: {
+          "X-Agent-State-Version": Date.now().toString(),
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[Evidence API Error]:", error);
     return NextResponse.json(

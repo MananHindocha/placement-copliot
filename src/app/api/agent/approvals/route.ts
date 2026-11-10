@@ -86,12 +86,19 @@ export async function POST(req: NextRequest) {
     const { userId, supabase } = await resolveUser();
     const result = await resolveAgentApproval(approvalId, decision, userId, supabase);
 
-    return NextResponse.json({
-      success: result.success,
-      message: result.message,
-      approvalId,
-      decision,
-    });
+    return NextResponse.json(
+      {
+        success: result.success,
+        message: result.message,
+        approvalId,
+        decision,
+      },
+      {
+        headers: {
+          "X-Agent-State-Version": Date.now().toString(),
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[Agent Approvals POST Error]:", error);
     return NextResponse.json(

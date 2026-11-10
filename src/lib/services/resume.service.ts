@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
 import { RESUME_ANALYSIS } from "@/lib/mock-data";
-import { logActivity, dispatchCopilotUpdate } from "@/lib/storage-sync";
+import { logActivity, dispatchCopilotUpdate, getStoredRealResume } from "@/lib/storage-sync";
 import type { ParsedResumeDocument, ResumeAnalysis } from "@/types";
 
 const WORKSPACE_KEY = "copilot_latest_resume_analysis";
@@ -13,19 +13,21 @@ export interface ResumeWorkspace {
   userId: string | null;
 }
 
-let demoAnalysis: ResumeAnalysis = {
-  ...RESUME_ANALYSIS,
-  sectionScores: {
-    impact: 84,
-    brevity: 92,
-    style: 78,
-    skills: 88,
-  },
-  extractedSkills: [
-    "TypeScript", "React", "Node.js", "PostgreSQL",
-    "Docker", "REST APIs", "GraphQL", "Tailwind CSS",
-  ],
-};
+let demoAnalysis: ResumeAnalysis | null = null;
+
+function emptyAnalysis(): ResumeAnalysis {
+  return {
+    matchScore: 0,
+    atsScore: 0,
+    jobTitle: "Upload a resume to begin",
+    company: "",
+    strengths: [],
+    gaps: [],
+    suggestions: [],
+    keywords: [],
+    extractedSkills: [],
+  };
+}
 
 export interface AnalyzeResumeResponse {
   analysis: ResumeAnalysis;
@@ -71,16 +73,45 @@ function writeStoredWorkspace(workspace: ResumeWorkspace): boolean {
   }
 }
 
-function emptyAnalysis(): ResumeAnalysis {
-  return { matchScore: 0, atsScore: 0, jobTitle: "Upload a resume to begin", company: "", strengths: [], gaps: [], suggestions: [], keywords: [] };
-}
-
 export async function getResumeWorkspace(): Promise<ResumeWorkspace> {
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
     const stored = readStoredWorkspace();
-    return stored && stored.userId === null ? stored : { analysis: { ...demoAnalysis }, editableResume: demoAnalysis.parsedResume || null, appliedSuggestionIds: [], userId: null };
+    if (stored && stored.userId === null && stored.analysis && (stored.analysis.matchScore > 0 || (stored.analysis.extractedSkills && stored.analysis.extractedSkills.length > 0))) {
+      return stored;
+    }
+
+    const realResume = getStoredRealResume();
+    if (realResume) {
+      return {
+        analysis: {
+          matchScore: realResume.atsScore,
+          atsScore: realResume.atsScore,
+          jobTitle: realResume.inferredTargetRoles[0] || "Software Engineer",
+          company: "Target Roles",
+          strengths: realResume.skills.filter((s) => s.strength === "Verified Strong").map((s) => `${s.name}: ${s.reason}`),
+          gaps: realResume.missingRecommendedSkills.map((m) => `${m.skill}: ${m.whyNeeded}`),
+          suggestions: realResume.bulletImprovements.map((b, idx) => ({
+            id: `sug-${idx + 1}`,
+            section: "experience" as const,
+            original: b.originalBullet,
+            suggested: b.improvedBullet,
+            improved: b.improvedBullet,
+            impact: "high" as const,
+            reason: `Grounded in ${b.projectName}`,
+            impactLevel: "high" as const,
+          })),
+          keywords: realResume.skills.map((s) => ({ word: s.name, present: true, importance: "high" as const })),
+          extractedSkills: realResume.skills.map((s) => s.name),
+        },
+        editableResume: null,
+        appliedSuggestionIds: [],
+        userId: null,
+      };
+    }
+
+    return { analysis: emptyAnalysis(), editableResume: null, appliedSuggestionIds: [], userId: null };
   }
 
   const supabase = createClient();
@@ -249,9 +280,10 @@ export async function updateTailorSuggestion(
   const mode = getEffectiveDataMode();
 
   if (mode === "demo") {
+    const base = demoAnalysis || emptyAnalysis();
     demoAnalysis = {
-      ...demoAnalysis,
-      suggestions: demoAnalysis.suggestions.map((s) =>
+      ...base,
+      suggestions: base.suggestions.map((s) =>
         s.id === suggestionId ? { ...s, suggested: suggestedText } : s
       ),
     };

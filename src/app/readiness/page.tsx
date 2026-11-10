@@ -376,7 +376,7 @@ export default function ReadinessPage() {
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1B1FB8]/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
+        <div className="rounded-2xl border border-indigo-500/40 bg-indigo-950/80 p-3.5 flex items-center gap-2 text-xs text-indigo-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
           {toastMessage}
         </div>

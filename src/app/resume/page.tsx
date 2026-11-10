@@ -18,6 +18,7 @@ import { getResumeBulletTargets, replaceResumeBullet } from "@/lib/resume/parser
 import { printIsolatedResume, downloadDirectPdf } from "@/lib/resume/pdf-export";
 import ResumeDiffApprovalCard from "@/components/agent/ResumeDiffApprovalCard";
 import { useAgent } from "@/context/AgentProvider";
+import { getStoredRealResume, type RealParsedResume } from "@/lib/storage-sync";
 import {
   Upload,
   FileText,
@@ -108,6 +109,7 @@ export default function ResumePage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Core Data
+  const [realResume, setRealResume] = useState<RealParsedResume | null>(null);
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
   const [editableResume, setEditableResume] = useState<ParsedResumeDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -224,15 +226,22 @@ export default function ResumePage() {
     }
 
     let isMounted = true;
+    const storedReal = getStoredRealResume();
+    setRealResume(storedReal);
+
     getResumeWorkspace()
       .then((workspace) => {
         if (!isMounted) return;
         const data = workspace.analysis;
-        setAnalysis(data);
-        setEditableResume(workspace.editableResume || data.parsedResume || null);
-        setAppliedSuggestions(new Set(workspace.appliedSuggestionIds));
-        if (data.jobTitle && data.jobTitle !== "Upload a resume to begin" && !handoffRaw) {
-          setTargetRole(data.jobTitle);
+        if (data && data.matchScore > 0) {
+          setAnalysis(data);
+          setEditableResume(workspace.editableResume || data.parsedResume || null);
+          setAppliedSuggestions(new Set(workspace.appliedSuggestionIds));
+          if (data.jobTitle && data.jobTitle !== "Upload a resume to begin" && !handoffRaw) {
+            setTargetRole(data.jobTitle);
+          }
+        } else {
+          setAnalysis(null);
         }
         setLoading(false);
       })
@@ -497,9 +506,9 @@ export default function ResumePage() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-indigo-600/95 text-white text-sm font-medium shadow-2xl shadow-indigo-500/30 border border-indigo-400/30 animate-bounce">
-          <Sparkles className="w-4 h-4 text-amber-300" />
-          {toastMessage}
+        <div className="rounded-2xl border border-indigo-500/40 bg-indigo-950/80 p-3.5 flex items-center gap-2 text-xs text-indigo-200">
+          <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -627,12 +636,70 @@ export default function ResumePage() {
       )}
 
       {/* Main Content Area */}
-      {loading && !analysis ? (
+      {!analysis ? (
+        <div className="max-w-2xl mx-auto py-8 space-y-4 animate-in fade-in duration-300">
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            className={clsx(
+              "relative border-2 border-dashed rounded-3xl p-10 text-center transition-all bg-[#0B0D18]",
+              dragActive
+                ? "border-indigo-500 bg-indigo-500/10 scale-[1.01]"
+                : "border-indigo-500/30 hover:border-indigo-400/60 hover:bg-[#0e1330]"
+            )}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  handleFileUpload(e.target.files[0]);
+                }
+              }}
+            />
+
+            {analyzing ? (
+              <div className="py-8 space-y-3">
+                <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mx-auto" />
+                <p className="text-sm font-semibold text-white">Analyzing Document...</p>
+                <p className="text-xs text-slate-400">Extracting sections, links & metrics via AI Analyzer</p>
+                <div className="w-64 mx-auto">
+                  <ProgressBar value={uploadProgress} color="indigo" size="sm" />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4 shadow-md shadow-indigo-500/10">
+                  <Upload className="w-6 h-6 text-indigo-400" />
+                </div>
+                <h3 className="text-base font-bold text-white mb-1">
+                  Upload Your Resume (PDF, DOCX, or TXT)
+                </h3>
+                <p className="text-xs text-slate-400 mb-4 max-w-md mx-auto">
+                  Drag and drop your resume file or browse from your computer to run the full ATS diagnostic score, extract verified skills, and tailor your bullet points.
+                </p>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Choose File
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : loading && !analysis ? (
         <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
           <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
           <span className="text-sm">Loading resume telemetry...</span>
         </div>
-      ) : analysis ? (
+      ) : (
         activeTab === "analyse" ? (
           <div className="space-y-6">
             {/* 4-Pillar ATS Diagnostic Header */}
@@ -1147,7 +1214,7 @@ export default function ResumePage() {
             </div>
           </div>
         )
-      ) : null}
+      )}
     </div>
   );
 }

@@ -44,7 +44,6 @@ import {
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
 import CompanyWarRoomModal from "@/components/agent/CompanyWarRoomModal";
-import SkillMicroProbeModal from "@/components/agent/SkillMicroProbeModal";
 
 // ─── Stage Definitions ────────────────────────────────────────────────────────
 
@@ -185,10 +184,9 @@ export default function TrackerPage() {
   const [showJobImportModal, setShowJobImportModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [warRoomCard, setWarRoomCard] = useState<KanbanCard | null>(null);
-  const [probeSkill, setProbeSkill] = useState<string | null>(null);
 
   const router = useRouter();
-  const { triggerAgent } = useAgent();
+  const { triggerAgent, openProbeModal } = useAgent();
 
   const handlePracticeInterview = (card: KanbanCard) => {
     if (typeof window !== "undefined") {
@@ -216,13 +214,8 @@ export default function TrackerPage() {
     setLoading(true);
     setError(null);
     getApplications()
-      .then(async (data) => {
-        if (!data || data.length === 0) {
-          const seeded = await scoutAndSeedPipeline();
-          setCards(seeded);
-        } else {
-          setCards(data);
-        }
+      .then((data) => {
+        setCards(data || []);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -253,13 +246,12 @@ export default function TrackerPage() {
   useEffect(() => {
     let isMounted = true;
     getApplications()
-      .then(async (data) => {
+      .then((data) => {
         if (!isMounted) return;
-        if (!data || data.length === 0) {
-          const seeded = await scoutAndSeedPipeline();
-          if (isMounted) setCards(seeded);
-        } else {
+        if (data && data.length > 0) {
           setCards(data);
+        } else {
+          setCards([]);
         }
         setLoading(false);
       })
@@ -434,7 +426,7 @@ export default function TrackerPage() {
     <div className="space-y-6 max-w-full pb-12">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1B1FB8]/95 text-white text-xs font-semibold shadow-2xl border border-indigo-400/30 animate-bounce">
+        <div className="rounded-2xl border border-indigo-500/40 bg-indigo-950/80 p-3.5 flex items-center gap-2 text-xs text-indigo-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
           {toastMessage}
         </div>
@@ -1184,17 +1176,8 @@ export default function TrackerPage() {
           onClose={() => setWarRoomCard(null)}
           onLaunchProbe={(skillName) => {
             setWarRoomCard(null);
-            setProbeSkill(skillName);
+            openProbeModal(skillName);
           }}
-        />
-      )}
-
-      {/* ─── FEATURE 2: SKILL MICRO-PROBE MODAL ─── */}
-      {probeSkill && (
-        <SkillMicroProbeModal
-          skillName={probeSkill}
-          isOpen={Boolean(probeSkill)}
-          onClose={() => setProbeSkill(null)}
         />
       )}
     </div>

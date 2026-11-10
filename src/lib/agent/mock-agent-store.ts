@@ -12,6 +12,7 @@ import type {
   AgentRunRecord,
   AgentApprovalRecord,
 } from "./types";
+import { getStoredRealResume, getStoredResumeWorkspace } from "@/lib/storage-sync";
 
 // ─── Default Seed Data ───────────────────────────────────────────────────────
 const DEFAULT_SKILL_MATRIX: SkillEvidenceItem[] = [
@@ -222,14 +223,62 @@ function getStoreState(): MockAgentStoreState {
  */
 export function getMockSkillEvidence(userId: string): SkillEvidenceItem[] {
   const state = getStoreState();
-  if (!state.skillEvidenceMap.has(userId)) {
-    // Clone default seed for this user
-    state.skillEvidenceMap.set(
-      userId,
-      DEFAULT_SKILL_MATRIX.map((s) => ({ ...s, user_id: userId }))
-    );
+  if (state.skillEvidenceMap.has(userId)) {
+    return state.skillEvidenceMap.get(userId)!;
   }
-  return state.skillEvidenceMap.get(userId)!;
+
+  const workspace = getStoredResumeWorkspace();
+  const realResume = getStoredRealResume();
+
+  const rawSkills: any[] =
+    workspace?.analysis?.extractedSkills ??
+    (workspace?.analysis as any)?.skills ??
+    workspace?.analysis?.parsedResume?.skills ??
+    realResume?.skills ??
+    [];
+
+  if (Array.isArray(rawSkills) && rawSkills.length > 0) {
+    const converted: SkillEvidenceItem[] = rawSkills.map((s: any, idx: number) => {
+      const name = typeof s === "string" ? s : s?.name || `Skill ${idx + 1}`;
+      const strength =
+        typeof s === "object" && s?.strength
+          ? s.strength
+          : idx < 4
+          ? "Verified Strong"
+          : idx < 8
+          ? "Good Foundation"
+          : "Needs Practice";
+      const claimedLevel =
+        strength === "Verified Strong" ? "HIGH" : strength === "Good Foundation" ? "MEDIUM" : "LOW";
+      const verifiedConfidence =
+        strength === "Verified Strong" ? "HIGH" : strength === "Good Foundation" ? "MEDIUM" : "LOW";
+      const isBluffRisk = strength === "Needs Practice";
+
+      return {
+        id: `se-real-${idx + 1}`,
+        user_id: userId,
+        skill_name: name,
+        claimed_level: claimedLevel,
+        verified_confidence: verifiedConfidence,
+        bluff_risk: isBluffRisk,
+        evidence_log: [
+          {
+            timestamp: realResume?.parsedAt || new Date().toISOString(),
+            source: `Resume Parse: ${workspace?.fileName || realResume?.fileName || "Active Resume"}`,
+            verdict: typeof s === "object" && s?.reason ? s.reason : "Verified skill extracted from resume",
+            citation: "Found in candidate resume skills",
+            score: strength === "Verified Strong" ? 90 : strength === "Good Foundation" ? 75 : 45,
+          },
+        ],
+        updated_at: realResume?.parsedAt || new Date().toISOString(),
+      };
+    });
+    state.skillEvidenceMap.set(userId, converted);
+    return converted;
+  }
+
+  // Pure Zero State: Return empty array when no resume has been uploaded
+  return [];
 }
 
 /**
@@ -362,47 +411,78 @@ export function resolveMockAgentApproval(
  */
 export function getMockStudentDigitalTwin(userId: string): StudentDigitalTwinSnapshot {
   const skills = getMockSkillEvidence(userId);
+  const workspace = getStoredResumeWorkspace();
+  const realResume = getStoredRealResume();
+
+  if ((!workspace?.analysis && !realResume) || skills.length === 0) {
+    // Pure Zero State!
+    return {
+      userId,
+      profileSummary: {
+        fullName: "Candidate",
+        targetRole: "Target Role Not Set",
+        readinessScore: 0,
+        graduationYear: 2026,
+        college: "Engineering College",
+        branch: "Computer Science",
+      },
+      skills: [],
+      bluffRiskSkills: [],
+      activeApplications: [],
+      recentInterviewWeaknesses: [],
+      pendingReadinessTasksCount: 0,
+      currentResumeSummary: undefined,
+    };
+  }
+
   const bluffRiskSkills = skills
     .filter((s) => s.bluff_risk || (s.claimed_level === "HIGH" && s.verified_confidence === "LOW"))
     .map((s) => s.skill_name);
 
+  const candidateName =
+    workspace?.analysis?.parsedResume?.candidateName ||
+    realResume?.candidateName ||
+    "Candidate";
+
+  const targetRole =
+    workspace?.analysis?.jobTitle ||
+    realResume?.inferredTargetRoles?.[0] ||
+    "Software Engineer";
+
+  const atsScore =
+    workspace?.analysis?.atsScore ||
+    workspace?.analysis?.matchScore ||
+    realResume?.atsScore ||
+    70;
+
+  const fileName =
+    workspace?.fileName ||
+    realResume?.fileName ||
+    "Uploaded Resume";
+
   return {
     userId,
     profileSummary: {
-      fullName: "Alex Rivera",
-      targetRole: "Full Stack / Software Development Engineer",
-      readinessScore: 74,
+      fullName: candidateName,
+      targetRole,
+      readinessScore: atsScore,
       graduationYear: 2026,
-      college: "National Institute of Technology",
-      branch: "Computer Science & Engineering",
+      college: "Engineering College",
+      branch: "Computer Science",
     },
     skills,
     bluffRiskSkills,
-    activeApplications: DEFAULT_ACTIVE_APPLICATIONS,
-    recentInterviewWeaknesses: [
-      {
-        topic: "Redis & Distributed Caching",
-        domain: "Scalability & Performance",
-        score: 42,
-        sessionDate: new Date(Date.now() - 86400000 * 1).toISOString(),
-      },
-      {
-        topic: "System Design Trade-offs",
-        domain: "Architecture",
-        score: 0,
-        sessionDate: new Date(Date.now() - 86400000 * 8).toISOString(),
-      },
-    ],
-    pendingReadinessTasksCount: 3,
+    activeApplications: [],
+    recentInterviewWeaknesses: [],
+    pendingReadinessTasksCount: realResume?.missingRecommendedSkills?.length ?? workspace?.analysis?.gaps?.length ?? 0,
     currentResumeSummary: {
-      primaryResumeId: "res-primary-demo-01",
-      fileName: "Alex_Rivera_Resume_2026.pdf",
-      atsScore: 78,
-      parsedHighlights: [
-        "Full-Stack E-Commerce Platform with Next.js, Stripe, and PostgreSQL",
-        "Open-source contributor to Developer CLI Tooling",
-        "Coursework: Algorithms, Operating Systems, Database Management Systems",
-      ],
+      primaryResumeId: "real-resume-01",
+      fileName,
+      atsScore,
+      parsedHighlights:
+        realResume?.projects?.map((p) => `${p.name}: ${p.summary}`) ??
+        workspace?.analysis?.strengths ??
+        [],
     },
   };
 }
@@ -415,25 +495,59 @@ export function syncMockDigitalTwinFromResume(
   fileName?: string
 ): SkillEvidenceItem[] {
   const state = getStoreState();
-  const refreshed = DEFAULT_SKILL_MATRIX.map((s) => ({
-    ...s,
-    user_id: userId,
-    evidence_log: [
-      {
-        timestamp: new Date().toISOString(),
-        source: `Resume Ingestion (${fileName || "Uploaded Resume"})`,
-        verdict: s.bluff_risk
-          ? `UNVERIFIED CLAIM: Claimed ${s.claimed_level} level in resume, but lacks verified mock or drill evidence.`
-          : `PARSED: Verified foundation detected from resume projects and coursework.`,
-        citation: `Extracted from parsed resume bullet points.`,
-        score: s.verified_confidence === "HIGH" ? 90 : s.verified_confidence === "MEDIUM" ? 75 : 45,
-      },
-      ...s.evidence_log,
-    ],
-  }));
+  const workspace = getStoredResumeWorkspace();
+  const realResume = getStoredRealResume();
 
-  state.skillEvidenceMap.set(userId, refreshed);
-  return refreshed;
+  const rawSkills: any[] =
+    workspace?.analysis?.extractedSkills ??
+    (workspace?.analysis as any)?.skills ??
+    workspace?.analysis?.parsedResume?.skills ??
+    realResume?.skills ??
+    [];
+
+  if (Array.isArray(rawSkills) && rawSkills.length > 0) {
+    const activeFileName = fileName || workspace?.fileName || realResume?.fileName || "Uploaded Resume";
+    const refreshed: SkillEvidenceItem[] = rawSkills.map((s: any, idx: number) => {
+      const name = typeof s === "string" ? s : s?.name || `Skill ${idx + 1}`;
+      const strength =
+        typeof s === "object" && s?.strength
+          ? s.strength
+          : idx < 4
+          ? "Verified Strong"
+          : idx < 8
+          ? "Good Foundation"
+          : "Needs Practice";
+      const claimedLevel =
+        strength === "Verified Strong" ? "HIGH" : strength === "Good Foundation" ? "MEDIUM" : "LOW";
+      const verifiedConfidence =
+        strength === "Verified Strong" ? "HIGH" : strength === "Good Foundation" ? "MEDIUM" : "LOW";
+      const isBluffRisk = strength === "Needs Practice";
+
+      return {
+        id: `se-real-${idx + 1}`,
+        user_id: userId,
+        skill_name: name,
+        claimed_level: claimedLevel,
+        verified_confidence: verifiedConfidence,
+        bluff_risk: isBluffRisk,
+        evidence_log: [
+          {
+            timestamp: new Date().toISOString(),
+            source: `Resume Ingestion (${activeFileName})`,
+            verdict: typeof s === "object" && s?.reason ? s.reason : "Verified skill extracted from resume",
+            citation: `Extracted from parsed resume projects and skills in ${activeFileName}.`,
+            score: strength === "Verified Strong" ? 90 : strength === "Good Foundation" ? 75 : 45,
+          },
+        ],
+        updated_at: new Date().toISOString(),
+      };
+    });
+    state.skillEvidenceMap.set(userId, refreshed);
+    return refreshed;
+  }
+
+  state.skillEvidenceMap.set(userId, []);
+  return [];
 }
 
 /**

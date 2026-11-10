@@ -4,12 +4,33 @@ import { KANBAN_CARDS, READINESS_MILESTONES, INTERVIEW_SESSIONS, ACTIVITIES } fr
 import type { KanbanCard, ReadinessMilestone, InterviewSession, Activity, ResumeAnalysis, ParsedResumeDocument } from "@/types";
 
 export const STORAGE_KEYS = {
+  REAL_RESUME: "copilot_real_resume_v1",
   APPLICATIONS: "copilot_applications_v1",
   RESUME_WORKSPACE: "copilot_latest_resume_analysis",
   INTERVIEWS: "copilot_interview_sessions_v1",
   READINESS: "copilot_readiness_tasks_v1",
   ACTIVITIES: "copilot_activity_feed_v1",
 } as const;
+
+export interface RealParsedResume {
+  fileName: string;
+  candidateName: string;
+  inferredTargetRoles: string[];
+  atsScore: number;
+  projectsCount: number;
+  projects: Array<{ name: string; techStack: string[]; summary: string }>;
+  skills: Array<{ name: string; strength: "Verified Strong" | "Good Foundation" | "Needs Practice"; reason: string }>;
+  missingRecommendedSkills: Array<{ skill: string; whyNeeded: string; targetRole: string }>;
+  bulletImprovements: Array<{
+    originalBullet: string;
+    improvedBullet: string;
+    projectName: string;
+    atsBoost: number;
+    applied?: boolean;
+  }>;
+  parsedAt: string;
+  rawText?: string;
+}
 
 export interface StoredResumeWorkspace {
   analysis: ResumeAnalysis;
@@ -30,6 +51,52 @@ export function dispatchCopilotUpdate(source: string): void {
     window.dispatchEvent(new CustomEvent("copilot-data-updated", { detail: { source, timestamp: Date.now() } }));
   } catch {
     window.dispatchEvent(new Event("copilot-data-updated"));
+  }
+}
+
+// ─── Real Resume Storage (Step 1 & 2) ────────────────────────────────────────
+
+export function getStoredRealResume(): RealParsedResume | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.REAL_RESUME);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.skills) {
+      return parsed as RealParsedResume;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredRealResume(resume: RealParsedResume | null): void {
+  if (!isBrowser()) return;
+  try {
+    if (!resume) {
+      window.localStorage.removeItem(STORAGE_KEYS.REAL_RESUME);
+    } else {
+      window.localStorage.setItem(STORAGE_KEYS.REAL_RESUME, JSON.stringify(resume));
+    }
+    dispatchCopilotUpdate("real_resume");
+  } catch (err) {
+    console.warn("[storage-sync] Failed to save real resume:", err);
+  }
+}
+
+export function clearAllCopilotState(): void {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEYS.REAL_RESUME);
+    window.localStorage.removeItem(STORAGE_KEYS.APPLICATIONS);
+    window.localStorage.removeItem(STORAGE_KEYS.READINESS);
+    window.localStorage.removeItem(STORAGE_KEYS.RESUME_WORKSPACE);
+    window.localStorage.removeItem(STORAGE_KEYS.INTERVIEWS);
+    window.sessionStorage.removeItem("copilot_target_jd_handoff");
+    dispatchCopilotUpdate("reset");
+  } catch (err) {
+    console.warn("[storage-sync] Failed to clear copilot state:", err);
   }
 }
 
@@ -107,17 +174,15 @@ export function getStoredApplications(): KanbanCard[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
     if (!raw) {
-      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(BOOTSTRAP_KANBAN_APPLICATIONS));
-      return BOOTSTRAP_KANBAN_APPLICATIONS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(BOOTSTRAP_KANBAN_APPLICATIONS));
-      return BOOTSTRAP_KANBAN_APPLICATIONS;
+    if (!Array.isArray(parsed)) {
+      return [];
     }
     return parsed;
   } catch {
-    return BOOTSTRAP_KANBAN_APPLICATIONS;
+    return [];
   }
 }
 
@@ -177,17 +242,15 @@ export function getStoredReadinessMilestones(): ReadinessMilestone[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.READINESS);
     if (!raw) {
-      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(BOOTSTRAP_READINESS_MILESTONES));
-      return BOOTSTRAP_READINESS_MILESTONES;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      window.localStorage.setItem(STORAGE_KEYS.READINESS, JSON.stringify(BOOTSTRAP_READINESS_MILESTONES));
-      return BOOTSTRAP_READINESS_MILESTONES;
+    if (!Array.isArray(parsed)) {
+      return [];
     }
     return parsed;
   } catch {
-    return BOOTSTRAP_READINESS_MILESTONES;
+    return [];
   }
 }
 

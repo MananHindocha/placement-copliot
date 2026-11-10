@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
 import { DEMO_USER_SKILLS } from "@/lib/mock-data";
+import { getStoredRealResume, getStoredResumeWorkspace } from "@/lib/storage-sync";
 import type { Job } from "@/types";
 import type { JobListingRow } from "./types";
 import type { EnrichedMatchResult } from "@/app/api/jobs/match/route";
@@ -300,23 +301,30 @@ export function applyFilters(jobs: Job[], filters: JobFilters): Job[] {
   });
 }
 
-let activeUserSkills: string[] = [...DEMO_USER_SKILLS];
+let activeUserSkills: string[] = [];
 
 export function getUserSkills(): string[] {
   if (typeof window !== "undefined") {
     try {
-      const stored = localStorage.getItem("placement_user_skills");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          activeUserSkills = parsed;
-        }
+      const workspace = getStoredResumeWorkspace();
+      const realResume = getStoredRealResume();
+      const rawSkills: any =
+        workspace?.analysis?.extractedSkills ??
+        (workspace?.analysis as any)?.skills ??
+        workspace?.analysis?.parsedResume?.skills ??
+        realResume?.skills ??
+        [];
+
+      if (Array.isArray(rawSkills)) {
+        return rawSkills
+          .map((s: any) => (typeof s === "string" ? s : s?.name || ""))
+          .filter(Boolean);
       }
     } catch {
-      // Fallback
+      return [];
     }
   }
-  return [...activeUserSkills];
+  return [];
 }
 
 export function setUserSkills(skills: string[]): void {

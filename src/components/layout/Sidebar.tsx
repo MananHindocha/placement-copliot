@@ -20,7 +20,6 @@ import { useState, useEffect } from "react";
 import { getUserProfile, type UserProfile } from "@/lib/services/auth.service";
 
 const NAV_ITEMS = [
-  { label: "Robot Assistant", href: "/dashboard#robot-assistant", icon: Bot, highlight: true },
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "Resume Screener", href: "/resume", icon: FileText },
   { label: "Job Discovery", href: "/jobs", icon: Briefcase },
@@ -93,9 +92,7 @@ export default function Sidebar() {
               title={collapsed ? item.label : undefined}
               className={clsx(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group border",
-                item.highlight
-                  ? "bg-gradient-to-r from-indigo-500/20 via-cyan-500/15 to-indigo-500/20 text-cyan-200 border-indigo-400/40 hover:border-cyan-400 font-semibold shadow-sm"
-                  : active
+                active
                   ? "bg-[rgba(27,31,184,0.22)] text-[#A5A9FF] border-[rgba(69,75,255,0.4)] shadow-sm shadow-[rgba(27,31,184,0.15)] font-medium"
                   : "border-transparent text-[#A2A7C0] hover:text-[#F5F6FF] hover:bg-[#151A35]/60 hover:border-[rgba(100,110,255,0.16)]"
               )}
@@ -103,11 +100,7 @@ export default function Sidebar() {
               <Icon
                 className={clsx(
                   "w-5 h-5 shrink-0 transition-colors",
-                  item.highlight
-                    ? "text-cyan-400"
-                    : active
-                    ? "text-[#777CFF]"
-                    : "text-[#737A99] group-hover:text-[#A2A7C0]"
+                  active ? "text-[#777CFF]" : "text-[#737A99] group-hover:text-[#A2A7C0]"
                 )}
               />
               {!collapsed && (
