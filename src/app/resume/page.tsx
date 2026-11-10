@@ -504,6 +504,8 @@ export default function ResumePage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      <title>My Resume</title>
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="rounded-2xl border border-indigo-500/40 bg-indigo-950/80 p-3.5 flex items-center gap-2 text-xs text-indigo-200">
@@ -515,7 +517,7 @@ export default function ResumePage() {
       {/* Error Banner */}
       {error && (
         <ErrorBanner
-          title="Resume Screener Alert"
+          title="Resume Alert"
           message={error}
           onRetry={loadInitialAnalysis}
         />
@@ -528,7 +530,7 @@ export default function ResumePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
-            Resume Screener
+            My Resume
             {engineSource === "gemini" && (
               <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
@@ -765,77 +767,27 @@ export default function ResumePage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column: Upload Zone + Target Role & JD Bar */}
               <div className="lg:col-span-1 space-y-4">
-                {/* Drag-and-Drop Dropzone */}
-                <div
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  className={clsx(
-                    "relative border-2 border-dashed rounded-2xl p-6 text-center transition-all bg-[#0B0D18]",
-                    dragActive
-                      ? "border-indigo-500 bg-indigo-500/10 scale-[1.01]"
-                      : "border-white/10 hover:border-indigo-500/40"
-                  )}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileUpload(e.target.files[0]);
-                      }
-                    }}
-                  />
-
-                  {analyzing ? (
-                    <div className="py-6 space-y-3">
-                      <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
-                      <p className="text-xs font-semibold text-white">Analyzing Document...</p>
-                      <p className="text-[10px] text-slate-400">Extracting sections, links & metrics</p>
-                      <div className="w-48 mx-auto">
-                        <ProgressBar value={uploadProgress} color="indigo" size="sm" />
+                {/* Active Document Card (Replaces redundant upload dropzone when resume is loaded) */}
+                {analysis.meta?.fileName && (
+                  <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 flex items-center justify-between text-left">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5 text-indigo-400" />
                       </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-3 shadow-md shadow-indigo-500/10">
-                        <Upload className="w-5 h-5 text-indigo-400" />
-                      </div>
-                      <h4 className="text-xs font-semibold text-white mb-1">
-                        Upload Your Resume
-                      </h4>
-                      <p className="text-[11px] text-slate-400 mb-3">
-                        Drag and drop .PDF or .DOCX (up to 5MB)
-                      </p>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        Choose File
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Active Document Pill */}
-                  {analysis.meta?.fileName && (
-                    <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-left">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
-                        <span className="text-[11px] font-medium text-slate-300 truncate max-w-[150px]">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-white truncate max-w-[170px]">
                           {analysis.meta.fileName}
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          {analysis.meta.pageCount ? `${analysis.meta.pageCount} page(s) · ` : ""}Analyzed
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-500 shrink-0">
-                        {analysis.meta.pageCount ? `${analysis.meta.pageCount} page(s)` : ""}
-                      </span>
                     </div>
-                  )}
-                </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Active
+                    </span>
+                  </div>
+                )}
 
                 {/* Target Role & Collapsible Job Description Bar */}
                 <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">

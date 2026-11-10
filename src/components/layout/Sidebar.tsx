@@ -20,12 +20,12 @@ import { useState, useEffect } from "react";
 import { getUserProfile, type UserProfile } from "@/lib/services/auth.service";
 
 const NAV_ITEMS = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Resume Screener", href: "/resume", icon: FileText },
-  { label: "Job Discovery", href: "/jobs", icon: Briefcase },
-  { label: "App Tracker", href: "/tracker", icon: KanbanSquare },
+  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+  { label: "My Resume", href: "/resume", icon: FileText },
+  { label: "Find Jobs", href: "/jobs", icon: Briefcase },
+  { label: "My Applications", href: "/tracker", icon: KanbanSquare },
   { label: "Practice Interviews", href: "/interview", icon: MessageSquare },
-  { label: "Readiness Plan", href: "/readiness", icon: Target },
+  { label: "Study Plan", href: "/readiness", icon: Target },
 ];
 
 export default function Sidebar() {

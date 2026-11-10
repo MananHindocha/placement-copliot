@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -7,6 +10,7 @@ import {
   ArrowRight,
   Brain,
 } from "lucide-react";
+import { getAllCustomInterviewSessions, type CustomInterviewSession } from "@/lib/custom-interview-storage";
 
 interface InterviewModeCard {
   number: string;
@@ -32,51 +36,8 @@ interface InterviewModeCard {
 const INTERVIEW_MODES: InterviewModeCard[] = [
   {
     number: "01",
-    title: "Standard Question Bank",
-    description:
-      "Practice technical, behavioral, and HR interview questions tailored to your selected engineering role.",
-    icon: BookOpen,
-    route: "/interview/question-bank",
-    accent: {
-      border: "border-indigo-500/20",
-      borderHover: "hover:border-indigo-500/50",
-      glow: "hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]",
-      iconBg: "bg-indigo-500/15 group-hover:bg-[#292EDB]/25 border-indigo-500/30",
-      iconColor: "text-indigo-400 group-hover:text-indigo-300",
-      badgeBg: "bg-indigo-500/10",
-      badgeColor: "text-indigo-300",
-      arrowColor: "text-indigo-400 group-hover:text-indigo-300",
-      numberColor: "text-indigo-400/80 font-mono",
-    },
-    tags: ["Role-Specific", "STAR Framework", "Live Telemetry", "Bar-Raiser AI"],
-    actionText: "Start Practicing",
-  },
-  {
-    number: "02",
-    title: "Resume & Project Grill",
-    description:
-      "Experience an in-depth technical interview based on your resume, projects, architecture, implementation decisions, and engineering trade-offs.",
-    icon: Flame,
-    route: "/interview/resume-grill",
-    accent: {
-      border: "border-amber-500/20",
-      borderHover: "hover:border-amber-500/50",
-      glow: "hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]",
-      iconBg: "bg-amber-500/15 group-hover:bg-amber-500/25 border-amber-500/30",
-      iconColor: "text-amber-400 group-hover:text-amber-300",
-      badgeBg: "bg-amber-500/10",
-      badgeColor: "text-amber-300",
-      arrowColor: "text-amber-400 group-hover:text-amber-300",
-      numberColor: "text-amber-400/80 font-mono",
-    },
-    tags: ["GitHub Deep-Grill", "Architecture Defense", "System Trade-offs", "Failure Recovery"],
-    actionText: "Enter Grill Mode",
-  },
-  {
-    number: "03",
-    title: "OA & DSA Coding Arena",
-    description:
-      "Solve coding challenges, execute test cases, analyze time and space complexity, and receive AI-powered code reviews.",
+    title: "Coding Practice",
+    description: "Solve algorithm problems with an AI evaluator giving real feedback.",
     icon: Code2,
     route: "/interview/dsa",
     accent: {
@@ -91,13 +52,52 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
       numberColor: "text-violet-400/80 font-mono",
     },
     tags: ["30 OA Problems", "Multi-Language IDE", "Test Runner", "Big-O Verification"],
-    actionText: "Launch Arena",
+    actionText: "Start Practice →",
+  },
+  {
+    number: "02",
+    title: "Technical Interview",
+    description: "Answer technical questions for your target role. Get scored on depth and clarity.",
+    icon: BookOpen,
+    route: "/interview/question-bank",
+    accent: {
+      border: "border-indigo-500/20",
+      borderHover: "hover:border-indigo-500/50",
+      glow: "hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]",
+      iconBg: "bg-indigo-500/15 group-hover:bg-[#292EDB]/25 border-indigo-500/30",
+      iconColor: "text-indigo-400 group-hover:text-indigo-300",
+      badgeBg: "bg-indigo-500/10",
+      badgeColor: "text-indigo-300",
+      arrowColor: "text-indigo-400 group-hover:text-indigo-300",
+      numberColor: "text-indigo-400/80 font-mono",
+    },
+    tags: ["Role-Specific", "STAR Framework", "Live Telemetry", "Bar-Raiser AI"],
+    actionText: "Start Practice →",
+  },
+  {
+    number: "03",
+    title: "Talk About Your Resume",
+    description: "Practice explaining your projects and experience out loud.",
+    icon: Flame,
+    route: "/interview/resume-grill",
+    accent: {
+      border: "border-amber-500/20",
+      borderHover: "hover:border-amber-500/50",
+      glow: "hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]",
+      iconBg: "bg-amber-500/15 group-hover:bg-amber-500/25 border-amber-500/30",
+      iconColor: "text-amber-400 group-hover:text-amber-300",
+      badgeBg: "bg-amber-500/10",
+      badgeColor: "text-amber-300",
+      arrowColor: "text-amber-400 group-hover:text-amber-300",
+      numberColor: "text-amber-400/80 font-mono",
+    },
+    tags: ["GitHub Deep-Grill", "Architecture Defense", "System Trade-offs", "Failure Recovery"],
+    actionText: "Start Practice →",
   },
   {
     number: "04",
-    title: "Customize by Resume & JD",
-    description:
-      "Generate personalized interview questions by analyzing your resume, target company, job description, and technical requirements.",
+    title: "Practice for a Specific Job",
+    description: "Paste any job description and get an interview tailored to that role.",
     icon: Sparkles,
     route: "/interview/customize",
     accent: {
@@ -112,13 +112,26 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
       numberColor: "text-emerald-400/80 font-mono",
     },
     tags: ["Resume Tailored", "Company Presets", "Job Description Match", "Dual-AI Synthesis"],
-    actionText: "Customize Questions",
+    actionText: "Start Practice →",
   },
 ];
 
 export default function InterviewLandingPage() {
+  const [sessions, setSessions] = useState<CustomInterviewSession[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = getAllCustomInterviewSessions();
+      setSessions(stored);
+    } catch {
+      setSessions([]);
+    }
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12 animate-fadeIn">
+      <title>Practice Interviews</title>
+
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[rgba(100,110,255,0.12)]">
         <div>
@@ -127,7 +140,7 @@ export default function InterviewLandingPage() {
               <Brain className="w-5 h-5" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
-              AI Practice Interview Coach
+              Practice Interviews
             </h1>
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
@@ -206,6 +219,39 @@ export default function InterviewLandingPage() {
             </Link>
           );
         })}
+      </div>
+
+      {/* ─── RECENT SESSIONS SECTION & EMPTY STATE ───────── */}
+      <div className="pt-6 border-t border-[rgba(100,110,255,0.12)] space-y-4">
+        <h2 className="text-base font-bold text-white tracking-tight">
+          Recent Practice Sessions
+        </h2>
+
+        {sessions.length === 0 ? (
+          <div className="p-8 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center">
+            <p className="text-xs text-slate-400">
+              You haven&apos;t done any practice sessions yet. Pick a mode above to start.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sessions.slice(0, 4).map((s) => (
+              <Link
+                key={s.sessionId}
+                href={`/interview/customize/session/${s.sessionId}`}
+                className="p-4 rounded-xl border border-white/8 bg-[#0B0D18] hover:border-indigo-500/40 hover:bg-[#151A35]/50 transition-all flex items-center justify-between"
+              >
+                <div>
+                  <h3 className="text-sm font-semibold text-white">{s.targetRole}</h3>
+                  <p className="text-xs text-slate-400">
+                    {s.targetCompany ? `${s.targetCompany} · ` : ""}{s.generatedQuestions?.length || 0} questions · {s.difficulty}
+                  </p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-indigo-400" />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

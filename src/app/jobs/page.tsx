@@ -712,6 +712,39 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto">
+      <title>Find Jobs</title>
+
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">
+            Find Jobs
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Discover and track real technical jobs matched to your extracted skills.
+          </p>
+        </div>
+      </div>
+
+      {/* No Resume Empty State Banner */}
+      {userSkills.length === 0 && (
+        <div className="p-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="space-y-0.5 text-center sm:text-left">
+            <h3 className="text-xs font-semibold text-white">Upload your resume on the Home page first.</h3>
+            <p className="text-[11px] text-slate-400">
+              I&apos;ll then show you how well you match each job.
+            </p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] text-white text-xs font-semibold shadow-md shadow-indigo-500/20 shrink-0 transition-all cursor-pointer"
+          >
+            <span>Go to Home</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* Error state */}
       {error && (
         <ErrorBanner
@@ -1290,11 +1323,15 @@ export default function JobsPage() {
             {filtered.length === 0 && !loading && (
               <div className="p-12 text-center bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-2xl">
                 <Globe className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-                <p className="text-sm font-medium text-slate-400">No matching roles found</p>
+                <p className="text-sm font-semibold text-slate-300">
+                  {jobs.length === 0
+                    ? "No jobs found right now. Try a different role or check back later."
+                    : "No matching roles found"}
+                </p>
                 <p className="text-xs text-slate-500 mt-1">
                   {jobs.length > 0
-                    ? "Your current filters removed all jobs. Try broadening your search."
-                    : "No live jobs found. Check the provider status above, verify your API keys, or adjust your search."}
+                    ? "Your current filters removed all jobs. Try broadening your search or resetting filters."
+                    : "Try a different role or check back later."}
                 </p>
                 {activeFilterCount > 0 && (
                   <button

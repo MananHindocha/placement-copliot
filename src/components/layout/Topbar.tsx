@@ -43,23 +43,23 @@ import type { KanbanCard, ReadinessMilestone, ResumeAnalysis } from "@/types";
 
 const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
-    title: "Overview",
+    title: "Home",
     subtitle: "Track your placement progress at a glance",
   },
   "/resume": {
-    title: "Resume Screener & Tailor",
+    title: "My Resume",
     subtitle: "Analyse, score, and tailor your resume for any role",
   },
   "/jobs": {
-    title: "Job Discovery",
+    title: "Find Jobs",
     subtitle: "Find and save roles matched to your profile",
   },
   "/tracker": {
-    title: "Application Tracker",
+    title: "My Applications",
     subtitle: "Manage every stage of your job search pipeline",
   },
   "/interview": {
-    title: "Practice Interview Coach",
+    title: "Practice Interviews",
     subtitle: "Practice with AI-powered questions and feedback",
   },
   "/interview/question-bank": {
@@ -79,7 +79,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Generate personalized interview questions matching your resume and target role",
   },
   "/readiness": {
-    title: "Placement Readiness Plan",
+    title: "Study Plan",
     subtitle: "Your personalised roadmap to landing the offer",
   },
   "/auth/login": {

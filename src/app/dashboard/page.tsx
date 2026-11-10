@@ -128,6 +128,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      <title>Home</title>
+      <h1 className="sr-only">Home</h1>
+
       {/* ─── STATE A: ZERO STATE (BEFORE RESUME UPLOAD) ────────────────── */}
       {!hasResume ? (
         <div className="space-y-6 animate-in fade-in duration-300">

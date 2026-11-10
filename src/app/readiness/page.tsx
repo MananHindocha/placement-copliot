@@ -100,7 +100,7 @@ function MilestoneRow({
         type="button"
         onClick={() => onToggle(milestone.id)}
         aria-label={milestone.completed ? "Mark milestone incomplete" : "Mark milestone completed"}
-        className="mt-0.5 shrink-0 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded"
+        className="mt-0.5 shrink-0 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded cursor-pointer"
       >
         {milestone.completed ? (
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -121,20 +121,14 @@ function MilestoneRow({
           <Badge variant={PRIORITY_BADGE[milestone.priority]} size="sm">
             {milestone.priority}
           </Badge>
-          {(milestone.title.includes("[Agent Sprint") ||
-            (milestone.category as string) === "Sprint" ||
-            milestone.description?.toLowerCase().includes("agent")) && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-300 shadow-sm animate-fadeIn">
-              <Bot className="w-3 h-3 text-cyan-400" />
-              <span>🤖 Agent Injected</span>
-            </span>
-          )}
           <div className={clsx("flex items-center gap-1 text-xs", config.color)}>
             <Icon className="w-3 h-3" />
             {config.label}
           </div>
         </div>
-        <p className="text-xs text-slate-400 leading-relaxed">{milestone.description}</p>
+        {milestone.description && (
+          <p className="text-xs text-slate-400 leading-relaxed">{milestone.description}</p>
+        )}
         {milestone.dueDate && (
           <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
             <Calendar className="w-3 h-3" />
@@ -147,7 +141,7 @@ function MilestoneRow({
           type="button"
           onClick={() => onDelete(milestone.id)}
           className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-white/5 cursor-pointer"
-          title="Delete Milestone"
+          title="Delete Goal"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -373,6 +367,8 @@ export default function ReadinessPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
+      <title>Study Plan</title>
+
       {/* Toast Alert */}
       {toastMessage && (
         <div className="rounded-2xl border border-indigo-500/40 bg-indigo-950/80 p-3.5 flex items-center gap-2 text-xs text-indigo-200">
@@ -400,221 +396,82 @@ export default function ReadinessPage() {
           {/* Top Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/8">
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2.5 flex-wrap">
-                <span>Placement Readiness Plan</span>
-                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  60% Skill Level + 40% Study Tasks
-                </span>
+              <h1 className="text-xl font-bold text-white tracking-tight">
+                Study Plan
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Your readiness progress based on interview practice, verified skills, and completed study tasks.
+                Your preparation roadmap and daily goals to get interview-ready.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() => runAutonomousBootstrap()}
+              onClick={() => {
+                runAutonomousBootstrap();
+                loadRecommendations(true);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs active:scale-[0.98] transition-all cursor-pointer shrink-0"
             >
               <span>✨ Refresh My Plan</span>
             </button>
           </div>
 
-          {/* Top Telemetry & Streak Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Readiness Ring Gauge */}
-            <Card className="flex items-center gap-5">
-              <div className="relative flex items-center justify-center w-20 h-20 shrink-0">
-                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="7" />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="34"
-                    fill="none"
-                    stroke="#6366f1"
-                    strokeWidth="7"
-                    strokeLinecap="round"
-                    strokeDasharray={`${2 * Math.PI * 34}`}
-                    strokeDashoffset={`${2 * Math.PI * 34 * (1 - overallReadiness / 100)}`}
-                  />
-                </svg>
-                <div className="absolute text-center">
-                  <span className="text-xl font-black text-white">{overallReadiness}%</span>
-                </div>
+          {/* ─── SECTION 1: SCORE RING & SECTION 2: WHAT THIS SCORE MEANS ─── */}
+          <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#0e122b]/80 via-[#0B0D18] to-transparent rounded-2xl border border-indigo-500/15 text-center space-y-3">
+            <div className="relative flex items-center justify-center w-28 h-28 shrink-0">
+              <svg className="w-28 h-28 -rotate-90" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="#6366f1"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 34}`}
+                  strokeDashoffset={`${2 * Math.PI * 34 * (1 - overallReadiness / 100)}`}
+                />
+              </svg>
+              <div className="absolute text-center">
+                <span className="text-2xl font-black text-white">{overallReadiness}%</span>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-white">Overall Readiness</p>
-                <p className="text-xs text-indigo-300 mt-1 font-medium">
-                  Synced with Skill Profile • {bluffRiskCount} Skill{bluffRiskCount !== 1 ? "s" : ""} to Verify
-                </p>
-                <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400">
-                  <TrendingUp className="w-3 h-3" />
-                  <span>{completed} of {total} milestones done ({overallPct}%)</span>
-                </div>
-              </div>
-            </Card>
+            </div>
 
-            {/* Milestones Counter */}
-            <Card>
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="w-4 h-4 text-amber-400" />
-                <p className="text-sm font-semibold text-white">Roadmap Milestones</p>
-              </div>
-              <div className="flex items-end gap-1 mb-2">
-                <span className="text-3xl font-bold text-white">{completed}</span>
-                <span className="text-sm text-slate-400 mb-1">/ {total} done</span>
-              </div>
-              <ProgressBar value={overallPct} color="amber" size="lg" className="mb-2" />
-              <p className="text-xs text-slate-400">
-                {total === 0 ? "No milestones added yet" : `${total - completed} pending action`}
+            <div>
+              <h2 className="text-base font-bold text-white">Interview Readiness</h2>
+              <p style={{ textAlign: "center", fontSize: "13px", color: "var(--muted, #94a3b8)", marginTop: "4px" }}>
+                Complete milestones below to improve your score. Each completed task adds to your readiness.
               </p>
-            </Card>
+            </div>
 
-            {/* Activity Streak */}
-            <Card>
-              <div className="flex items-center gap-2 mb-3">
-                <Flame className="w-4 h-4 text-rose-400" />
-                <p className="text-sm font-semibold text-white">Activity Streak</p>
-              </div>
-              <p className="text-3xl font-bold text-white mb-1">
-                7 <span className="text-base font-normal text-slate-400">days</span>
-              </p>
-              <p className="text-xs text-slate-400 mb-3">Longest: 14 days</p>
-              <div className="flex gap-1">
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={clsx(
-                      "flex-1 h-2 rounded-full",
-                      i >= 7 ? "bg-white/8" : "bg-rose-500/60"
-                    )}
-                  />
-                ))}
-              </div>
-            </Card>
+            <div className="flex items-center gap-3 text-xs text-slate-400 font-medium pt-1 flex-wrap justify-center">
+              <span className="text-indigo-300 font-semibold">{completed} of {total} completed ({overallPct}%)</span>
+              <span className="text-slate-600">•</span>
+              <span>7-day streak 🔥</span>
+            </div>
           </div>
 
-          {/* Advanced Skill Intelligence (Collapsible) */}
-          <details className="group">
-            <summary style={{ cursor: "pointer", fontSize: "13px", color: "var(--muted, #94a3b8)", padding: "8px 0", userSelect: "none" }} className="hover:text-white transition-colors">
-              Show advanced skill details
-            </summary>
-            <div style={{ marginTop: "12px" }} className="space-y-6">
-              <DigitalTwinMatrix />
-              <MultiCompanyOverlapCard />
-            </div>
-          </details>
-
-          {/* Main Grid: Domain Breakdown + Milestones Roadmap */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column: Domain Breakdown & Focus This Week */}
-            <div className="space-y-4">
-              {/* Domain Breakdown */}
-              <Card>
-                <h3 className="text-sm font-semibold text-white mb-4 flex items-center justify-between">
-                  <span>Domain Breakdown</span>
-                  <span className="text-[10px] text-slate-500 font-normal">5 Weighted Pillars</span>
+          {/* ─── SECTION 3: MILESTONE CHECKLIST & SECTION 4: ADD YOUR OWN GOAL ─── */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Milestones Checklist
                 </h3>
-                <div className="space-y-4">
-                  {domains.map((domain) => {
-                    const Icon = DOMAIN_ICONS[domain.icon] ?? CATEGORY_CONFIG[domain.label.toLowerCase()]?.icon ?? Target;
-                    return (
-                      <div key={domain.label}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Icon className="w-3.5 h-3.5" style={{ color: domain.color }} />
-                            <span className="text-xs font-medium text-slate-300">{domain.label}</span>
-                          </div>
-                          <span className="text-xs font-bold text-slate-300">{domain.score}%</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-white/6 overflow-hidden">
-                          <div
-                            className="h-2 rounded-full transition-all duration-700"
-                            style={{ width: `${domain.score}%`, backgroundColor: domain.color }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-
-              {/* Dynamic Focus This Week (Driven by real pending milestones) */}
-              <Card>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-white">Focus This Week</h3>
-                  <span className="text-[10px] text-indigo-400 font-medium">From Roadmap</span>
-                </div>
-                {pending.length === 0 ? (
-                  <div className="py-6 text-center space-y-2">
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      No active pending tasks.
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      Add custom goals or review the AI-recommended milestones below.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {pending.slice(0, 3).map((item) => {
-                      const config = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.skills;
-                      const Icon = config.icon;
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-start gap-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
-                        >
-                          <Icon className={clsx("w-4 h-4 mt-0.5 shrink-0", config.color)} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-slate-200 line-clamp-1">
-                              {item.title}
-                            </p>
-                            <span className="text-[10px] text-slate-500 capitalize">
-                              {item.priority} priority • {config.label}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Right Column: Milestones Roadmap Checklist */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Interactive Checklist Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0B0F20] border border-indigo-500/25">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                    <Target className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white tracking-tight">
-                      Agent Roadmap Milestones Checklist
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Check/uncheck tasks to watch the live Readiness Score gauge recalculate in real time.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-                    {completed} / {total} done ({overallPct}%)
-                  </span>
-                </div>
+                <p className="text-xs text-slate-400">
+                  Track and complete your study goals. Check tasks as you finish them.
+                </p>
               </div>
 
               {/* Filter Tabs & Add Goal Action */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/4 border border-[rgba(100,110,255,0.12)] text-xs">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-white/4 border border-[rgba(100,110,255,0.12)] text-xs">
                   <button
                     type="button"
                     onClick={() => setFilterTab("all")}
                     className={clsx(
-                      "px-3 py-1 rounded-lg font-medium transition-all",
+                      "px-3 py-1 rounded-lg font-medium transition-all cursor-pointer",
                       filterTab === "all" ? "bg-[#1B1FB8] text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
@@ -624,7 +481,7 @@ export default function ReadinessPage() {
                     type="button"
                     onClick={() => setFilterTab("pending")}
                     className={clsx(
-                      "px-3 py-1 rounded-lg font-medium transition-all",
+                      "px-3 py-1 rounded-lg font-medium transition-all cursor-pointer",
                       filterTab === "pending" ? "bg-[#1B1FB8] text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
@@ -634,7 +491,7 @@ export default function ReadinessPage() {
                     type="button"
                     onClick={() => setFilterTab("completed")}
                     className={clsx(
-                      "px-3 py-1 rounded-lg font-medium transition-all",
+                      "px-3 py-1 rounded-lg font-medium transition-all cursor-pointer",
                       filterTab === "completed" ? "bg-[#1B1FB8] text-white shadow-sm" : "text-slate-400 hover:text-white"
                     )}
                   >
@@ -647,165 +504,157 @@ export default function ReadinessPage() {
                   size="sm"
                   icon={showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                   onClick={() => setShowAddForm(!showAddForm)}
-                  className="gap-1.5 text-xs shadow-md shadow-indigo-500/10"
+                  className="gap-1.5 text-xs shadow-md shadow-indigo-500/10 cursor-pointer"
                 >
-                  {showAddForm ? "Cancel" : "+ Add Goal"}
+                  {showAddForm ? "Cancel" : "+ Create Custom Goal"}
                 </Button>
               </div>
+            </div>
 
-              {/* Inline Add Goal Form */}
-              {showAddForm && (
-                <form
-                  onSubmit={handleAddMilestone}
-                  className="p-5 rounded-2xl bg-[#0B0D18] border border-indigo-500/30 space-y-3.5 shadow-2xl animate-fadeIn"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-white/8">
-                    <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                      Create Custom Preparation Goal
-                    </h4>
-                    <span className="text-[10px] text-slate-500">Manual Entry</span>
+            {/* Inline Add Goal Form (Section 4) */}
+            {showAddForm && (
+              <form
+                onSubmit={handleAddMilestone}
+                className="p-5 rounded-2xl bg-[#0B0D18] border border-indigo-500/30 space-y-3.5 shadow-2xl animate-fadeIn"
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-white/8">
+                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    Create Custom Preparation Goal
+                  </h4>
+                  <span className="text-[10px] text-slate-500">Manual Entry</span>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                    Goal Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="e.g. Master System Design Caching & Redis Partitioning"
+                    className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value as any)}
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="skills">Skills &amp; Tech</option>
+                      <option value="resume">Resume Polish</option>
+                      <option value="interview">Practice Interview</option>
+                      <option value="network">Networking</option>
+                      <option value="applications">Applications</option>
+                    </select>
                   </div>
 
                   <div>
                     <label className="text-[11px] font-medium text-slate-300 block mb-1">
-                      Goal Title *
+                      Priority
+                    </label>
+                    <select
+                      value={newPriority}
+                      onChange={(e) => setNewPriority(e.target.value as any)}
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="high">High Priority</option>
+                      <option value="medium">Medium Priority</option>
+                      <option value="low">Low Priority</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                      Target Due Date
                     </label>
                     <input
                       type="text"
-                      required
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder="e.g. Master System Design Caching & Redis Partitioning"
-                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      autoFocus
+                      value={newDueDate}
+                      onChange={(e) => setNewDueDate(e.target.value)}
+                      placeholder="e.g. In 7 days, Nov 15"
+                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <div>
-                      <label className="text-[11px] font-medium text-slate-300 block mb-1">
-                        Category
-                      </label>
-                      <select
-                        value={newCategory}
-                        onChange={(e) => setNewCategory(e.target.value as any)}
-                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="skills">Skills &amp; Tech</option>
-                        <option value="resume">Resume Polish</option>
-                        <option value="interview">Practice Interview</option>
-                        <option value="network">Networking</option>
-                        <option value="applications">Applications</option>
-                      </select>
-                    </div>
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">
+                    Action Description (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="Add specific target tasks, problem links, or milestones..."
+                    className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
 
-                    <div>
-                      <label className="text-[11px] font-medium text-slate-300 block mb-1">
-                        Priority
-                      </label>
-                      <select
-                        value={newPriority}
-                        onChange={(e) => setNewPriority(e.target.value as any)}
-                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
-                      </select>
-                    </div>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/8">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAddForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={!newTitle.trim()}>
+                    Save Goal
+                  </Button>
+                </div>
+              </form>
+            )}
 
-                    <div>
-                      <label className="text-[11px] font-medium text-slate-300 block mb-1">
-                        Target Due Date
-                      </label>
-                      <input
-                        type="text"
-                        value={newDueDate}
-                        onChange={(e) => setNewDueDate(e.target.value)}
-                        placeholder="e.g. In 7 days, Nov 15"
-                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-medium text-slate-300 block mb-1">
-                      Action Description (Optional)
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Add specific target tasks, problem links, or milestones..."
-                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            {/* Milestones List */}
+            <div className="space-y-2.5">
+              {milestones.length === 0 ? (
+                <div className="p-10 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center space-y-2">
+                  <p className="text-sm font-medium text-slate-300">
+                    Upload your resume to get a personalised study plan based on your skill gaps.
+                  </p>
+                </div>
+              ) : pending.length === 0 && filterTab === "pending" ? (
+                <div className="p-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 text-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                  <p className="text-sm font-semibold text-emerald-300">
+                    You&apos;ve completed everything on your plan!
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Click &ldquo;✨ Refresh My Plan&rdquo; to get new recommendations.
+                  </p>
+                </div>
+              ) : (
+                milestones
+                  .filter((m) => {
+                    if (filterTab === "pending") return !m.completed;
+                    if (filterTab === "completed") return m.completed;
+                    return true;
+                  })
+                  .map((m) => (
+                    <MilestoneRow
+                      key={m.id}
+                      milestone={m}
+                      onToggle={toggleMilestone}
+                      onDelete={handleDeleteMilestone}
                     />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/8">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowAddForm(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" size="sm" disabled={!newTitle.trim()}>
-                      Save Goal
-                    </Button>
-                  </div>
-                </form>
+                  ))
               )}
-
-              {/* Milestones Checklist List */}
-              <div className="space-y-2.5">
-                {milestones.length === 0 ? (
-                  <div className="p-12 rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
-                      <Target className="w-6 h-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-semibold text-white">
-                        No milestones in your preparation roadmap yet
-                      </h4>
-                      <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                        Start building your personalized roadmap by creating custom goals above or adopting AI recommendations below.
-                      </p>
-                    </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setShowAddForm(true)}
-                      className="gap-1.5 text-xs mt-2"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Create Your First Goal</span>
-                    </Button>
-                  </div>
-                ) : (
-                  milestones
-                    .filter((m) => {
-                      if (filterTab === "pending") return !m.completed;
-                      if (filterTab === "completed") return m.completed;
-                      return true;
-                    })
-                    .map((m) => (
-                      <MilestoneRow
-                        key={m.id}
-                        milestone={m}
-                        onToggle={toggleMilestone}
-                        onDelete={handleDeleteMilestone}
-                      />
-                    ))
-                )}
-              </div>
             </div>
           </div>
 
-          {/* ─── DEDICATED SECTION: AI-RECOMMENDED GOALS ───────────────────────── */}
+          {/* ─── SECTION 5: AI SUGGESTIONS (Suggested for You) ─── */}
           <div className="pt-6 border-t border-white/8 space-y-4">
-            {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -813,28 +662,16 @@ export default function ReadinessPage() {
                     <Sparkles className="w-4 h-4" />
                   </span>
                   <h3 className="text-base font-bold text-white tracking-tight">
-                    AI-Recommended Goals
+                    Suggested for You
                   </h3>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                     Target: {recTargetRole}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Personalized preparation tasks based on your resume gaps and placement readiness.
+                  Personalized preparation tasks based on your resume gaps and target role.
                 </p>
               </div>
-
-              {/* Refresh Action */}
-              <button
-                type="button"
-                onClick={() => loadRecommendations(true)}
-                disabled={recRefreshing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-[rgba(100,110,255,0.12)] text-xs font-medium transition-all disabled:opacity-50 cursor-pointer self-start sm:self-auto"
-                title="Refresh recommendations based on latest resume"
-              >
-                <RotateCcw className={clsx("w-3.5 h-3.5", recRefreshing && "animate-spin text-indigo-400")} />
-                <span>{recRefreshing ? "Analyzing..." : "Refresh Recommendations"}</span>
-              </button>
             </div>
 
             {/* Error in recommendations */}
@@ -883,7 +720,7 @@ export default function ReadinessPage() {
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Upload Resume in Resume Screener</span>
+                  <span>Upload Resume</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -905,7 +742,7 @@ export default function ReadinessPage() {
                   href="/resume"
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1B1FB8] hover:bg-[#292EDB] text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition-all mt-1"
                 >
-                  <span>Analyze in Resume Screener</span>
+                  <span>Analyze in My Resume</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -1038,6 +875,63 @@ export default function ReadinessPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* ─── SECTION 6: DOMAIN BREAKDOWN ─── */}
+          <div className="pt-6 border-t border-white/8 space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Domain Breakdown
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Your preparation distribution across key engineering domains.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              {domains.map((domain) => {
+                const Icon = DOMAIN_ICONS[domain.icon] ?? CATEGORY_CONFIG[domain.label.toLowerCase()]?.icon ?? Target;
+                return (
+                  <Card key={domain.label} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4" style={{ color: domain.color }} />
+                        <span className="text-xs font-semibold text-white">{domain.label}</span>
+                      </div>
+                      <span className="text-xs font-bold font-mono text-slate-300">{domain.score}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/6 overflow-hidden">
+                      <div
+                        className="h-1.5 rounded-full transition-all duration-700"
+                        style={{ width: `${domain.score}%`, backgroundColor: domain.color }}
+                      />
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ─── SECTION 7: ADVANCED DETAILS (COLLAPSED BY DEFAULT) ─── */}
+          <div className="pt-6 border-t border-white/8">
+            <details className="group">
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  color: "var(--muted, #94a3b8)",
+                  padding: "8px 0",
+                  userSelect: "none",
+                }}
+                className="hover:text-white transition-colors"
+              >
+                Show advanced skill details
+              </summary>
+              <div style={{ marginTop: "12px" }} className="space-y-6">
+                <DigitalTwinMatrix />
+                <MultiCompanyOverlapCard />
+              </div>
+            </details>
           </div>
         </>
       )}
