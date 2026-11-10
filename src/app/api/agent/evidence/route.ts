@@ -130,7 +130,11 @@ export async function POST(req: NextRequest) {
 
     if (action === "SYNC_FROM_RESUME") {
       const fileName = body.fileName || "Uploaded Resume.pdf";
-      const skills = syncMockDigitalTwinFromResume(userId, fileName);
+      const skills = syncMockDigitalTwinFromResume(userId, fileName, body.skills || body.rawSkills, {
+        atsScore: body.atsScore,
+        candidateName: body.candidateName,
+        targetRole: body.targetRole,
+      });
       const twin = getMockStudentDigitalTwin(userId);
 
       return NextResponse.json(

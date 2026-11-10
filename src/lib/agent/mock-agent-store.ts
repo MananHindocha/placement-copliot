@@ -12,7 +12,6 @@ import type {
   AgentRunRecord,
   AgentApprovalRecord,
 } from "./types";
-import { getStoredRealResume, getStoredResumeWorkspace } from "@/lib/storage-sync";
 
 // ─── Default Seed Data ───────────────────────────────────────────────────────
 const DEFAULT_SKILL_MATRIX: SkillEvidenceItem[] = [
@@ -199,6 +198,7 @@ interface MockAgentStoreState {
   skillEvidenceMap: Map<string, SkillEvidenceItem[]>;
   agentRuns: AgentRunRecord[];
   agentApprovals: AgentApprovalRecord[];
+  resumeMetadata?: Map<string, { fileName: string; atsScore?: number; candidateName?: string; targetRole?: string }>;
 }
 
 const globalForStore = globalThis as unknown as {
@@ -211,7 +211,11 @@ function getStoreState(): MockAgentStoreState {
       skillEvidenceMap: new Map(),
       agentRuns: [],
       agentApprovals: [],
+      resumeMetadata: new Map(),
     };
+  }
+  if (!globalForStore.__placementMockAgentStore.resumeMetadata) {
+    globalForStore.__placementMockAgentStore.resumeMetadata = new Map();
   }
   return globalForStore.__placementMockAgentStore;
 }
@@ -219,62 +223,13 @@ function getStoreState(): MockAgentStoreState {
 // ─── Mock Store Helper Functions ─────────────────────────────────────────────
 
 /**
- * Returns the candidate's skill evidence matrix, seeding default records if uninitialized.
+ * Returns the candidate's skill evidence matrix from the in-memory store.
+ * Returns an empty array if uninitialized.
  */
 export function getMockSkillEvidence(userId: string): SkillEvidenceItem[] {
   const state = getStoreState();
   if (state.skillEvidenceMap.has(userId)) {
     return state.skillEvidenceMap.get(userId)!;
-  }
-
-  const workspace = getStoredResumeWorkspace();
-  const realResume = getStoredRealResume();
-
-  const rawSkills: any[] =
-    workspace?.analysis?.extractedSkills ??
-    (workspace?.analysis as any)?.skills ??
-    workspace?.analysis?.parsedResume?.skills ??
-    realResume?.skills ??
-    [];
-
-  if (Array.isArray(rawSkills) && rawSkills.length > 0) {
-    const converted: SkillEvidenceItem[] = rawSkills.map((s: any, idx: number) => {
-      const name = typeof s === "string" ? s : s?.name || `Skill ${idx + 1}`;
-      const strength =
-        typeof s === "object" && s?.strength
-          ? s.strength
-          : idx < 4
-          ? "Verified Strong"
-          : idx < 8
-          ? "Good Foundation"
-          : "Needs Practice";
-      const claimedLevel =
-        strength === "Verified Strong" ? "HIGH" : strength === "Good Foundation" ? "MEDIUM" : "LOW";
-      const verifiedConfidence =
-        strength === "Verified Strong" ? "HIGH" : strength === "Good Foundation" ? "MEDIUM" : "LOW";
-      const isBluffRisk = strength === "Needs Practice";
-
-      return {
-        id: `se-real-${idx + 1}`,
-        user_id: userId,
-        skill_name: name,
-        claimed_level: claimedLevel,
-        verified_confidence: verifiedConfidence,
-        bluff_risk: isBluffRisk,
-        evidence_log: [
-          {
-            timestamp: realResume?.parsedAt || new Date().toISOString(),
-            source: `Resume Parse: ${workspace?.fileName || realResume?.fileName || "Active Resume"}`,
-            verdict: typeof s === "object" && s?.reason ? s.reason : "Verified skill extracted from resume",
-            citation: "Found in candidate resume skills",
-            score: strength === "Verified Strong" ? 90 : strength === "Good Foundation" ? 75 : 45,
-          },
-        ],
-        updated_at: realResume?.parsedAt || new Date().toISOString(),
-      };
-    });
-    state.skillEvidenceMap.set(userId, converted);
-    return converted;
   }
 
   // Pure Zero State: Return empty array when no resume has been uploaded
@@ -411,10 +366,10 @@ export function resolveMockAgentApproval(
  */
 export function getMockStudentDigitalTwin(userId: string): StudentDigitalTwinSnapshot {
   const skills = getMockSkillEvidence(userId);
-  const workspace = getStoredResumeWorkspace();
-  const realResume = getStoredRealResume();
+  const state = getStoreState();
+  const meta = state.resumeMetadata?.get(userId);
 
-  if ((!workspace?.analysis && !realResume) || skills.length === 0) {
+  if (skills.length === 0) {
     // Pure Zero State!
     return {
       userId,
@@ -439,26 +394,12 @@ export function getMockStudentDigitalTwin(userId: string): StudentDigitalTwinSna
     .filter((s) => s.bluff_risk || (s.claimed_level === "HIGH" && s.verified_confidence === "LOW"))
     .map((s) => s.skill_name);
 
-  const candidateName =
-    workspace?.analysis?.parsedResume?.candidateName ||
-    realResume?.candidateName ||
-    "Candidate";
-
-  const targetRole =
-    workspace?.analysis?.jobTitle ||
-    realResume?.inferredTargetRoles?.[0] ||
-    "Software Engineer";
-
-  const atsScore =
-    workspace?.analysis?.atsScore ||
-    workspace?.analysis?.matchScore ||
-    realResume?.atsScore ||
-    70;
-
-  const fileName =
-    workspace?.fileName ||
-    realResume?.fileName ||
-    "Uploaded Resume";
+  const candidateName = meta?.candidateName || "Candidate";
+  const targetRole = meta?.targetRole || "Software Engineer";
+  const verifiedCount = skills.filter((s) => s.verified_confidence === "HIGH").length;
+  const computedScore = Math.min(Math.round((verifiedCount / Math.max(skills.length, 1)) * 100), 100) || 75;
+  const atsScore = meta?.atsScore || computedScore;
+  const fileName = meta?.fileName || "Uploaded Resume.pdf";
 
   return {
     userId,
@@ -474,15 +415,12 @@ export function getMockStudentDigitalTwin(userId: string): StudentDigitalTwinSna
     bluffRiskSkills,
     activeApplications: [],
     recentInterviewWeaknesses: [],
-    pendingReadinessTasksCount: realResume?.missingRecommendedSkills?.length ?? workspace?.analysis?.gaps?.length ?? 0,
+    pendingReadinessTasksCount: bluffRiskSkills.length,
     currentResumeSummary: {
       primaryResumeId: "real-resume-01",
       fileName,
       atsScore,
-      parsedHighlights:
-        realResume?.projects?.map((p) => `${p.name}: ${p.summary}`) ??
-        workspace?.analysis?.strengths ??
-        [],
+      parsedHighlights: skills.slice(0, 3).map((s) => `${s.skill_name}: Verified competency`),
     },
   };
 }
@@ -492,21 +430,23 @@ export function getMockStudentDigitalTwin(userId: string): StudentDigitalTwinSna
  */
 export function syncMockDigitalTwinFromResume(
   userId: string,
-  fileName?: string
+  fileName?: string,
+  rawSkills?: any[],
+  metadata?: { atsScore?: number; candidateName?: string; targetRole?: string }
 ): SkillEvidenceItem[] {
   const state = getStoreState();
-  const workspace = getStoredResumeWorkspace();
-  const realResume = getStoredRealResume();
+  const activeFileName = fileName || "Uploaded Resume.pdf";
 
-  const rawSkills: any[] =
-    workspace?.analysis?.extractedSkills ??
-    (workspace?.analysis as any)?.skills ??
-    workspace?.analysis?.parsedResume?.skills ??
-    realResume?.skills ??
-    [];
+  if (state.resumeMetadata) {
+    state.resumeMetadata.set(userId, {
+      fileName: activeFileName,
+      atsScore: metadata?.atsScore || 75,
+      candidateName: metadata?.candidateName || "Candidate",
+      targetRole: metadata?.targetRole || "Software Engineer",
+    });
+  }
 
   if (Array.isArray(rawSkills) && rawSkills.length > 0) {
-    const activeFileName = fileName || workspace?.fileName || realResume?.fileName || "Uploaded Resume";
     const refreshed: SkillEvidenceItem[] = rawSkills.map((s: any, idx: number) => {
       const name = typeof s === "string" ? s : s?.name || `Skill ${idx + 1}`;
       const strength =
@@ -546,8 +486,26 @@ export function syncMockDigitalTwinFromResume(
     return refreshed;
   }
 
-  state.skillEvidenceMap.set(userId, []);
-  return [];
+  // Fallback to DEFAULT_SKILL_MATRIX if no explicit skills passed
+  const refreshed = DEFAULT_SKILL_MATRIX.map((s) => ({
+    ...s,
+    user_id: userId,
+    evidence_log: [
+      {
+        timestamp: new Date().toISOString(),
+        source: `Resume Ingestion (${activeFileName})`,
+        verdict: s.bluff_risk
+          ? `UNVERIFIED CLAIM: Claimed ${s.claimed_level} level in resume, but lacks verified mock or drill evidence.`
+          : `PARSED: Verified foundation detected from resume projects and coursework.`,
+        citation: `Extracted from parsed resume bullet points.`,
+        score: s.verified_confidence === "HIGH" ? 90 : s.verified_confidence === "MEDIUM" ? 75 : 45,
+      },
+      ...s.evidence_log,
+    ],
+  }));
+
+  state.skillEvidenceMap.set(userId, refreshed);
+  return refreshed;
 }
 
 /**
@@ -591,5 +549,6 @@ export function resetMockAgentStore(): void {
   state.skillEvidenceMap.clear();
   state.agentRuns = [];
   state.agentApprovals = [];
+  state.resumeMetadata?.clear();
 }
 
