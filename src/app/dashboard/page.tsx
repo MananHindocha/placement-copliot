@@ -121,11 +121,10 @@ export default function DashboardPage() {
   const avgMatchScore =
     applications.length > 0
       ? Math.round(applications.reduce((acc, c) => acc + (c.matchScore || 0), 0) / applications.length)
-      : realResume?.atsScore || 78;
-  const placementReadiness = Math.min(
-    100,
-    Math.max(25, Math.round(((realResume?.atsScore || 75) * 0.6) + (totalApps > 0 ? 30 : 15)))
-  );
+      : realResume?.atsScore || 0;
+  const placementReadiness = realResume
+    ? Math.min(100, Math.max(10, Math.round(((realResume.atsScore || 60) * 0.6) + (totalApps > 0 ? 30 : 15))))
+    : 0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

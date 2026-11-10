@@ -131,6 +131,9 @@ function buildCompactPrompt(
 Candidate Extracted Skills:
 ${JSON.stringify(skillsList)}
 
+Full Candidate Resume Text:
+${parsedDoc.rawText.slice(0, 8000)}
+
 Candidate Work & Project Bullets to Evaluate (reference these exact bulletId and entryId values):
 ${JSON.stringify(bulletsToEvaluate, null, 2)}
 
@@ -583,6 +586,7 @@ function scoreResumeAccurately(
   jobDescription: string,
   pageCount = 1
 ): ResumeAnalysis {
+  console.warn('[Resume Analyze] USING DETERMINISTIC FALLBACK — no AI key or Gemini unavailable');
   const textLower = parsedDoc.rawText.toLowerCase();
   const jdLower = (jobDescription || "").toLowerCase();
   const roleLower = (targetRole || "Software Engineer").toLowerCase();
@@ -790,8 +794,9 @@ function scoreResumeAccurately(
 // ─── Tier 1: Google Gemini AI Engine ─────────────────────────────────────────
 
 const GEMINI_MODELS = [
-  "gemini-3.5-flash",
-  "gemini-3.8-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-2.5-flash",
 ];
 
 async function analyzeWithGemini(
@@ -804,6 +809,7 @@ async function analyzeWithGemini(
   if (!apiKey) return null;
 
   const prompt = buildCompactPrompt(parsedDoc, targetRole, jobDescription);
+  let lastError: Error | null = null;
 
   for (const model of GEMINI_MODELS) {
     try {
@@ -825,12 +831,14 @@ async function analyzeWithGemini(
       );
 
       if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        lastError = new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 200)}`);
         // If 404 (model deprecated/unavailable) or 503 (temporary high demand), try next Gemini candidate
         if (res.status === 404 || res.status === 503) {
           continue;
         }
-        // If 429 (rate-limited) or 400+, fail over to Groq immediately
-        return null;
+        // If 400+, throw to make failure visible
+        throw lastError;
       }
 
       const data: unknown = await res.json();
@@ -846,12 +854,20 @@ async function analyzeWithGemini(
       if (!parsedJson) continue;
 
       const analysis = buildAiAnalysis(parsedJson, parsedDoc, targetRole, jobDescription, pageCount);
-      if (analysis) return analysis;
+      if (analysis) {
+        console.log('[Resume Analyze] Gemini called successfully');
+        return analysis;
+      }
     } catch (err: unknown) {
-      console.warn(`[Gemini ${model} fallback notice]:`, err instanceof Error ? err.message : err);
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[Gemini ${model} notice]:`, lastError.message);
+      if (model === GEMINI_MODELS[GEMINI_MODELS.length - 1]) {
+        throw lastError;
+      }
     }
   }
 
+  if (lastError) throw lastError;
   return null;
 }
 
@@ -1030,22 +1046,44 @@ export async function POST(request: NextRequest) {
     const parsedDoc = parseStructuredResume(rawText, fileName, extractedLinks);
 
     // 4. Compact Hybrid Evaluation: Gemini Primary -> Groq Failover -> Local Baseline
+    const geminiKey = getGeminiApiKey();
+    const groqKey = getGroqApiKey();
     let analysis: ResumeAnalysis | null = null;
     let engineSource: "gemini" | "groq" | "heuristic" = "heuristic";
 
-    analysis = await analyzeWithGemini(parsedDoc, targetRole, jobDescription, pageCount);
-    if (analysis) {
-      engineSource = "gemini";
+    if (geminiKey) {
+      try {
+        analysis = await analyzeWithGemini(parsedDoc, targetRole, jobDescription, pageCount);
+        if (analysis) {
+          engineSource = "gemini";
+        }
+      } catch (e: unknown) {
+        console.error("[Resume Analyze] Gemini failed:", e);
+        if (geminiKey && !groqKey) {
+          throw new Error(`Gemini API failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
     }
 
-    if (!analysis) {
-      analysis = await analyzeWithGroq(parsedDoc, targetRole, jobDescription, pageCount);
-      if (analysis) {
-        engineSource = "groq";
+    if (!analysis && groqKey) {
+      try {
+        analysis = await analyzeWithGroq(parsedDoc, targetRole, jobDescription, pageCount);
+        if (analysis) {
+          engineSource = "groq";
+        }
+      } catch (e: unknown) {
+        console.error("[Resume Analyze] Groq failed:", e);
+        if (geminiKey || groqKey) {
+          throw new Error(`AI API failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
     }
 
     if (!analysis) {
+      if (geminiKey || groqKey) {
+        throw new Error("AI analysis failed with configured API keys. Please verify your API key and quotas.");
+      }
+      console.warn("[Resume Analyze] USING DETERMINISTIC FALLBACK — no AI key or Gemini unavailable");
       analysis = scoreResumeAccurately(parsedDoc, targetRole, jobDescription, pageCount);
       engineSource = "heuristic";
     }

@@ -349,7 +349,7 @@ export default function ReadinessPage() {
   // HIGH = 1.0, MEDIUM = 0.7, UNVERIFIED = 0.4, LOW (or bluff_risk) = 0.2
   const skills = digitalTwin?.skills || [];
   const digitalTwinConfidenceRatio = useMemo(() => {
-    if (!skills || skills.length === 0) return 74;
+    if (!skills || skills.length === 0) return 0;
     const RATIO_MAP: Record<string, number> = {
       HIGH: 1.0,
       MEDIUM: 0.7,
@@ -363,11 +363,10 @@ export default function ReadinessPage() {
     return Math.round((totalRatio / skills.length) * 100);
   }, [skills]);
 
-  const completedMilestonesRatio = total > 0 ? (completed / total) * 100 : digitalTwinConfidenceRatio;
-  const overallReadiness = Math.min(
-    100,
-    Math.max(10, Math.round(0.6 * digitalTwinConfidenceRatio + 0.4 * completedMilestonesRatio))
-  );
+  const completedMilestonesRatio = total > 0 ? (completed / total) * 100 : 0;
+  const overallReadiness = (skills.length > 0 || total > 0)
+    ? Math.min(100, Math.round(0.6 * digitalTwinConfidenceRatio + 0.4 * completedMilestonesRatio))
+    : 0;
 
   const pending = milestones.filter((m) => !m.completed);
   const done = milestones.filter((m) => m.completed);

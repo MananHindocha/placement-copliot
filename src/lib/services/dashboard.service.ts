@@ -43,29 +43,31 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     // 2. Latest Resume Data
     const storedWorkspace = getStoredResumeWorkspace();
     const latestAnalysis = storedWorkspace?.analysis;
-    const matchScore = latestAnalysis ? latestAnalysis.matchScore : 82;
-    const atsScore = latestAnalysis ? latestAnalysis.atsScore : 78;
+    const matchScore = latestAnalysis ? latestAnalysis.matchScore : 0;
+    const atsScore = latestAnalysis ? latestAnalysis.atsScore : 0;
 
     // 3. Readiness Milestones Data
     const milestones = getStoredReadinessMilestones();
     const completedTasks = milestones.filter((m) => m.completed).length;
     const totalTasks = milestones.length;
-    const taskRatio = totalTasks > 0 ? completedTasks / totalTasks : 0.7;
+    const taskRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
 
     // 4. Mock Interview Data
     const interviewSessions = getStoredInterviewSessions();
     const avgInterviewScore =
       interviewSessions.length > 0
         ? Math.round(interviewSessions.reduce((s, i) => s + i.score, 0) / interviewSessions.length)
-        : 75;
+        : 0;
 
     // 5. Compute Weighted Composite Readiness Score (40% Tasks, 30% Resume, 20% Interview, 10% Pipeline)
     const taskPart = taskRatio * 100 * 0.4;
     const resumePart = ((matchScore + atsScore) / 2) * 0.3;
     const interviewPart = avgInterviewScore * 0.2;
-    const pipelineProgress = Math.min(100, Math.round(((appliedCount * 1 + interviewStageCount * 2 + offerCount * 4) / Math.max(1, totalApps)) * 25));
+    const pipelineProgress = totalApps > 0 ? Math.min(100, Math.round(((appliedCount * 1 + interviewStageCount * 2 + offerCount * 4) / Math.max(1, totalApps)) * 25)) : 0;
     const pipelinePart = pipelineProgress * 0.1;
-    const compositeReadiness = Math.min(100, Math.max(10, Math.round(taskPart + resumePart + interviewPart + pipelinePart)));
+    const compositeReadiness = (storedWorkspace?.analysis || interviewSessions.length > 0 || totalTasks > 0)
+      ? Math.min(100, Math.round(taskPart + resumePart + interviewPart + pipelinePart))
+      : 0;
 
     // 6. Compute Domain Breakdown
     const domainCategories: Record<string, string[]> = {

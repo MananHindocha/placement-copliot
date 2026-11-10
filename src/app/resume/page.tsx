@@ -464,10 +464,10 @@ export default function ResumePage() {
     }
   };
 
-  const matchScore = analysis?.matchScore ?? 82;
-  const atsScore = analysis?.atsScore ?? 78;
-  const impactScore = analysis?.sectionScores?.impact ?? 80;
-  const verbScore = analysis?.sectionScores?.style ?? 75;
+  const matchScore = analysis?.matchScore ?? 0;
+  const atsScore = analysis?.atsScore ?? 0;
+  const impactScore = analysis?.sectionScores?.impact ?? 0;
+  const verbScore = analysis?.sectionScores?.style ?? 0;
 
   const parsedResume = editableResume;
   const resumeBullets = parsedResume ? getResumeBulletTargets(parsedResume).map((target) => target.text) : [];

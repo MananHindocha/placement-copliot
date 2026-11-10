@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
-import { RESUME_ANALYSIS } from "@/lib/mock-data";
 import { logActivity, dispatchCopilotUpdate, getStoredRealResume } from "@/lib/storage-sync";
 import type { ParsedResumeDocument, ResumeAnalysis } from "@/types";
 

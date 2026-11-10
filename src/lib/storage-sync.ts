@@ -102,72 +102,7 @@ export function clearAllCopilotState(): void {
 
 // ─── Applications (Kanban) Storage ───────────────────────────────────────────
 
-export const BOOTSTRAP_KANBAN_APPLICATIONS: KanbanCard[] = [
-  {
-    id: "app-razorpay-01",
-    company: "Razorpay",
-    logo: "RZ",
-    title: "Backend SDE (Payments Core)",
-    status: "Applied",
-    matchScore: 91,
-    priority: "high",
-    salary: "₹24–32 LPA",
-    nextStep: "Technical OA (PostgreSQL & Concurrency)",
-    skills: ["PostgreSQL", "Go / Node.js", "Redis", "Distributed Transactions"],
-    source: "demo",
-    jobSource: "Campus Placement / Direct Scout",
-    notes: "Core payments gateway processing high-concurrency transactions. ⚠️ 1 Bluff Risk Overlap (PostgreSQL).",
-    appliedDate: new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0],
-  },
-  {
-    id: "app-vercel-02",
-    company: "Vercel",
-    logo: "VC",
-    title: "Full-Stack Product Engineer (Next.js/TS)",
-    status: "Wishlist",
-    matchScore: 94,
-    priority: "high",
-    salary: "$130k–$160k",
-    nextStep: "Portfolio & App Architecture Review",
-    skills: ["Next.js", "TypeScript", "React Server Components", "Tailwind CSS"],
-    source: "demo",
-    jobSource: "Vercel Talent Network",
-    notes: "Flagship frontend engineering role. ✅ High Bar-Raiser Fit with candidate project portfolio.",
-    appliedDate: new Date(Date.now() - 4 * 86400000).toISOString().split("T")[0],
-  },
-  {
-    id: "app-atlassian-03",
-    company: "Atlassian",
-    logo: "AT",
-    title: "Software Engineer (Distributed Systems)",
-    status: "Wishlist",
-    matchScore: 86,
-    priority: "medium",
-    salary: "₹28–36 LPA",
-    nextStep: "System Design Screening",
-    skills: ["Java / TypeScript", "Kafka", "Distributed Systems", "AWS"],
-    source: "demo",
-    jobSource: "In-House Referral Scout",
-    notes: "Distributed systems team. ⚡ OA Prep Ready for microservices scale.",
-    appliedDate: new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0],
-  },
-  {
-    id: "app-stripe-04",
-    company: "Stripe",
-    logo: "ST",
-    title: "API Infrastructure Intern/SDE-1",
-    status: "Applied",
-    matchScore: 88,
-    priority: "high",
-    salary: "$55/hr or ₹30 LPA",
-    nextStep: "Phone Screen & API Design",
-    skills: ["API Design", "Idempotency", "Redis", "Data Pipelines"],
-    source: "demo",
-    jobSource: "University Talent Scout",
-    notes: "Global payments infrastructure API team. ⚠️ Needs Redis Verification.",
-    appliedDate: new Date(Date.now() - 1 * 86400000).toISOString().split("T")[0],
-  },
-];
+export const BOOTSTRAP_KANBAN_APPLICATIONS: KanbanCard[] = [];
 
 export function getStoredApplications(): KanbanCard[] {
   if (!isBrowser()) return [];
@@ -198,44 +133,7 @@ export function setStoredApplications(cards: KanbanCard[]): void {
 
 // ─── Readiness Tasks Storage ─────────────────────────────────────────────────
 
-export const BOOTSTRAP_READINESS_MILESTONES: ReadinessMilestone[] = [
-  {
-    id: "rm-boot-1",
-    title: "Baseline Resume & Skill Graph Ingestion",
-    category: "resume",
-    priority: "low",
-    completed: true,
-    description: "[🤖 Agent Verified] Initial career baseline ingested from resume graph.",
-    dueDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-  },
-  {
-    id: "rm-boot-2",
-    title: "Clear Bluff Risk: Master PostgreSQL B-Tree Indexing & MVCC Isolation",
-    category: "skills",
-    priority: "high",
-    completed: false,
-    description: "[🤖 Agent Injected] Reason: Flagged as Resume Bluff Risk in Digital Twin · Estimated: 4h",
-    dueDate: new Date(Date.now() + 3 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-  },
-  {
-    id: "rm-boot-3",
-    title: "Clear Bluff Risk: Distributed Caching & Redis Eviction Under Load",
-    category: "skills",
-    priority: "high",
-    completed: false,
-    description: "[🤖 Agent Injected] Reason: Flagged as Resume Bluff Risk in Digital Twin · Estimated: 5h",
-    dueDate: new Date(Date.now() + 5 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-  },
-  {
-    id: "rm-boot-4",
-    title: "Verify System Design & Rate Limiter Architecture via Mock Probe",
-    category: "interview",
-    priority: "medium",
-    completed: false,
-    description: "[🤖 Agent Injected] Reason: Claimed on resume but currently Unverified · Estimated: 3h",
-    dueDate: new Date(Date.now() + 7 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-  },
-];
+export const BOOTSTRAP_READINESS_MILESTONES: ReadinessMilestone[] = [];
 
 export function getStoredReadinessMilestones(): ReadinessMilestone[] {
   if (!isBrowser()) return [];

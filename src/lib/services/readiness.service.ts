@@ -112,22 +112,7 @@ export async function getReadinessMilestones(): Promise<ReadinessMilestone[]> {
 
   const taskRows = (data as ReadinessTaskRow[]) || [];
   if (taskRows.length === 0) {
-    // Auto-bootstrap default readiness milestones for new live user
-    for (const m of BOOTSTRAP_READINESS_MILESTONES) {
-      try {
-        await supabase.from("readiness_tasks").insert({
-          user_id: user.id,
-          category: m.category,
-          title: m.title,
-          description: m.description,
-          priority: m.priority,
-          completed: m.completed,
-        });
-      } catch {
-        // Ignore single duplicate inserts
-      }
-    }
-    return BOOTSTRAP_READINESS_MILESTONES;
+    return [];
   }
 
   return taskRows.map((row: ReadinessTaskRow) => ({

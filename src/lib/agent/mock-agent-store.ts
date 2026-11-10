@@ -13,186 +13,6 @@ import type {
   AgentApprovalRecord,
 } from "./types";
 
-// ─── Default Seed Data ───────────────────────────────────────────────────────
-const DEFAULT_SKILL_MATRIX: SkillEvidenceItem[] = [
-  {
-    id: "se-1",
-    skill_name: "TypeScript",
-    claimed_level: "HIGH",
-    verified_confidence: "HIGH",
-    bluff_risk: false,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-        source: "Mock Interview: Frontend & Architecture",
-        verdict: "Flawless demonstration of advanced generics, mapped types, and utility types",
-        citation: "Implemented discriminated union state management with zero type assertions",
-        score: 92,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: "se-2",
-    skill_name: "React & Next.js",
-    claimed_level: "HIGH",
-    verified_confidence: "HIGH",
-    bluff_risk: false,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
-        source: "Mock Interview: React 19 & Next.js Server Components",
-        verdict: "Accurate explanation of streaming, suspense boundaries, and server actions",
-        citation: "Question: Explain cache boundaries in Next.js App Router",
-        score: 88,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: "se-3",
-    skill_name: "Data Structures & Algorithms",
-    claimed_level: "HIGH",
-    verified_confidence: "HIGH",
-    bluff_risk: false,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 4).toISOString(),
-        source: "DSA Code Sandbox Evaluation",
-        verdict: "Solved LRU Cache and Graph BFS within optimal time and space complexity",
-        citation: "LeetCode Mediums: 48 solved; Optimal space/time proof submitted",
-        score: 85,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 4).toISOString(),
-  },
-  {
-    id: "se-4",
-    skill_name: "Node.js & Express",
-    claimed_level: "HIGH",
-    verified_confidence: "MEDIUM",
-    bluff_risk: false,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 5).toISOString(),
-        source: "Mock Interview: Backend Fundamentals",
-        verdict: "Understands event loop phases and streams, but hesitated on cluster worker IPC",
-        citation: "Question: How do worker threads communicate with main thread?",
-        score: 78,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: "se-5",
-    skill_name: "PostgreSQL & Database Design",
-    claimed_level: "HIGH",
-    verified_confidence: "LOW",
-    bluff_risk: true,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-        source: "Mock Interview: Relational Databases & Concurrency",
-        verdict: "FAILED TO VERIFY CLAIM: Claimed High expertise on resume, but struggled with B-Tree vs Hash index trade-offs and MVCC phantom read isolation anomalies",
-        citation: "Interviewer Question: Explain B-Tree vs Hash index performance and MVCC phantom reads in PostgreSQL",
-        score: 45,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: "se-6",
-    skill_name: "REST API Design",
-    claimed_level: "HIGH",
-    verified_confidence: "HIGH",
-    bluff_risk: false,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 7).toISOString(),
-        source: "Resume Project Verification",
-        verdict: "Demonstrated idempotency keys, pagination, and OpenAPI specification",
-        citation: "Built E-Commerce API with standard HTTP response semantics",
-        score: 90,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-  },
-  {
-    id: "se-7",
-    skill_name: "Redis & Distributed Caching",
-    claimed_level: "HIGH",
-    verified_confidence: "LOW",
-    bluff_risk: true,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 1).toISOString(),
-        source: "Mock Interview: Scalability & Caching",
-        verdict: "FAILED TO VERIFY CLAIM: Claimed High expertise on resume, but could not articulate cache stampede mitigation or eviction policies (LRU vs LFU)",
-        citation: "Interviewer Question: How do you prevent dogpiling/thundering herd in Redis?",
-        score: 42,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: "se-8",
-    skill_name: "System Design Trade-offs",
-    claimed_level: "HIGH",
-    verified_confidence: "UNVERIFIED",
-    bluff_risk: true,
-    evidence_log: [
-      {
-        timestamp: new Date(Date.now() - 86400000 * 8).toISOString(),
-        source: "Resume Screener Heuristic",
-        verdict: "UNVERIFIED HIGH CLAIM: Resume asserts distributed high-throughput architecture, but candidate has never completed a System Design mock interview",
-        citation: "Resume Bullet: 'Architected distributed event-driven payment ledger'",
-        score: 0,
-      },
-    ],
-    updated_at: new Date(Date.now() - 86400000 * 8).toISOString(),
-  },
-];
-
-// Active Kanban applications in student pipeline (Top 4 matched placements)
-const DEFAULT_ACTIVE_APPLICATIONS = [
-  {
-    id: "app-razorpay-01",
-    company: "Razorpay",
-    title: "Backend SDE (Payments Core)",
-    status: "Applied",
-    matchScore: 91,
-    nextStep: "Technical OA (PostgreSQL & Concurrency)",
-    priority: "high",
-  },
-  {
-    id: "app-vercel-02",
-    company: "Vercel",
-    title: "Full-Stack Engineer (Next.js/TS)",
-    status: "Wishlist",
-    matchScore: 94,
-    nextStep: "Portfolio & App Architecture Review",
-    priority: "high",
-  },
-  {
-    id: "app-stripe-04",
-    company: "Stripe",
-    title: "API Infrastructure SDE",
-    status: "Applied",
-    matchScore: 88,
-    nextStep: "Phone Screen & API Design",
-    priority: "high",
-  },
-  {
-    id: "app-atlassian-03",
-    company: "Atlassian",
-    title: "Distributed Systems SDE",
-    status: "Wishlist",
-    matchScore: 86,
-    nextStep: "System Design Screening",
-    priority: "medium",
-  },
-];
-
 // ─── Global State Container (Hot-Reload Safe) ────────────────────────────────
 interface MockAgentStoreState {
   skillEvidenceMap: Map<string, SkillEvidenceItem[]>;
@@ -486,26 +306,16 @@ export function syncMockDigitalTwinFromResume(
     return refreshed;
   }
 
-  // Fallback to DEFAULT_SKILL_MATRIX if no explicit skills passed
-  const refreshed = DEFAULT_SKILL_MATRIX.map((s) => ({
-    ...s,
-    user_id: userId,
-    evidence_log: [
-      {
-        timestamp: new Date().toISOString(),
-        source: `Resume Ingestion (${activeFileName})`,
-        verdict: s.bluff_risk
-          ? `UNVERIFIED CLAIM: Claimed ${s.claimed_level} level in resume, but lacks verified mock or drill evidence.`
-          : `PARSED: Verified foundation detected from resume projects and coursework.`,
-        citation: `Extracted from parsed resume bullet points.`,
-        score: s.verified_confidence === "HIGH" ? 90 : s.verified_confidence === "MEDIUM" ? 75 : 45,
-      },
-      ...s.evidence_log,
-    ],
-  }));
+  // If no explicit skills passed, store empty array
+  state.skillEvidenceMap.set(userId, []);
+  return [];
+}
 
-  state.skillEvidenceMap.set(userId, refreshed);
-  return refreshed;
+/**
+ * Scout and seed pipeline — returns empty array so fake companies are never seeded.
+ */
+export async function scoutAndSeedPipeline(): Promise<any[]> {
+  return [];
 }
 
 /**

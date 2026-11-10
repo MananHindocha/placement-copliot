@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEMO_USER_SKILLS } from "@/lib/mock-data";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -386,8 +385,9 @@ async function scoreWithGemini(
   preferredLocation: string,
   preferredTypes: string[]
 ): Promise<EnrichedMatchResult | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) return null;
+  const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
+  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_") || apiKey.length < 10) return null;
 
   try {
     const prefContext =
@@ -451,13 +451,18 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       }
     );
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 150)}`);
+    }
 
     const data = await res.json();
     const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      throw new Error("No JSON found in Gemini output");
+    }
 
     const parsed = JSON.parse(jsonMatch[0]);
 
@@ -471,14 +476,13 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       typeof parsed.dimensions !== "object" ||
       typeof parsed.dimensions.skillAlignment !== "number"
     ) {
-      // AI response did not conform to expected schema — fall back to heuristic
-      return null;
+      throw new Error("Gemini response schema validation failed");
     }
 
     // Clamp all numeric fields to valid range
     const clamp = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
 
-    return {
+    const result: EnrichedMatchResult = {
       jobId:                job.jobId,
       matchScore:           clamp(parsed.matchScore ?? 50),
       matchedSkills:        (parsed.matchedSkills || []).slice(0, 10),
@@ -496,8 +500,12 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       unknownRequirements:  (Array.isArray(parsed.unknownRequirements) ? parsed.unknownRequirements : []).slice(0, 3),
       scoreSource:          "gemini",
     };
-  } catch {
-    return null;
+
+    console.log("[Jobs Match] Gemini called successfully");
+    return result;
+  } catch (e) {
+    console.error("[Jobs Match] Gemini failed:", e);
+    throw e;
   }
 }
 
@@ -516,8 +524,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
     }
 
+    const rawApiKey = (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "").trim();
+    const hasApiKey = rawApiKey.length > 10 && !rawApiKey.startsWith("your_") && !rawApiKey.startsWith("demo_");
+
     const jobs: MatchInput[]     = Array.isArray(body.jobs) ? body.jobs : [];
-    const userSkills: string[]   = Array.isArray(body.userSkills) ? body.userSkills : DEMO_USER_SKILLS;
+    const userSkills: string[]   = (Array.isArray(body.userSkills) && body.userSkills.length > 0) ? body.userSkills : [];
     const userTargetRole: string = typeof body.userTargetRole === "string" ? body.userTargetRole : "Software Engineer";
     const preferredLocation: string = typeof body.preferredLocation === "string" ? body.preferredLocation : "";
     const preferredTypes: string[]  = Array.isArray(body.preferredTypes) ? body.preferredTypes : [];
@@ -544,11 +555,19 @@ export async function POST(request: NextRequest) {
     }
 
     const scoringPromises = uncachedJobs.map(async (job) => {
-      // Try Gemini first; fall back to heuristic if unavailable or output is invalid
-      const geminiResult = await scoreWithGemini(
-        job, userSkills, userTargetRole, preferredLocation, preferredTypes
-      );
-      const result = geminiResult ?? scoreHeuristic(
+      if (hasApiKey) {
+        // Try Gemini; do NOT fall back to heuristic if apiKey is present
+        const geminiResult = await scoreWithGemini(
+          job, userSkills, userTargetRole, preferredLocation, preferredTypes
+        );
+        if (geminiResult) {
+          matchCache.set(getCacheKey(job.jobId), geminiResult);
+          return geminiResult;
+        }
+      }
+
+      // Only fall back to heuristic if no API key is configured
+      const result = scoreHeuristic(
         job, userSkills, userTargetRole, preferredLocation, preferredTypes
       );
 

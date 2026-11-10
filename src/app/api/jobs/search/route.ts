@@ -242,6 +242,7 @@ async function fetchOpenWebNinja(input: {
       nextCursor: nextCursor || null,
     };
   } catch (error) {
+    console.error("[Jobs Search] JWebNinja error:", error);
     return {
       ...providerStatus(
         "error",
@@ -355,6 +356,7 @@ async function fetchHimalayas(input: {
       nextPage: rawJobs.length >= 20 ? input.page + 1 : null,
     };
   } catch (error) {
+    console.error("[Jobs Search] Himalayas error:", error);
     return {
       ...providerStatus(
         "error",
@@ -448,10 +450,26 @@ export async function GET(request: NextRequest) {
     ])
   );
 
+  if (uniqueJobs.length === 0) {
+    const hasError = Object.values(providers).some((p) => p.status === "error");
+    return NextResponse.json({
+      jobs: [],
+      message: hasError
+        ? "Job search temporarily unavailable. Please try again."
+        : "No jobs found matching your criteria.",
+      source: "none",
+      sources,
+      count: 0,
+      pagination: {
+        openwebninjaNextCursor: null,
+        jsearchNextCursor: null,
+        himalayasNextPage: null,
+      },
+    });
+  }
+
   const activeSources = Array.from(new Set(uniqueJobs.map((j) => j.source)));
-  const source = uniqueJobs.length
-    ? activeSources.join(",")
-    : "live-empty";
+  const source = activeSources.join(",");
 
   return NextResponse.json({
     jobs: uniqueJobs,

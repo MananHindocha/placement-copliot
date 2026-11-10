@@ -551,8 +551,9 @@ async function evaluateWithGemini(
   req: InterviewEvaluationRequest,
   fallback: InterviewEvaluationResponse
 ): Promise<InterviewEvaluationResponse | null> {
-  const apiKey = sanitizeKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_")) return null;
+  const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+  const apiKey = sanitizeKey(rawKey);
+  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_") || apiKey.length < 10) return null;
 
   try {
     const prompt = `You are a Principal Staff Software Engineer and Bar-Raiser Interviewer.
@@ -646,15 +647,21 @@ Respond ONLY with valid JSON:
       }
     }
 
-    if (!rawText) return null;
+    if (!rawText) {
+      throw new Error("Gemini models returned empty response.");
+    }
 
     const parsed = extractJsonObject(rawText);
-    if (!parsed) return null;
+    if (!parsed) {
+      throw new Error("Failed to parse JSON from Gemini response.");
+    }
 
-    return buildStandardizedResponse(parsed, fallback);
+    const result = buildStandardizedResponse(parsed, fallback);
+    console.log("[Interview Evaluate] Gemini called successfully");
+    return result;
   } catch (err) {
-    console.warn("[Gemini Evaluation Warning]:", err instanceof Error ? err.message : String(err));
-    return null;
+    console.error("[Interview Evaluate] Gemini failed:", err);
+    throw err;
   }
 }
 
@@ -671,16 +678,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const rawGeminiKey = (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "").trim();
+    const hasGemini = rawGeminiKey.length > 10 && !rawGeminiKey.startsWith("your_") && !rawGeminiKey.startsWith("demo_");
+    const rawGroqKey = (process.env.GROQ_API_KEY || "").trim();
+    const hasGroq = rawGroqKey.length > 10 && !rawGroqKey.startsWith("your_") && !rawGroqKey.startsWith("demo_");
+
     // Always precalculate heuristic baseline for instant fallback & field guarantees
     const fallback = computeDeterministicEvaluation(payload);
 
+    let groqResult: InterviewEvaluationResponse | null = null;
+    let geminiResult: InterviewEvaluationResponse | null = null;
+
     // 1. Try Engine 1: Groq (Llama 3.3 70B)
-    const groqResult = await evaluateWithGroq(payload, fallback);
+    if (hasGroq) {
+      try {
+        groqResult = await evaluateWithGroq(payload, fallback);
+      } catch (err) {
+        console.error("[Interview Evaluate] Groq failed:", err);
+      }
+    }
 
-    // 2. Try Engine 2: Gemini 2.0 Flash
-    const geminiResult = !groqResult ? await evaluateWithGemini(payload, fallback) : null;
+    // 2. Try Engine 2: Gemini
+    if (!groqResult && hasGemini) {
+      try {
+        geminiResult = await evaluateWithGemini(payload, fallback);
+      } catch (err) {
+        console.error("[Interview Evaluate] Gemini failed:", err);
+      }
+    }
 
-    // 3. Guaranteed final response (Groq -> Gemini -> Deterministic Fallback)
+    // If AI key is present and evaluation failed, do not silently produce fake rubric!
+    if (!groqResult && !geminiResult) {
+      if (hasGemini || hasGroq) {
+        return NextResponse.json(
+          { error: "AI evaluation temporarily unavailable. Please try again." },
+          { status: 503 }
+        );
+      }
+    }
+
+    // 3. Final response (Groq -> Gemini -> Deterministic Fallback if !hasGemini && !hasGroq)
     const finalResponse = groqResult || geminiResult || fallback;
 
     // Non-blocking trigger for autonomous placement agent (Track 3)
