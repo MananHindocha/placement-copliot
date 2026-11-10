@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   normalizeOpenWebNinja,
   normalizeHimalayas,
+  normalizeAdzuna,
+  normalizeRemoteOK,
 } from "@/lib/jobs/normalize";
 import type { NormalizedJobListing } from "@/types";
 
@@ -97,10 +99,14 @@ async function fetchOpenWebNinja(input: {
   cursor?: string;
   page?: number;
 }): Promise<ProviderResult & { nextCursor: string | null }> {
-  const apiKey = sanitizeKey(process.env.OPENWEBNINJA_API_KEY);
+  const apiKey = sanitizeKey(
+    process.env.OPENWEBNINJA_API_KEY ||
+    process.env.JWEBNINJA_API_KEY ||
+    process.env.JSEARCH_API_KEY
+  );
   if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_")) {
     return {
-      ...providerStatus("disabled", [], "OPENWEBNINJA_API_KEY is not configured."),
+      ...providerStatus("disabled", [], "JWebNinja / OpenWeb Ninja API key is not configured."),
       nextCursor: null,
     };
   }
@@ -311,7 +317,10 @@ async function fetchHimalayas(input: {
     params.set("employment_type", employmentMap[empLower]);
   }
 
-  const apiKey = sanitizeKey(process.env.HIMALAYAS_API_KEY);
+  const apiKey = sanitizeKey(
+    process.env.HIMALAYAS_API_KEY ||
+    process.env.HIMALAYA_API_KEY
+  );
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
@@ -368,7 +377,119 @@ async function fetchHimalayas(input: {
   }
 }
 
+/**
+ * Adzuna Job Search Adapter (Supplementary Regional & Indian Search)
+ */
+async function fetchAdzuna(input: {
+  query: string;
+  location: string;
+}): Promise<ProviderResult> {
+  const appId = sanitizeKey(process.env.ADZUNA_APP_ID);
+  const apiKey = sanitizeKey(process.env.ADZUNA_API_KEY);
+  if (!appId || !apiKey) {
+    return providerStatus("disabled", [], "Adzuna credentials not configured");
+  }
+
+  const country = countryCode(input.location) || "in";
+  const what = encodeURIComponent(input.query || "software engineer");
+  const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?app_id=${appId}&app_key=${apiKey}&results_per_page=20&what=${what}`;
+  const cacheKey = `adzuna:${country}:${what}`;
+
+  try {
+    const payload = await cachedFetch<Record<string, unknown>>(
+      cacheKey,
+      2 * 60 * 60 * 1000,
+      async () => {
+        const res = await fetch(url, {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) {
+          throw new Error(`Adzuna HTTP ${res.status}`);
+        }
+        return (await res.json()) as Record<string, unknown>;
+      }
+    );
+
+    const raw = Array.isArray(payload.results) ? payload.results : [];
+    const jobs = raw
+      .map(normalizeAdzuna)
+      .filter((job): job is NormalizedJobListing => Boolean(job));
+
+    return providerStatus("ok", jobs);
+  } catch (error) {
+    console.error("[Jobs] Adzuna failed:", error);
+    return providerStatus("error", [], error instanceof Error ? error.message : "Adzuna failed");
+  }
+}
+
+/**
+ * RemoteOK API Adapter (Public Remote Developer Jobs - Zero API Key Needed)
+ */
+async function fetchRemoteOK(input: {
+  query: string;
+}): Promise<ProviderResult> {
+  const cacheKey = `remoteok:${input.query || "all"}`;
+  try {
+    const rawJobs = await cachedFetch<unknown[]>(
+      cacheKey,
+      60 * 60 * 1000, // 1 hour cache
+      async () => {
+        const res = await fetch("https://remoteok.com/api", {
+          headers: {
+            "User-Agent": "PlacementCopilot/1.0 (Job Discovery Engine; https://github.com/MananHindocha/placement-copliot)",
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) {
+          throw new Error(`RemoteOK HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      }
+    );
+
+    const q = input.query.toLowerCase().trim();
+    let jobs = rawJobs
+      .map(normalizeRemoteOK)
+      .filter((job): job is NormalizedJobListing => Boolean(job));
+
+    if (q) {
+      const qTerms = q.split(/\s+/).filter(Boolean);
+      jobs = jobs.filter((job) => {
+        const text = `${job.title} ${job.company} ${job.description} ${job.skills.join(" ")}`.toLowerCase();
+        return qTerms.some((term) => text.includes(term));
+      });
+    }
+
+    return providerStatus("ok", jobs.slice(0, 30));
+  } catch (error) {
+    console.error("[Jobs] RemoteOK failed:", error);
+    return providerStatus("error", [], error instanceof Error ? error.message : "RemoteOK failed");
+  }
+}
+
 export async function GET(request: NextRequest) {
+  const jwebninjaKey = sanitizeKey(
+    process.env.OPENWEBNINJA_API_KEY ||
+    process.env.JWEBNINJA_API_KEY ||
+    process.env.JSEARCH_API_KEY
+  );
+  const himalayasKey = sanitizeKey(
+    process.env.HIMALAYAS_API_KEY ||
+    process.env.HIMALAYA_API_KEY
+  );
+  const adzunaAppId = sanitizeKey(process.env.ADZUNA_APP_ID);
+  const adzunaApiKey = sanitizeKey(process.env.ADZUNA_API_KEY);
+
+  console.log("[Jobs Search] API keys present:", {
+    jwebninja: !!jwebninjaKey,
+    himalayas: !!himalayasKey,
+    adzuna: !!(adzunaAppId && adzunaApiKey),
+    remoteok: true, // no key needed
+  });
+
   const query = text(request.nextUrl.searchParams.get("q")).slice(0, 120);
   const location = text(request.nextUrl.searchParams.get("location")).slice(0, 120);
   const arrangement = text(request.nextUrl.searchParams.get("arrangement")).toLowerCase();
@@ -384,102 +505,117 @@ export async function GET(request: NextRequest) {
     Number(request.nextUrl.searchParams.get("himalayasPage") || "1") || 1
   );
 
-  // ─── Work-Mode Coordinator Routing ──────────────────────────────────────────
-  // - All opportunities / unspecified: Query OpenWeb Ninja + Himalayas in parallel
-  // - Remote: Query OpenWeb Ninja (work_from_home=true) + Himalayas
-  // - Hybrid / On-site: Query OpenWeb Ninja only (Himalayas provides remote only)
-  const queryHimalayas = arrangement !== "hybrid" && arrangement !== "onsite";
-
-  const [openwebninjaSettled, himalayasSettled] = await Promise.allSettled([
-    fetchOpenWebNinja({
-      query,
-      location,
-      arrangement,
-      postedWithin,
-      employment,
-      cursor: openwebninjaCursor,
-    }),
-    queryHimalayas
-      ? fetchHimalayas({
-          query,
-          location,
-          arrangement,
-          experience,
-          employment,
-          page: himalayasPage,
-        })
-      : Promise.resolve({
-          ...providerStatus("disabled", [], "Himalayas provides remote-only listings."),
-          nextPage: null,
-        }),
-  ]);
-
-  const openwebninjaRes =
-    openwebninjaSettled.status === "fulfilled" ? openwebninjaSettled.value : null;
-  const himalayasRes =
-    himalayasSettled.status === "fulfilled" ? himalayasSettled.value : null;
-
-  const providers: Record<string, ProviderResult> = {
-    openwebninja:
-      openwebninjaRes ||
-      providerStatus("error", [], "OpenWeb Ninja request failed."),
-    himalayas: queryHimalayas
-      ? himalayasRes || providerStatus("error", [], "Himalayas request failed.")
-      : providerStatus("disabled", [], "Himalayas provides remote-only listings."),
-  };
-
-  const allJobs = Object.values(providers).flatMap((p) => p.jobs);
-
-  // Deduplicate by normalized application URL or company + title + location
-  const dedupeKey = (job: NormalizedJobListing) =>
-    job.applyUrl?.toLowerCase().replace(/\/$/, "") ||
-    `${job.title}|${job.company}|${job.location}`.toLowerCase().replace(/\s+/g, " ");
-
-  const uniqueJobs = Array.from(
-    new Map(allJobs.map((job) => [dedupeKey(job), job])).values()
-  ).slice(0, 80);
-
-  const sources = Object.fromEntries(
-    Object.entries(providers).map(([name, result]) => [
-      name,
-      {
-        status: result.status,
-        ...(result.message ? { message: result.message } : {}),
-        count: result.jobs.length,
-      },
-    ])
-  );
-
-  if (uniqueJobs.length === 0) {
-    const hasError = Object.values(providers).some((p) => p.status === "error");
-    return NextResponse.json({
-      jobs: [],
-      message: hasError
-        ? "Job search temporarily unavailable. Please try again."
-        : "No jobs found matching your criteria.",
-      source: "none",
-      sources,
-      count: 0,
-      pagination: {
-        openwebninjaNextCursor: null,
-        jsearchNextCursor: null,
-        himalayasNextPage: null,
-      },
-    });
+  // ─── STEP 1: Try JWebNinja (OpenWeb Ninja) First (if key exists) ────────────
+  if (jwebninjaKey) {
+    try {
+      const ninjaRes = await fetchOpenWebNinja({
+        query,
+        location,
+        arrangement,
+        postedWithin,
+        employment,
+        cursor: openwebninjaCursor,
+      });
+      if (ninjaRes && ninjaRes.jobs && ninjaRes.jobs.length > 0) {
+        console.log(`[Jobs] JWebNinja: ${ninjaRes.jobs.length} jobs`);
+        return NextResponse.json({
+          jobs: ninjaRes.jobs,
+          source: "openwebninja",
+          count: ninjaRes.jobs.length,
+          pagination: {
+            openwebninjaNextCursor: ninjaRes.nextCursor || null,
+            jsearchNextCursor: ninjaRes.nextCursor || null,
+            himalayasNextPage: null,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[Jobs] JWebNinja failed:", e);
+    }
   }
 
-  const activeSources = Array.from(new Set(uniqueJobs.map((j) => j.source)));
-  const source = activeSources.join(",");
+  // ─── STEP 2: Try Himalaya Second (if key exists or remote permitted) ────────
+  if (himalayasKey || (arrangement !== "onsite" && arrangement !== "hybrid")) {
+    try {
+      const himalayasRes = await fetchHimalayas({
+        query,
+        location,
+        arrangement,
+        experience,
+        employment,
+        page: himalayasPage,
+      });
+      if (himalayasRes && himalayasRes.jobs && himalayasRes.jobs.length > 0) {
+        console.log(`[Jobs] Himalaya: ${himalayasRes.jobs.length} jobs`);
+        return NextResponse.json({
+          jobs: himalayasRes.jobs,
+          source: "himalayas",
+          count: himalayasRes.jobs.length,
+          pagination: {
+            openwebninjaNextCursor: null,
+            jsearchNextCursor: null,
+            himalayasNextPage: himalayasRes.nextPage || null,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[Jobs] Himalaya failed:", e);
+    }
+  }
 
+  // ─── STEP 3: Try Adzuna Third (if credentials exist) ───────────────────────
+  if (adzunaAppId && adzunaApiKey) {
+    try {
+      const adzunaRes = await fetchAdzuna({ query, location });
+      if (adzunaRes && adzunaRes.jobs && adzunaRes.jobs.length > 0) {
+        console.log(`[Jobs] Adzuna: ${adzunaRes.jobs.length} jobs`);
+        return NextResponse.json({
+          jobs: adzunaRes.jobs,
+          source: "adzuna",
+          count: adzunaRes.jobs.length,
+          pagination: {
+            openwebninjaNextCursor: null,
+            jsearchNextCursor: null,
+            himalayasNextPage: null,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[Jobs] Adzuna failed:", e);
+    }
+  }
+
+  // ─── STEP 4: Try RemoteOK Last (Public, no key needed, always available) ───
+  try {
+    const remoteOkRes = await fetchRemoteOK({ query });
+    if (remoteOkRes && remoteOkRes.jobs && remoteOkRes.jobs.length > 0) {
+      console.log(`[Jobs] RemoteOK: ${remoteOkRes.jobs.length} jobs`);
+      return NextResponse.json({
+        jobs: remoteOkRes.jobs,
+        source: "remoteok",
+        count: remoteOkRes.jobs.length,
+        pagination: {
+          openwebninjaNextCursor: null,
+          jsearchNextCursor: null,
+          himalayasNextPage: null,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("[Jobs] RemoteOK failed:", e);
+  }
+
+  // ─── All APIs failed — return empty, never mock data ───────────────────────
+  console.warn("[Jobs] All APIs failed or returned empty. Returning [].");
   return NextResponse.json({
-    jobs: uniqueJobs,
-    source,
-    sources,
-    count: uniqueJobs.length,
+    jobs: [],
+    message: "No matching jobs found right now. Try adjusting your search query.",
+    source: "none",
+    count: 0,
     pagination: {
-      openwebninjaNextCursor: openwebninjaRes?.nextCursor || null,
-      jsearchNextCursor: openwebninjaRes?.nextCursor || null,
-      himalayasNextPage: himalayasRes?.nextPage || null,
+      openwebninjaNextCursor: null,
+      jsearchNextCursor: null,
+      himalayasNextPage: null,
     },
   });
 }

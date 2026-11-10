@@ -460,6 +460,126 @@ export function normalizeDemoJob(job: Job): NormalizedJobListing {
   };
 }
 
+/**
+ * Normalizes an Adzuna API job item.
+ */
+export function normalizeAdzuna(value: unknown): NormalizedJobListing | null {
+  const record = asRecord(value);
+  const title = asText(record.title) || "Software Engineer";
+  const externalId = String(record.id || "");
+  if (!externalId) return null;
+
+  const companyRecord = asRecord(record.company);
+  const company = asText(companyRecord.display_name) || "Technology Company";
+
+  const locationRecord = asRecord(record.location);
+  const location = asText(locationRecord.display_name) || "India";
+
+  const description = cleanJobText(record.description || "");
+  const applyUrl = normalizedUrl(record.redirect_url || record.url);
+  const postedAt = validIso(record.created);
+
+  const minSalary = typeof record.salary_min === "number" ? record.salary_min : null;
+  const maxSalary = typeof record.salary_max === "number" ? record.salary_max : null;
+  const salaryText =
+    minSalary !== null && maxSalary !== null
+      ? `₹${Math.round(minSalary).toLocaleString("en-IN")} – ₹${Math.round(maxSalary).toLocaleString("en-IN")}`
+      : minSalary !== null
+      ? `₹${Math.round(minSalary).toLocaleString("en-IN")}+`
+      : "Not disclosed";
+
+  const contractType = asText(record.contract_type).toLowerCase();
+  const employmentType = contractType.includes("part")
+    ? "Part-time"
+    : contractType.includes("contract")
+    ? "Contract"
+    : "Full-time";
+
+  const job = makeListing({
+    source: "adzuna",
+    externalId,
+    title,
+    company,
+    location,
+    description,
+    employmentType,
+    postedAt,
+    url: applyUrl,
+    sourceUrl: applyUrl,
+    attributionLabel: "Adzuna Jobs",
+    record: {
+      ...record,
+      salary: salaryText,
+      salary_min: minSalary,
+      salary_max: maxSalary,
+    },
+  });
+
+  job.id = `adzuna:${externalId}`;
+  job.salary = salaryText;
+  job.salaryRange = salaryText;
+  return job;
+}
+
+/**
+ * Normalizes a RemoteOK API job item.
+ */
+export function normalizeRemoteOK(value: unknown): NormalizedJobListing | null {
+  const record = asRecord(value);
+  if (record.legal || (!record.position && !record.title)) return null;
+
+  const title = asText(record.position || record.title) || "Software Engineer";
+  const externalId = String(record.id || record.slug || title);
+  if (!externalId) return null;
+
+  const company = asText(record.company) || "Remote Employer";
+  const location = asText(record.location) || "Remote (Worldwide)";
+  const description = cleanJobText(record.description || "");
+
+  const minSalary = typeof record.salary_min === "number" ? record.salary_min : null;
+  const maxSalary = typeof record.salary_max === "number" ? record.salary_max : null;
+  const salaryText =
+    minSalary !== null && maxSalary !== null
+      ? `$${minSalary.toLocaleString()} – $${maxSalary.toLocaleString()}`
+      : minSalary !== null
+      ? `$${minSalary.toLocaleString()}+`
+      : "Not disclosed";
+
+  const tags = asArray(record.tags).map(asText).filter(Boolean);
+  const applyUrl = normalizedUrl(record.url || (record.slug ? `https://remoteok.com/remote-jobs/${record.slug}` : null));
+  const postedAt = record.date
+    ? validIso(record.date)
+    : record.epoch
+    ? new Date(Number(record.epoch) * 1000).toISOString()
+    : null;
+
+  const job = makeListing({
+    source: "remoteok",
+    externalId,
+    title,
+    company,
+    location,
+    description,
+    employmentType: "Full-time",
+    postedAt,
+    url: applyUrl,
+    sourceUrl: applyUrl,
+    logo: record.company_logo || record.logo,
+    tags,
+    attributionLabel: "RemoteOK",
+    record: {
+      ...record,
+      salary: salaryText,
+    },
+  });
+
+  job.id = `remoteok:${externalId}`;
+  job.workArrangement = "remote";
+  job.salary = salaryText;
+  job.salaryRange = salaryText;
+  return job;
+}
+
 export function matchesJobSearch(job: NormalizedJobListing, query: string, location: string): boolean {
   const text = `${job.title} ${job.company} ${job.description} ${job.skills.join(" ")} ${job.employmentType || ""} ${job.experienceLevel} ${job.workArrangement}`.toLowerCase();
   const place = `${job.location} ${job.workArrangement}`.toLowerCase();

@@ -411,13 +411,8 @@ async function executeToolCall(
   if (toolName === "auto_seed_kanban_pipeline") {
     return {
       output: {
-        seededRolesCount: 4,
-        placements: [
-          { company: "Razorpay", title: "Backend SDE", matchScore: 91, status: "Applied & OA" },
-          { company: "Vercel", title: "Full-Stack Engineer", matchScore: 94, status: "Saved / Wishlist" },
-          { company: "Stripe", title: "API Infrastructure SDE", matchScore: 88, status: "Applied & OA" },
-          { company: "Atlassian", title: "Distributed Systems SDE", matchScore: 86, status: "Saved / Wishlist" },
-        ],
+        seededRolesCount: 0,
+        placements: [],
         pipelineStatus: "INITIALIZED",
       },
     };

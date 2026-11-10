@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -603,7 +604,24 @@ export default function JobsPage() {
     }
   };
 
-  // ─── Toggle save ────────────────────────────────────────────────────────
+  // ─── Toggle save / Save to Kanban ────────────────────────────────────────
+
+  const saveToKanban = async (job: Job) => {
+    await addApplication({
+      company: job.company,
+      title: job.title,
+      logo: job.logo || job.company.slice(0, 2).toUpperCase(),
+      status: "Wishlist",
+      priority: "medium",
+      matchScore: job.matchScore || 0,
+      salary: job.salaryRange || job.salary || "Not specified",
+      url: job.applyUrl || job.sourceUrl || undefined,
+      location: job.location,
+      source: job.source,
+      sourceUrl: job.sourceUrl || undefined,
+      notes: job.attributionLabel ? `Saved from ${job.attributionLabel}.` : "Saved from Job Search.",
+    });
+  };
 
   const toggleSave = async (id: string) => {
     const isCurrentlySaved = savedJobs.has(id);
@@ -616,16 +634,13 @@ export default function JobsPage() {
       return next;
     });
 
-    try {
-      await toggleSaveJob(id, newSaved);
-    } catch (err: unknown) {
-      setSavedJobs((prev) => {
-        const next = new Set(prev);
-        if (isCurrentlySaved) next.add(id);
-        else next.delete(id);
-        return next;
-      });
-      setError(err instanceof Error ? err.message : "Failed to update saved job status.");
+    const targetJob = jobs.find((j) => j.id === id);
+    if (newSaved && targetJob) {
+      try {
+        await saveToKanban(targetJob);
+      } catch (err: unknown) {
+        console.error("[Jobs] Failed to save to Kanban:", err);
+      }
     }
   };
 
@@ -1070,6 +1085,21 @@ export default function JobsPage() {
               </div>
             )}
 
+            {userSkills.length === 0 && (
+              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <span>Upload your resume on the Dashboard to see which skills you match for each job.</span>
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shrink-0 transition-colors"
+                >
+                  Upload Resume
+                </Link>
+              </div>
+            )}
+
             {filtered.map((job) => {
               const match = matchResults.get(job.id);
               return (
@@ -1373,32 +1403,37 @@ export default function JobsPage() {
                 </div>
 
                 {/* Tags — matched against real resume */}
-                <div className="flex flex-wrap gap-2 mb-5">
-                  {activeJob.tags.map((tag) => {
-                    const isUserSkill = userSkills.some(
-                      (s) =>
-                        s.toLowerCase() === tag.toLowerCase() ||
-                        tag.toLowerCase().includes(s.toLowerCase()) ||
-                        s.toLowerCase().includes(tag.toLowerCase())
-                    );
-                    return (
-                      <span
-                        key={tag}
-                        className={clsx(
-                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border",
-                          userSkills.length > 0 && isUserSkill
-                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                            : userSkills.length > 0
-                            ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                            : "bg-white/5 text-slate-300 border-white/10"
-                        )}
-                      >
-                        {userSkills.length > 0 && (isUserSkill ? "✅ In Your Resume: " : "⚡ Need to Cover: ")}
-                        {tag}
-                      </span>
-                    );
-                  })}
-                </div>
+                {userSkills.length === 0 ? (
+                  <div className="mb-5 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>Upload your resume on the Dashboard to see which skills you match for each job.</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {activeJob.tags.map((tag) => {
+                      const isUserSkill = userSkills.some(
+                        (s) =>
+                          s.toLowerCase() === tag.toLowerCase() ||
+                          tag.toLowerCase().includes(s.toLowerCase()) ||
+                          s.toLowerCase().includes(tag.toLowerCase())
+                      );
+                      return (
+                        <span
+                          key={tag}
+                          className={clsx(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border",
+                            isUserSkill
+                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                              : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                          )}
+                        >
+                          {isUserSkill ? "✅ In Your Resume: " : "⚡ Need to Cover: "}
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Description */}
                 <div className="mb-6">

@@ -33,15 +33,8 @@ export default function MultiCompanyOverlapCard() {
   const [isPrioritizing, setIsPrioritizing] = useState(false);
   const [prioritized, setPrioritized] = useState(false);
 
-  // Active pipeline roles (from digitalTwin or auto-seeded defaults)
-  const activeApps = digitalTwin?.activeApplications?.length
-    ? digitalTwin.activeApplications
-    : [
-        { id: "app-razorpay-01", company: "Razorpay", title: "Backend SDE", status: "Applied" },
-        { id: "app-vercel-02", company: "Vercel", title: "Full-Stack Engineer", status: "Wishlist" },
-        { id: "app-stripe-04", company: "Stripe", title: "API Infrastructure SDE", status: "Applied" },
-        { id: "app-atlassian-03", company: "Atlassian", title: "Distributed Systems SDE", status: "Wishlist" },
-      ];
+  // Active pipeline roles (from digitalTwin)
+  const activeApps = digitalTwin?.activeApplications || [];
 
   const totalCompaniesCount = activeApps.length;
 
@@ -49,7 +42,7 @@ export default function MultiCompanyOverlapCard() {
     {
       skill: "PostgreSQL Indexing & MVCC Concurrency",
       category: "Database & Storage",
-      companies: ["Razorpay", "Stripe", "Vercel"],
+      companies: activeApps.slice(0, 3).map((a) => a.company),
       leverageScore: 96,
       recommendation: "Focus on B-Tree fillfactor, composite index selectivity, and MVCC phantom read isolation.",
       clearsBluffRisk: true,
@@ -57,20 +50,24 @@ export default function MultiCompanyOverlapCard() {
     {
       skill: "Distributed System Design & Redis Caching",
       category: "Architecture & Scale",
-      companies: ["Razorpay", "Stripe", "Atlassian", "Vercel"],
+      companies: activeApps.map((a) => a.company),
       leverageScore: 94,
       recommendation: "Review cache stampede (XFetch), token bucket rate limiting, and idempotent event delivery.",
       clearsBluffRisk: true,
     },
-    {
-      skill: "Next.js 16 & TypeScript Core Architecture",
-      category: "Full Stack & Web",
-      companies: ["Vercel", "Stripe", "Atlassian"],
-      leverageScore: 88,
-      recommendation: "Master React Server Component boundaries, streaming suspense, and discriminated unions.",
-      clearsBluffRisk: false,
-    },
   ];
+
+  if (activeApps.length === 0) {
+    return (
+      <div className="rounded-2xl border border-indigo-500/20 bg-[#0c0f24]/70 p-6 text-center">
+        <Target className="h-8 w-8 text-indigo-400 mx-auto mb-2 opacity-60" />
+        <h4 className="text-sm font-semibold text-white">Multi-Company Prep Optimizer</h4>
+        <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+          Save jobs to your Tracker to automatically calculate common skill intersections and optimize your interview preparation.
+        </p>
+      </div>
+    );
+  }
 
   const handlePrioritizeSharedSprint = async () => {
     setIsPrioritizing(true);
@@ -81,7 +78,7 @@ export default function MultiCompanyOverlapCard() {
         category: "skills",
         priority: "high",
         completed: false,
-        description: `[🎯 Set-Cover Optimizer] Shared across ${totalCompaniesCount} target companies (Razorpay, Stripe, Vercel, Atlassian). Clears 2 Bluff Risks simultaneously.`,
+        description: `[🎯 Set-Cover Optimizer] Shared across ${totalCompaniesCount} target companies (${activeApps.map((a) => a.company).join(", ")}). Clears 2 Bluff Risks simultaneously.`,
         dueDate: "In 3 days",
       });
 

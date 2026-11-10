@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveDataMode } from "@/lib/supabase/config";
-import { DEMO_USER_SKILLS } from "@/lib/mock-data";
 import { getStoredRealResume, getStoredResumeWorkspace } from "@/lib/storage-sync";
 import type { Job } from "@/types";
 import type { JobListingRow } from "./types";
@@ -164,6 +163,7 @@ export async function scoreJobMatches(
   const resultMap = new Map<string, EnrichedMatchResult>();
 
   try {
+    const effectiveSkills = (userSkills && userSkills.length > 0) ? userSkills : getUserSkills();
     const payload = {
       jobs: jobs.map((j) => ({
         jobId:          j.id,
@@ -172,8 +172,8 @@ export async function scoreJobMatches(
         jobTags:        j.tags,
         jobType:        j.type,
       })),
-      userSkills:        userSkills || DEMO_USER_SKILLS,
-      userTargetRole:    userTargetRole || "Frontend Developer",
+      userSkills:        effectiveSkills,
+      userTargetRole:    userTargetRole || "Software Engineer",
       preferredLocation: preferences?.preferredLocation ?? "",
       preferredTypes:    preferences?.preferredTypes ?? [],
     };
@@ -304,26 +304,31 @@ export function applyFilters(jobs: Job[], filters: JobFilters): Job[] {
 let activeUserSkills: string[] = [];
 
 export function getUserSkills(): string[] {
-  if (typeof window !== "undefined") {
-    try {
-      const workspace = getStoredResumeWorkspace();
-      const realResume = getStoredRealResume();
-      const rawSkills: any =
-        workspace?.analysis?.extractedSkills ??
-        (workspace?.analysis as any)?.skills ??
-        workspace?.analysis?.parsedResume?.skills ??
-        realResume?.skills ??
-        [];
+  try {
+    // Primary source: full resume analysis
+    const workspace = getStoredResumeWorkspace();
+    const rawSkills: any =
+      workspace?.analysis?.extractedSkills ??
+      (workspace?.analysis as any)?.skills ??
+      workspace?.analysis?.parsedResume?.skills;
 
-      if (Array.isArray(rawSkills)) {
-        return rawSkills
-          .map((s: any) => (typeof s === "string" ? s : s?.name || ""))
-          .filter(Boolean);
-      }
-    } catch {
-      return [];
+    if (Array.isArray(rawSkills) && rawSkills.length > 0) {
+      return rawSkills
+        .map((s: any) => (typeof s === "string" ? s : s?.name || ""))
+        .filter(Boolean);
     }
+
+    // Secondary: real resume store
+    const realResume = getStoredRealResume();
+    if (realResume?.skills && realResume.skills.length > 0) {
+      return realResume.skills
+        .map((s: any) => (typeof s === "string" ? s : s?.name || ""))
+        .filter(Boolean);
+    }
+  } catch (e) {
+    console.error("[Jobs] getUserSkills failed:", e);
   }
+  // No resume uploaded — return empty, never mock skills
   return [];
 }
 
@@ -346,5 +351,5 @@ export function setUserSkills(skills: string[]): void {
 export async function toggleSaveJob(id: string, saved: boolean): Promise<void> {
   void id;
   void saved;
-  throw new Error("Job bookmark persistence in live mode will be available in Phase 3.");
+  // Local storage and applications tracker handle card persistence
 }

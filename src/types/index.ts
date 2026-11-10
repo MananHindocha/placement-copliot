@@ -150,7 +150,7 @@ export type Job = {
   retrievedAt?: string;
 };
 
-export type JobProviderSource = "openwebninja" | "himalayas" | "demo";
+export type JobProviderSource = "openwebninja" | "himalayas" | "demo" | "adzuna" | "remoteok" | "jwebninja";
 export type WorkArrangement = "remote" | "hybrid" | "onsite" | "unspecified";
 export type DeadlineProvenance = "verified_source" | "user_entered" | "unknown";
 export type JobExperienceLevel = "internship" | "fresher" | "entry" | "mid" | "senior" | "unspecified";

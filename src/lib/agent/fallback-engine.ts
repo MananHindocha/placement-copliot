@@ -326,19 +326,14 @@ export async function executeDeterministicFallback(
       step_number: currentStep++,
       timestamp: new Date().toISOString(),
       tool_name: "auto_seed_kanban_pipeline",
-      input_summary: `Evaluated student skill profile against 140+ active technology placements (Target: Full Stack / SDE).`,
-      output_summary: `Auto-seeded 4 top matched opportunities into Kanban Application Tracker (Razorpay 91%, Vercel 94%, Stripe 88%, Atlassian 86%) with match % and Bluff Risk overlap badges. Pipeline cold-start resolved.`,
+      input_summary: `Evaluated student skill profile against live opportunities (Target: Full Stack / SDE).`,
+      output_summary: `Scouted pipeline opportunities with zero fake companies. Ready for real job searches from live APIs.`,
       status: "SUCCESS",
       latency_ms: Math.max(160, Date.now() - step3Start + 180),
       data: {
-        seededCount: 4,
-        averageMatch: 90,
-        roles: [
-          "Razorpay — Backend SDE (91% Match)",
-          "Vercel — Full-Stack Engineer (94% Match)",
-          "Stripe — API Infrastructure SDE (88% Match)",
-          "Atlassian — Distributed Systems SDE (86% Match)",
-        ],
+        seededCount: 0,
+        averageMatch: 0,
+        roles: [],
       },
     });
 

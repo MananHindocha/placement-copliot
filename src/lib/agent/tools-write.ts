@@ -686,7 +686,7 @@ export async function sync_digital_twin_from_resume(
 // ─── TOOL 5: AUTO_SEED_KANBAN_PIPELINE ──────────────────────────────────────
 export async function auto_seed_kanban_pipeline(
   userId: string,
-  args: { targetRole?: string },
+  args: { skills?: string[]; targetRole?: string },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase?: any
 ): Promise<{
@@ -697,19 +697,25 @@ export async function auto_seed_kanban_pipeline(
     roles: Array<{ company: string; role: string; matchScore: number }>;
   };
 }> {
-  const roles = [
-    { company: "Razorpay", role: "Backend SDE (Payments Core)", matchScore: 91 },
-    { company: "Vercel", role: "Full-Stack Engineer (Next.js/TS)", matchScore: 94 },
-    { company: "Stripe", role: "API Infrastructure SDE", matchScore: 88 },
-    { company: "Atlassian", role: "Distributed Systems SDE", matchScore: 86 },
-  ];
+  const skills = args.skills || [];
+  if (!skills || skills.length === 0) {
+    console.warn("[Agent] auto_seed_kanban: no skills provided, skipping seed");
+    return {
+      success: true,
+      summary: "Upload a resume first to auto-find matching jobs.",
+      data: {
+        seededCount: 0,
+        roles: [],
+      },
+    };
+  }
 
   return {
     success: true,
-    summary: `Auto-seeded 4 top matched opportunities into Kanban pipeline (Razorpay 91%, Vercel 94%, Stripe 88%, Atlassian 86%).`,
+    summary: `Ready to scout real placement matches for ${args.targetRole || "target role"}.`,
     data: {
-      seededCount: 4,
-      roles,
+      seededCount: 0,
+      roles: [],
     },
   };
 }
