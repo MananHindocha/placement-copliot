@@ -1510,7 +1510,7 @@ export default function JobsPage() {
                       );
                       router.push("/interview");
                     }}
-                    title="Practice a mock interview tailored to this company and role"
+                    title="Practice an interview tailored to this company and role"
                     className="border-emerald-500/30 text-emerald-300 hover:text-white"
                   >
                     🎙️ Practice Interview

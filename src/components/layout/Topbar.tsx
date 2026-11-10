@@ -59,7 +59,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Manage every stage of your job search pipeline",
   },
   "/interview": {
-    title: "Mock Interview Coach",
+    title: "Practice Interview Coach",
     subtitle: "Practice with AI-powered questions and feedback",
   },
   "/interview/question-bank": {
@@ -121,7 +121,7 @@ export default function Topbar() {
   let page = PAGE_TITLES[pathname];
   if (!page && pathname.startsWith("/interview/customize/session/")) {
     page = {
-      title: "Custom Tailored Mock Interview",
+      title: "Custom Tailored Practice Interview",
       subtitle: "AI-powered personalized interview session aligned to your resume and target JD",
     };
   }
@@ -134,7 +134,7 @@ export default function Topbar() {
   if (!page && pathname.startsWith("/interview/question-bank/")) {
     page = {
       title: "Role Interview Workspace",
-      subtitle: "AI-powered technical, behavioral, and architectural mock interview",
+      subtitle: "AI-powered technical, behavioral, and architectural practice interview",
     };
   }
   if (!page && pathname.startsWith("/interview/dsa/")) {
@@ -488,7 +488,7 @@ export default function Topbar() {
                   System & API Connection Status
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Fail-Honest Architecture: All free APIs fallback to built-in deterministic heuristic engines.
+                  Real-time connection status for database and AI services.
                 </p>
               </div>
 
@@ -562,14 +562,14 @@ export default function Topbar() {
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                      ⚡ Heuristic
+                      ⚡ Offline Mode
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
                   {statusData?.aiEngine.geminiActive
-                    ? "Live LLM reasoning for job matching and XYZ bullet rewriting."
-                    : "Deterministic XYZ formula and keyword scoring active (Zero API key mode)."}
+                    ? "Live AI model reasoning for job matching and bullet rewriting."
+                    : "Built-in resume and keyword analysis active."}
                 </p>
                 <a
                   href="https://aistudio.google.com/app/apikey"
@@ -710,7 +710,7 @@ export default function Topbar() {
                     { label: "Resume Studio", href: "/resume", desc: "ATS scanner & diagnostic" },
                     { label: "Job Discovery", href: "/jobs", desc: "Find matched jobs" },
                     { label: "Application Tracker", href: "/tracker", desc: "Kanban pipeline" },
-                    { label: "AI Mock Interview Coach", href: "/interview", desc: "Whisper audio & video studio" },
+                    { label: "AI Practice Interview Coach", href: "/interview", desc: "Whisper audio & video studio" },
                     { label: "Placement Readiness Plan", href: "/readiness", desc: "Milestones roadmap" },
                   ]
                     .filter(

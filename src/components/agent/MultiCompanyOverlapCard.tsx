@@ -78,7 +78,7 @@ export default function MultiCompanyOverlapCard() {
         category: "skills",
         priority: "high",
         completed: false,
-        description: `[🎯 Set-Cover Optimizer] Shared across ${totalCompaniesCount} target companies (${activeApps.map((a) => a.company).join(", ")}). Clears 2 Bluff Risks simultaneously.`,
+        description: `Shared across ${totalCompaniesCount} saved jobs (${activeApps.map((a) => a.company).join(", ")}). Covers high-priority interview skills.`,
         dueDate: "In 3 days",
       });
 
@@ -113,15 +113,15 @@ export default function MultiCompanyOverlapCard() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-bold text-white tracking-tight">
-                🎯 High-Leverage Study Target (Multi-Company Set-Cover Optimizer)
+                🎯 Skills Across Saved Jobs
               </h3>
               <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-mono font-bold text-indigo-300">
                 <Sparkles className="h-3 w-3" />
-                Greedy Set-Cover
+                High Impact
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Calculates optimal intersection of technical requirements across all active applications to maximize preparation efficiency.
+              Common technical topics across all your saved jobs to help you study efficiently.
             </p>
           </div>
         </div>
@@ -136,17 +136,17 @@ export default function MultiCompanyOverlapCard() {
           {isPrioritizing ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin text-white" />
-              <span>Prioritizing Roadmap...</span>
+              <span>Updating Study Plan...</span>
             </>
           ) : prioritized ? (
             <>
               <Check className="h-4 w-4 text-emerald-300" />
-              <span>⚡ Shared Sprint Moved to #1 Priority!</span>
+              <span>⚡ Common Topics Added to Study Plan!</span>
             </>
           ) : (
             <>
               <Zap className="h-4 w-4 text-amber-300 animate-pulse" />
-              <span>⚡ Prioritize Shared Sprint in Roadmap</span>
+              <span>⚡ Add Common Topics to Study Plan</span>
             </>
           )}
         </button>
@@ -160,20 +160,20 @@ export default function MultiCompanyOverlapCard() {
           </div>
           <div>
             <div className="text-xs font-bold text-cyan-200">
-              Optimal Set-Cover Intersection Detected:
+              Top Study Recommendations:
             </div>
             <p className="text-xs text-slate-200 font-medium leading-relaxed mt-0.5">
               &ldquo;Mastering <span className="text-cyan-300 font-bold underline">PostgreSQL Indexing &amp; Concurrency</span> and{" "}
-              <span className="text-indigo-300 font-bold underline">Distributed System Design (Redis)</span> clears{" "}
-              <span className="text-rose-400 font-bold font-mono">{bluffRiskCount || 2} Bluff Risk(s)</span> AND covers{" "}
-              <span className="text-emerald-400 font-bold font-mono">100% ({totalCompaniesCount}/{totalCompaniesCount})</span> of the companies in your active Kanban pipeline.&rdquo;
+              <span className="text-indigo-300 font-bold underline">Distributed System Design (Redis)</span> helps verify{" "}
+              <span className="text-rose-400 font-bold font-mono">{bluffRiskCount || 2} unverified skill(s)</span> and covers{" "}
+              <span className="text-emerald-400 font-bold font-mono">100% ({totalCompaniesCount}/{totalCompaniesCount})</span> of your saved jobs.&rdquo;
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
           <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 rounded-full">
-            3.4x Study Efficiency
+            High Efficiency
           </span>
         </div>
       </div>
@@ -181,8 +181,8 @@ export default function MultiCompanyOverlapCard() {
       {/* ─── HIGH-LEVERAGE SKILL CARDS WITH COMPANY PILLS ─── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 px-1 uppercase tracking-wider">
-          <span>High-Leverage Shared Technical Topics</span>
-          <span>Company Coverage &amp; Impact</span>
+          <span>Shared Technical Topics</span>
+          <span>Company Coverage</span>
         </div>
 
         {overlapSkills.map((item, idx) => (
@@ -202,7 +202,7 @@ export default function MultiCompanyOverlapCard() {
                 {item.clearsBluffRisk && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300">
                     <ShieldAlert className="w-2.5 h-2.5 text-rose-400" />
-                    Clears Bluff Risk
+                    Verifies Skills
                   </span>
                 )}
               </div>
@@ -238,7 +238,7 @@ export default function MultiCompanyOverlapCard() {
       <div className="mt-5 pt-3.5 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Synchronized with {totalCompaniesCount} active Kanban opportunities</span>
+          <span>Based on your {totalCompaniesCount} saved jobs</span>
         </div>
         <Link
           href="/tracker"

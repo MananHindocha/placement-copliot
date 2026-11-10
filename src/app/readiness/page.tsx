@@ -64,8 +64,8 @@ const CATEGORY_CONFIG: Record<
   skills: { icon: Code2, label: "Skills & Tech", color: "text-violet-400", badgeVariant: "violet" },
   network: { icon: Users, label: "Networking", color: "text-amber-400", badgeVariant: "amber" },
   networking: { icon: Users, label: "Networking", color: "text-amber-400", badgeVariant: "amber" },
-  interview: { icon: MessageSquare, label: "Mock Interview", color: "text-emerald-400", badgeVariant: "emerald" },
-  interviews: { icon: MessageSquare, label: "Mock Interview", color: "text-emerald-400", badgeVariant: "emerald" },
+  interview: { icon: MessageSquare, label: "Practice Interview", color: "text-emerald-400", badgeVariant: "emerald" },
+  interviews: { icon: MessageSquare, label: "Practice Interview", color: "text-emerald-400", badgeVariant: "emerald" },
   applications: { icon: Send, label: "Applications", color: "text-rose-400", badgeVariant: "rose" },
 };
 
@@ -397,27 +397,26 @@ export default function ReadinessPage() {
         </div>
       ) : (
         <>
-          {/* Top Page Header with 1-Click Autonomous Bootstrap */}
+          {/* Top Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/8">
             <div>
               <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2.5 flex-wrap">
                 <span>Placement Readiness Plan</span>
                 <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  Live Weighted Formula: 60% Digital Twin + 40% Milestones
+                  60% Skill Level + 40% Study Tasks
                 </span>
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Calibrated readiness trajectory computed from empirical interview telemetry, verified skills, and roadmap completions.
+                Your readiness progress based on interview practice, verified skills, and completed study tasks.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => runAutonomousBootstrap()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs active:scale-[0.98] transition-all cursor-pointer shrink-0"
             >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-200" />
-              <span>🤖 Run Full-App Autonomous Bootstrap</span>
+              <span>✨ Refresh My Plan</span>
             </button>
           </div>
 
@@ -447,7 +446,7 @@ export default function ReadinessPage() {
               <div>
                 <p className="text-sm font-semibold text-white">Overall Readiness</p>
                 <p className="text-xs text-indigo-300 mt-1 font-medium">
-                  Synced with Digital Twin • {bluffRiskCount} Bluff Risk{bluffRiskCount !== 1 ? "s" : ""} Active
+                  Synced with Skill Profile • {bluffRiskCount} Skill{bluffRiskCount !== 1 ? "s" : ""} to Verify
                 </p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400">
                   <TrendingUp className="w-3 h-3" />
@@ -496,11 +495,16 @@ export default function ReadinessPage() {
             </Card>
           </div>
 
-          {/* Autonomous Agent Intelligence Layer */}
-          <div className="space-y-6">
-            <MultiCompanyOverlapCard />
-            <DigitalTwinMatrix />
-          </div>
+          {/* Advanced Skill Intelligence (Collapsible) */}
+          <details className="group">
+            <summary style={{ cursor: "pointer", fontSize: "13px", color: "var(--muted, #94a3b8)", padding: "8px 0", userSelect: "none" }} className="hover:text-white transition-colors">
+              Show advanced skill details
+            </summary>
+            <div style={{ marginTop: "12px" }} className="space-y-6">
+              <DigitalTwinMatrix />
+              <MultiCompanyOverlapCard />
+            </div>
+          </details>
 
           {/* Main Grid: Domain Breakdown + Milestones Roadmap */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -690,7 +694,7 @@ export default function ReadinessPage() {
                       >
                         <option value="skills">Skills &amp; Tech</option>
                         <option value="resume">Resume Polish</option>
-                        <option value="interview">Mock Interview</option>
+                        <option value="interview">Practice Interview</option>
                         <option value="network">Networking</option>
                         <option value="applications">Applications</option>
                       </select>
@@ -916,7 +920,7 @@ export default function ReadinessPage() {
                     No Major Resume Gaps Identified
                   </h4>
                   <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                    Your current resume strongly demonstrates the foundational competencies for <span className="text-white font-medium">{recTargetRole}</span>. You can create custom challenges or add mock interview goals above.
+                    Your current resume strongly demonstrates the foundational competencies for <span className="text-white font-medium">{recTargetRole}</span>. You can create custom challenges or add practice interview goals above.
                   </p>
                 </div>
               </div>
@@ -997,7 +1001,7 @@ export default function ReadinessPage() {
                         {/* Related Finding Tag */}
                         {rec.finding && (
                           <p className="text-[10px] text-slate-500 italic">
-                            Evidence: {rec.finding}
+                            Finding: {rec.finding}
                           </p>
                         )}
                       </div>

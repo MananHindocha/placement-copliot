@@ -976,14 +976,14 @@ export default function InterviewStudioStage({
           <div className="flex items-center gap-2.5">
             <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
             <div>
-              <span className="font-bold text-white">AI Bar-Raiser Adaptive Targeting Active: </span>
+              <span className="font-bold text-white">Targeted Practice Active: </span>
               <span>
-                {bluffRiskCount} claimed resume skill{bluffRiskCount > 1 ? "s have" : " has"} low verification evidence in your Digital Twin. The interviewer will specifically stress-test these topics.
+                {bluffRiskCount} skill{bluffRiskCount > 1 ? "s on your resume need" : " on your resume needs"} more practice. The interviewer will include questions to help you strengthen these topics.
               </span>
             </div>
           </div>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-200 border border-rose-500/30 shrink-0">
-            Audit Mode
+            Focused Practice
           </span>
         </div>
       )}

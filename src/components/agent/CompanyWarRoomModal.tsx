@@ -191,7 +191,7 @@ export default function CompanyWarRoomModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-4xl bg-gradient-to-b from-[#0e1224] via-[#090d1a] to-[#050710] border border-indigo-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* War-Room Header */}
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-950/60 via-[#121630] to-black/60 border-b border-indigo-500/30">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/30 to-cyan-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shadow-inner">
@@ -200,7 +200,7 @@ export default function CompanyWarRoomModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white tracking-tight">
-                  Company War-Room: {card.company}
+                  Interview Prep Kit: {card.company}
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
                   {card.title}
@@ -212,7 +212,7 @@ export default function CompanyWarRoomModal({
                 )}
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Real-time strategic tactical intelligence, vulnerability detection, and tailored preparation roadmap.
+                Company interview rounds, key focus areas, and a tailored study roadmap.
               </p>
             </div>
           </div>
@@ -234,11 +234,11 @@ export default function CompanyWarRoomModal({
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-cyan-400" />
                 <h4 className="text-sm font-bold text-white tracking-tight">
-                  Panel 1: Company Interview DNA & Round Weights
+                  Interview Rounds &amp; Weightage
                 </h4>
               </div>
               <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
-                Calibrated Engineering Matrix
+                Round Breakdown
               </span>
             </div>
 
@@ -295,17 +295,17 @@ export default function CompanyWarRoomModal({
             </div>
           </div>
 
-          {/* ─── PANEL 2: PERSONAL DIGITAL TWIN VULNERABILITY ALERT ─── */}
+          {/* ─── PANEL 2: SKILLS TO STRENGTHEN ─── */}
           <div className="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-[#1a0a14]/90 via-[#12080f]/90 to-[#0b0509]/90 p-5 space-y-4 shadow-lg">
             <div className="flex items-center justify-between pb-3 border-b border-rose-500/20">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-400" />
                 <h4 className="text-sm font-bold text-white tracking-tight">
-                  Panel 2: Personal Digital Twin Vulnerability Alert
+                  Skills to Strengthen for {card.company}
                 </h4>
               </div>
               <span className="text-[10px] font-mono text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                Cross-Checked with skill_evidence_matrix
+                Based on your resume &amp; practice
               </span>
             </div>
 
@@ -313,8 +313,8 @@ export default function CompanyWarRoomModal({
               <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <p className="text-xs text-emerald-200">
-                  <span className="font-bold">Zero Bluff Risk Overlaps Detected: </span>
-                  Your verified skills in the Digital Twin provide strong coverage for {card.company}&apos;s core interview rounds!
+                  <span className="font-bold">Strong Match: </span>
+                  Your verified skills provide strong coverage for {card.company}&apos;s core interview rounds!
                 </p>
               </div>
             ) : (
@@ -328,7 +328,7 @@ export default function CompanyWarRoomModal({
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-rose-400" />
                         <span className="text-xs font-bold text-rose-200">
-                          ⚠️ CRITICAL VULNERABILITY ALERT: {card.company} heavily probes &ldquo;{skill.skill_name}&rdquo;
+                          ⚠️ High Priority: {card.company} frequently tests &ldquo;{skill.skill_name}&rdquo;
                         </span>
                       </div>
 
@@ -341,16 +341,12 @@ export default function CompanyWarRoomModal({
                         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-all cursor-pointer shadow-sm"
                       >
                         <Zap className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Launch 60s Verification Probe</span>
+                        <span>Take Quick Skill Check</span>
                       </button>
                     </div>
 
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      This skill is currently flagged as{" "}
-                      <span className="text-rose-400 font-bold font-mono">
-                        {skill.bluff_risk ? "BLUFF RISK" : skill.verified_confidence}
-                      </span>{" "}
-                      in your Career Digital Twin (Claimed {skill.claimed_level} vs Verified {skill.verified_confidence}). An adversarial question on this topic could trigger an early technical rejection.
+                      This skill is listed on your resume but hasn&apos;t been tested yet in practice sessions. Practice this topic to be confident during technical rounds.
                     </p>
                   </div>
                 ))}
@@ -358,17 +354,17 @@ export default function CompanyWarRoomModal({
             )}
           </div>
 
-          {/* ─── PANEL 3: TAILORED RESUME FORK & 3-DAY SPRINT STATUS ─── */}
+          {/* ─── PANEL 3: TAILORED RESUME & 3-DAY STUDY PLAN ─── */}
           <div className="rounded-2xl border border-indigo-500/25 bg-[#0B0F20]/90 p-5 space-y-4 shadow-lg">
             <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-purple-400" />
                 <h4 className="text-sm font-bold text-white tracking-tight">
-                  Panel 3: Tailored Resume Fork &amp; 3-Day Company Sprint Status
+                  Tailored Resume &amp; 3-Day Study Plan
                 </h4>
               </div>
               <span className="text-[10px] font-mono text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
-                Human-in-the-Loop Governance
+                Your Review
               </span>
             </div>
 
@@ -378,7 +374,7 @@ export default function CompanyWarRoomModal({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                    3-Day Dedicated Sprint
+                    3-Day Study Plan
                   </span>
                   <span
                     className={clsx(
@@ -388,11 +384,11 @@ export default function CompanyWarRoomModal({
                         : "bg-white/5 text-slate-400 border-white/10"
                     )}
                   >
-                    {sprintInjected ? "Sprint Active in Roadmap" : "Not Injected"}
+                    {sprintInjected ? "Plan Active" : "Not Added"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Injects 3 daily targeted problem-solving tasks directly into your Placement Readiness Plan tailored to {card.company}&apos;s bar-raiser rounds.
+                  Adds 3 daily practice tasks to your study plan tailored to {card.company}&apos;s interview rounds.
                 </p>
                 <button
                   type="button"
@@ -403,17 +399,17 @@ export default function CompanyWarRoomModal({
                   {isInjecting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Injecting Sprint...</span>
+                      <span>Adding Study Plan...</span>
                     </>
                   ) : sprintInjected ? (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>3-Day Sprint Injected in Readiness Plan</span>
+                      <span>3-Day Plan Added to Study Plan</span>
                     </>
                   ) : (
                     <>
                       <Zap className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Inject 3-Day Company Sprint</span>
+                      <span>Add 3-Day Study Plan</span>
                     </>
                   )}
                 </button>
@@ -424,7 +420,7 @@ export default function CompanyWarRoomModal({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-purple-400" />
-                    Tailored Resume Fork
+                    Tailored Resume Version
                   </span>
                   <span
                     className={clsx(
@@ -436,11 +432,11 @@ export default function CompanyWarRoomModal({
                         : "bg-white/5 text-slate-400 border-white/10"
                     )}
                   >
-                    {matchingApproval ? "Awaiting Human Review" : diffStaged ? "Staged in Approvals" : "Master Resume"}
+                    {matchingApproval ? "Waiting for your review" : diffStaged ? "Review in Progress" : "Current Resume"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Proposes evidence-grounded STAR bullet enhancements emphasizing {card.company}&apos;s required architectural patterns.
+                  Suggests bullet rewrites highlighting skills {card.company} looks for.
                 </p>
                 <button
                   type="button"
@@ -448,7 +444,7 @@ export default function CompanyWarRoomModal({
                   className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all cursor-pointer shadow-md shadow-purple-600/20"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-purple-200" />
-                  <span>Stage / Review Tailored Resume Fork</span>
+                  <span>Review Tailored Resume Suggestions</span>
                 </button>
               </div>
             </div>
@@ -458,14 +454,14 @@ export default function CompanyWarRoomModal({
         {/* Footer */}
         <div className="px-6 py-4 bg-black/60 border-t border-white/8 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-400">
-            War-Room state is backed by real-time telemetry and dual-mode store persistence.
+            Your preparation data is saved automatically.
           </div>
           <button
             type="button"
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all cursor-pointer"
           >
-            Close War-Room
+            Close Prep Kit
           </button>
         </div>
       </div>

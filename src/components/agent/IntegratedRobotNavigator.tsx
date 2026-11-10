@@ -195,33 +195,32 @@ export default function IntegratedRobotNavigator() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-cyan-300">
                 <Sparkles className="h-3 w-3" />
-                AI Robot Navigator
+                Your Assistant
               </span>
 
               {hasResume ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
                   <CheckCircle2 className="h-3 w-3" />
-                  Real Resume Active: {fileName}
+                  Resume: {fileName}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                  Zero State • Awaiting Real Resume
+                  Upload your resume to begin
                 </span>
               )}
             </div>
 
             <p className="text-xs sm:text-sm font-medium text-slate-100 leading-snug">
-              {!hasResume ? (
-                isUploadPage ? (
-                  "Hi! Upload your real resume PDF below to begin. I will extract your actual skills and projects."
-                ) : (
-                  "You haven't uploaded your resume yet! Click below to upload your resume first so I can extract your real skills and fetch matching jobs."
-                )
+              {isExecuting ? (
+                "Working on it..."
+              ) : hasPendingApprovals ? (
+                "I suggested some improvements to your resume. Want to review them?"
+              ) : !hasResume ? (
+                "Upload your resume to get started. I'll find matching jobs and build your study plan automatically."
               ) : (
                 <>
-                  I analyzed <span className="text-cyan-300 font-bold">{fileName}</span>! Extracted{" "}
-                  <span className="text-emerald-400 font-bold">{skillsCount} skills</span> and{" "}
-                  <span className="text-indigo-300 font-bold">{projectsCount} projects</span> (ATS: {atsScore}%). What should we do next?
+                  Got it! Found <span className="text-emerald-400 font-bold">{skillsCount} skills</span> and{" "}
+                  <span className="text-indigo-300 font-bold">{projectsCount} projects</span> in your resume. Here's what I'd do next:
                 </>
               )}
             </p>
@@ -239,10 +238,10 @@ export default function IntegratedRobotNavigator() {
                   "inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 text-xs font-semibold text-indigo-300 transition-all cursor-pointer",
                   isExecuting && "animate-pulse border-indigo-400 bg-indigo-500/25"
                 )}
-                title="Open Agent Execution Trace Drawer"
+                title="Open Activity Log"
               >
                 <Zap className={clsx("h-3.5 w-3.5 text-indigo-400", isExecuting && "animate-spin")} />
-                <span>⚡ Agent Brain</span>
+                <span>⚡ Activity Log</span>
               </button>
 
               <button
@@ -370,7 +369,7 @@ export default function IntegratedRobotNavigator() {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>
-              Applied high-impact rewrite! ATS score upgraded to <strong>{atsScore}%</strong>.
+              Applied high-impact rewrite! Resume Score upgraded to <strong>{atsScore}%</strong>.
             </span>
           </div>
           <button

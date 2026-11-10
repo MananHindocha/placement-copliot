@@ -32,25 +32,25 @@ const CONFIDENCE_BADGES: Record<
   { label: string; badge: string; color: string; barWidth: string }
 > = {
   UNVERIFIED: {
-    label: "Unverified",
+    label: "Not tested yet",
     badge: "bg-slate-500/10 text-slate-400 border-slate-500/20",
     color: "text-slate-400",
     barWidth: "w-1/12 bg-slate-600",
   },
   LOW: {
-    label: "Low (Needs Drill)",
+    label: "Beginner",
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     color: "text-amber-400",
     barWidth: "w-1/3 bg-amber-500",
   },
   MEDIUM: {
-    label: "Medium Verified",
+    label: "Intermediate",
     badge: "bg-sky-500/15 text-sky-300 border-sky-500/30",
     color: "text-sky-400",
     barWidth: "w-2/3 bg-sky-500",
   },
   HIGH: {
-    label: "High Bar-Raiser",
+    label: "Confident",
     badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     color: "text-emerald-400",
     barWidth: "w-full bg-emerald-500",
@@ -58,9 +58,9 @@ const CONFIDENCE_BADGES: Record<
 };
 
 const CLAIMED_BADGES: Record<ClaimedLevel, { label: string; style: string }> = {
-  LOW: { label: "Resume Claim: Novice", style: "bg-slate-800 text-slate-400 border-slate-700" },
-  MEDIUM: { label: "Resume Claim: Working", style: "bg-indigo-950/60 text-indigo-300 border-indigo-500/20" },
-  HIGH: { label: "Resume Claim: Expert", style: "bg-purple-950/60 text-purple-300 border-purple-500/30" },
+  LOW: { label: "Resume: Beginner", style: "bg-slate-800 text-slate-400 border-slate-700" },
+  MEDIUM: { label: "Resume: Intermediate", style: "bg-indigo-950/60 text-indigo-300 border-indigo-500/20" },
+  HIGH: { label: "Resume: Advanced", style: "bg-purple-950/60 text-purple-300 border-purple-500/30" },
 };
 
 function SkillEvidenceCard({
@@ -84,15 +84,15 @@ function SkillEvidenceCard({
           : "bg-[#0b1020]/90 hover:bg-[#10172e]/90 border-white/8 hover:border-indigo-500/30"
       )}
     >
-      {/* Top Banner if Bluff Risk */}
+      {/* Top Banner if Needs Verification */}
       {skill.bluff_risk && (
-        <div className="px-4 py-1.5 bg-rose-500/20 border-b border-rose-500/30 flex items-center justify-between text-xs font-semibold text-rose-300 animate-pulse">
+        <div className="px-4 py-1.5 bg-rose-500/20 border-b border-rose-500/30 flex items-center justify-between text-xs font-semibold text-rose-300">
           <div className="flex items-center gap-1.5">
             <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>⚠️ Resume Bluff Risk Detected</span>
+            <span>⚠️ Needs Verification</span>
           </div>
           <span className="text-[10px] font-mono text-rose-400">
-            Claimed {skill.claimed_level} vs Verified {skill.verified_confidence}
+            Claimed on resume · Not tested yet
           </span>
         </div>
       )}
@@ -131,11 +131,11 @@ function SkillEvidenceCard({
           </div>
         </div>
 
-        {/* 4-Step Damped Ladder Meter */}
+        {/* 4-Step Skill Level Meter */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-            <span>Damped Confidence Ladder:</span>
-            <span className={confConfig.color}>{skill.verified_confidence}</span>
+            <span>Skill Level:</span>
+            <span className={confConfig.color}>{confConfig.label}</span>
           </div>
           <div className="w-full h-1.5 rounded-full bg-black/60 overflow-hidden border border-white/5">
             <div className={clsx("h-full transition-all duration-500 rounded-full", confConfig.barWidth)} />
@@ -151,7 +151,7 @@ function SkillEvidenceCard({
           >
             <Clock className="w-3.5 h-3.5 text-indigo-400" />
             <span>
-              {evidenceCount} Evidence Citation{evidenceCount !== 1 ? "s" : ""}
+              {evidenceCount} Practice Step{evidenceCount !== 1 ? "s" : ""}
             </span>
             {expanded ? (
               <ChevronUp className="w-3.5 h-3.5" />
@@ -166,14 +166,14 @@ function SkillEvidenceCard({
             className={clsx(
               "px-3 py-1.5 rounded-xl font-semibold text-[11px] transition-all flex items-center gap-1.5 shadow-sm cursor-pointer",
               skill.bluff_risk
-                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/30 animate-pulse"
+                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/30"
                 : skill.verified_confidence === "UNVERIFIED" || skill.verified_confidence === "LOW"
                 ? "bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white shadow-amber-900/20"
                 : "bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30"
             )}
           >
             <Zap className="w-3.5 h-3.5 text-amber-300" />
-            <span>⚡ Challenge / Verify Skill (60s Probe)</span>
+            <span>⚡ Quick Skill Check</span>
           </button>
         </div>
 
@@ -181,13 +181,13 @@ function SkillEvidenceCard({
         {expanded && (
           <div className="mt-3 pt-3 border-t border-white/8 space-y-2.5 animate-fadeIn">
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
-              <span>Transparent Evidence Audit Log</span>
-              <span>Latest 10 Citations</span>
+              <span>Skill History</span>
+              <span>Recent Activity</span>
             </div>
 
             {evidenceCount === 0 ? (
               <p className="text-xs text-slate-500 italic p-3 bg-black/30 rounded-lg text-center">
-                No verified citations recorded yet. Complete mock interviews or drills to prove competency.
+                No activity recorded yet. Complete practice sessions or drills to level up this skill.
               </p>
             ) : (
               <div className="space-y-2">
@@ -249,27 +249,27 @@ export function DigitalTwinMatrix() {
               <Brain className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-bold text-white tracking-tight">
-              Evidence-Backed Career Digital Twin
+              My Skill Profile
             </h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              Deterministic 4-Tier Ladder
+              4 Skill Levels
             </span>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Every claimed skill is stress-tested against mock interview transcripts and project reviews.
+            See where your skills stand based on your resume and interview practice.
           </p>
         </div>
 
-        {/* Global Bluff Alert Pill & Audit Action */}
+        {/* Global Alert Pill & Action */}
         <div className="flex items-center gap-2 flex-wrap">
           {bluffRiskCount > 0 && (
             <button
               type="button"
               onClick={handleAuditAllBluffRisks}
-              className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-rose-950/30 cursor-pointer animate-pulse"
+              className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-rose-950/30 cursor-pointer"
             >
               <ShieldAlert className="w-4 h-4 text-rose-400" />
-              <span>Audit {bluffRiskCount} Bluff Risk(s)</span>
+              <span>Review {bluffRiskCount} Unverified Skill(s)</span>
             </button>
           )}
 
@@ -310,7 +310,7 @@ export function DigitalTwinMatrix() {
             )}
           >
             <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Bluff Risks ({bluffRiskCount})</span>
+            <span>Needs Verification ({bluffRiskCount})</span>
           </button>
           <button
             type="button"
@@ -322,7 +322,7 @@ export function DigitalTwinMatrix() {
                 : "text-slate-400 hover:text-white"
             )}
           >
-            Bar-Raiser High ({skills.filter((s) => s.verified_confidence === "HIGH").length})
+            Confident ({skills.filter((s) => s.verified_confidence === "HIGH").length})
           </button>
           <button
             type="button"
@@ -334,13 +334,13 @@ export function DigitalTwinMatrix() {
                 : "text-slate-400 hover:text-white"
             )}
           >
-            Unverified ({skills.filter((s) => s.verified_confidence === "UNVERIFIED").length})
+            Not tested yet ({skills.filter((s) => s.verified_confidence === "UNVERIFIED").length})
           </button>
         </div>
 
         {/* Explanation Note */}
         <div className="text-[11px] text-slate-400 font-mono hidden lg:block">
-          🪜 <strong>Damped Ladder:</strong> Moves at most +1 tier per mock interview positive verdict.
+          💡 Take a practice drill or interview to level up your skills.
         </div>
       </div>
 
@@ -351,7 +351,7 @@ export function DigitalTwinMatrix() {
             No skills matching &quot;{filterMode}&quot; filter.
           </p>
           <p className="text-xs text-slate-500">
-            All tracked skills in your Career Digital Twin are verified or meet baseline confidence.
+            All tracked skills in your skill profile are verified.
           </p>
         </div>
       ) : (
@@ -366,7 +366,7 @@ export function DigitalTwinMatrix() {
         </div>
       )}
 
-      {/* ─── QUICK BLUFF REMEDIATION MODAL ─── */}
+      {/* ─── QUICK REMEDIATION MODAL ─── */}
       {showRemediationModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
           <div className="relative w-full max-w-xl bg-gradient-to-br from-[#120a16] via-[#1a0f22] to-[#0d0914] border border-rose-500/40 rounded-2xl p-6 shadow-2xl space-y-5">
@@ -377,13 +377,13 @@ export function DigitalTwinMatrix() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    ⚡ Quick Bluff Risk Remediation Audit
+                    ⚡ Skill Verification Check
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                      {bluffRiskCount || 2} RISKS ACTIVE
+                      {bluffRiskCount || 2} SKILLS TO CHECK
                     </span>
                   </h3>
                   <p className="text-xs text-rose-300/80 mt-0.5">
-                    Skills claimed as HIGH on your resume but lacking verified mock interview citations.
+                    Skills listed on your resume that need more practice or verification.
                   </p>
                 </div>
               </div>
@@ -401,11 +401,11 @@ export function DigitalTwinMatrix() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white">1. PostgreSQL B-Tree Indexing &amp; MVCC Isolation</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                    Claimed: HIGH · Verified: LOW
+                    Claimed: Advanced · Tested: Beginner
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Razorpay &amp; Stripe interviewers heavily test transaction isolation levels and deadlock resolution. Current confidence is damped (20%).
+                  Common interview topic covering transaction isolation and deadlock resolution.
                 </p>
               </div>
 
@@ -413,18 +413,18 @@ export function DigitalTwinMatrix() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white">2. Distributed Caching &amp; Redis Eviction Under Load</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                    Claimed: HIGH · Verified: LOW
+                    Claimed: Advanced · Tested: Beginner
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Recent interview evaluation scored 42% on eviction policies (LRU/LFU) and cache stampede prevention.
+                  Focus on eviction policies (LRU/LFU) and cache stampede prevention.
                 </p>
               </div>
             </div>
 
             <div className="pt-2 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-[11px] text-slate-400">
-                Agent trace running in slide-over drawer
+                Action log available in side drawer
               </span>
 
               <div className="flex items-center gap-2.5 w-full sm:w-auto">
@@ -434,7 +434,7 @@ export function DigitalTwinMatrix() {
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/25 transition-all"
                 >
                   <Mic className="w-3.5 h-3.5" />
-                  <span>🎙️ Take 3-Min Verbal Probe</span>
+                  <span>🎙️ Take Quick Skill Check</span>
                 </Link>
 
                 <button
@@ -450,7 +450,7 @@ export function DigitalTwinMatrix() {
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-950/40 transition-all cursor-pointer"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>📚 Inject Remedial Tasks</span>
+                  <span>📚 Add to Study Plan</span>
                 </button>
               </div>
             </div>

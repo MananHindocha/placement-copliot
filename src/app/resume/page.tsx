@@ -521,17 +521,14 @@ export default function ResumePage() {
         />
       )}
 
-      {/* Autonomous Agent HITL Resume Diff Stager */}
+      {/* Suggested Resume Improvements */}
       <ResumeDiffApprovalCard onResolved={loadInitialAnalysis} />
 
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
-            Resume Screener & Tailor
-            <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              XYZ Formula Engine
-            </span>
+            Resume Screener
             {engineSource === "gemini" && (
               <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
@@ -547,59 +544,49 @@ export default function ResumePage() {
             {engineSource === "heuristic" && (
               <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
                 <Cpu className="w-3 h-3 text-amber-400" />
-                Deterministic
+                Heuristic Scanner
               </span>
             )}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Extract, score, and rewrite resume bullets with Google-caliber impact formulas.
+            Upload your resume and a job role to see your match score and exactly what to improve.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-          {/* Prominent 1-Click Bootstrap Trigger */}
-          <button
-            type="button"
-            onClick={() => runAutonomousBootstrap()}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-200" />
-            <span>🤖 Run Full-App Autonomous Bootstrap</span>
-          </button>
-
           {/* Tab Switcher */}
           <div className="flex items-center gap-1 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab("analyse")}
-            className={clsx(
-              "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
-              activeTab === "analyse"
-                ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            Diagnostic Score
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("tailor")}
-            className={clsx(
-              "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
-              activeTab === "tailor"
-                ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            Tailor Workspace
-            {appliedSuggestions.size > 0 && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("analyse")}
+              className={clsx(
+                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
+                activeTab === "analyse"
+                  ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
+                  : "text-slate-400 hover:text-white"
+              )}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Analyse My Resume
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("tailor")}
+              className={clsx(
+                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
+                activeTab === "tailor"
+                  ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
+                  : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              Tailor for a Job
+              {appliedSuggestions.size > 0 && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </button>
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Diagnostic Tip / Microservice Health Pill */}
@@ -702,12 +689,18 @@ export default function ResumePage() {
       ) : (
         activeTab === "analyse" ? (
           <div className="space-y-6">
-            {/* 4-Pillar ATS Diagnostic Header */}
+            {/* Explanatory subtitle */}
+            <p className="text-xs text-slate-400">
+              These scores show how well your resume targets <strong>{targetRole || "your chosen role"}</strong>. 
+              Your overall Resume Score is {atsScore || 0}% — the scores below show where to improve for specific jobs.
+            </p>
+
+            {/* Diagnostic Score Pillars */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Overall JD Match */}
               <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">Role & Keyword Fit</span>
+                  <span className="font-medium">Job Match Score</span>
                   <Target className="w-4 h-4 text-indigo-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-white mb-2">
@@ -719,22 +712,22 @@ export default function ResumePage() {
                   value={matchScore}
                   color={matchScore >= 80 ? "emerald" : matchScore >= 65 ? "amber" : "rose"}
                   size="sm"
-                  label="Role fit"
+                  label="Job Match Score"
                 />
                 <p className="text-[10px] text-slate-400 mt-2">{matchedKeywordCount} of {analysis.keywords.length} target skills matched for {targetRole || analysis.jobTitle}.</p>
                 <p className="text-[10px] text-slate-500 mt-1">{analysis.keywords.length === 0 ? "Upload a resume to compare its skills with this role." : matchedKeywordCount === analysis.keywords.length ? "Your listed target skills are all present." : `Add ${analysis.keywords.length - matchedKeywordCount} missing target skill${analysis.keywords.length - matchedKeywordCount === 1 ? "" : "s"} where your experience supports them.`}</p>
               </div>
 
-              {/* ATS Parsability */}
+              {/* Formatting Score */}
               <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">ATS Readability & Structure</span>
+                  <span className="font-medium">Formatting Score</span>
                   <ShieldCheck className="w-4 h-4 text-violet-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-violet-400 mb-2">
                   {atsScore}%
                 </div>
-                <ProgressBar value={atsScore} color="violet" size="sm" label="ATS Score" />
+                <ProgressBar value={atsScore} color="violet" size="sm" label="Resume Score" />
                 <p className="text-[10px] text-slate-400 mt-2">Checks section headers, contact links, length & machine readability.</p>
                 <p className="text-[10px] text-slate-500 mt-1">{atsChecks.length ? atsChecks.map(([passed, label]) => `${passed ? "✓" : "!"} ${label}`).join(" · ") : "Upload a resume to see structural checks."}</p>
               </div>
@@ -742,7 +735,7 @@ export default function ResumePage() {
               {/* Quantified Impact */}
               <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">Measurable Impact</span>
+                  <span className="font-medium">Impact Score</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-emerald-400 mb-2">
@@ -756,13 +749,13 @@ export default function ResumePage() {
               {/* Action Verb Strength */}
               <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-medium">Action Verb Strength</span>
+                  <span className="font-medium">Writing Strength</span>
                   <Zap className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="text-3xl font-extrabold text-amber-400 mb-2">
                   {verbScore}%
                 </div>
-                <ProgressBar value={verbScore} color="amber" size="sm" label="Verb Strength" />
+                <ProgressBar value={verbScore} color="amber" size="sm" label="Writing Strength" />
                 <p className="text-[10px] text-slate-400 mt-2">Measures strong engineering verbs against passive phrasing.</p>
                 <p className="text-[10px] text-slate-500 mt-1">{weakOpeners.length ? `${weakOpeners.length} weak opener${weakOpeners.length === 1 ? "" : "s"} found: ${weakOpeners.slice(0, 2).map((bullet) => `“${bullet.slice(0, 28)}”`).join(", ")}. Try “Engineered,” “Optimized,” or “Architected.”` : "No common weak openers found. Keep leading with specific actions."}</p>
               </div>
@@ -1020,10 +1013,10 @@ export default function ResumePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-amber-300" />
-                    AI Bullet Rewrites (XYZ Formula)
+                    AI Bullet Rewrites
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Accomplished [X] as measured by [Y], by doing [Z]
+                    High-impact action verb and metric improvements
                   </p>
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
@@ -1090,7 +1083,7 @@ export default function ResumePage() {
                         <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-                              AI Improved (XYZ Formula)
+                              AI Improved
                             </span>
                             <span className="text-[10px] text-slate-400 italic">
                               {suggestion.reason}

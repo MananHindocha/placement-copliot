@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { label: "Resume Screener", href: "/resume", icon: FileText },
   { label: "Job Discovery", href: "/jobs", icon: Briefcase },
   { label: "App Tracker", href: "/tracker", icon: KanbanSquare },
-  { label: "Mock Interviews", href: "/interview", icon: MessageSquare },
+  { label: "Practice Interviews", href: "/interview", icon: MessageSquare },
   { label: "Readiness Plan", href: "/readiness", icon: Target },
 ];
 

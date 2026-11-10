@@ -9,7 +9,7 @@ import IntegratedRobotNavigator from "@/components/agent/IntegratedRobotNavigato
 export const metadata: Metadata = {
   title: "Placement Co-pilot | Your AI-Powered Job Search Dashboard",
   description:
-    "Placement Co-pilot helps students land their dream jobs with AI-powered resume tailoring, job discovery, application tracking, and mock interviews.",
+    "Placement Co-pilot helps students land their dream jobs with AI-powered resume tailoring, job discovery, application tracking, and interview preparation.",
 };
 
 export default function RootLayout({

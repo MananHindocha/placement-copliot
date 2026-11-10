@@ -127,7 +127,7 @@ export default function InterviewLandingPage() {
               <Brain className="w-5 h-5" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
-              AI Mock Interview Coach
+              AI Practice Interview Coach
             </h1>
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">

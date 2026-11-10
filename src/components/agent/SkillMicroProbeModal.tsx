@@ -429,7 +429,7 @@ export default function SkillMicroProbeModal({
             <div className="h-4 w-px bg-white/10 mx-1" />
             <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-white">
               <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-              <span>adversarial-probe://{skillName.toLowerCase().replace(/\s+/g, "-")}</span>
+              <span>skill-check://{skillName.toLowerCase().replace(/\s+/g, "-")}</span>
             </div>
           </div>
 
@@ -461,8 +461,8 @@ export default function SkillMicroProbeModal({
         <div className="px-6 py-2.5 bg-indigo-950/40 border-b border-indigo-500/15 flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2 text-indigo-200">
             <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-semibold">60-Sec Adversarial Competency Drill</span>
-            <span className="text-slate-400">• Pass 2/2 to elevate confidence tier and clear Bluff Risk</span>
+            <span className="font-semibold">60-Second Quick Skill Check</span>
+            <span className="text-slate-400">• Answer 2/2 correctly to verify this skill</span>
           </div>
 
           <button
@@ -470,7 +470,7 @@ export default function SkillMicroProbeModal({
             onClick={() => setIsFreeTextMode((prev) => !prev)}
             className="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
           >
-            {isFreeTextMode ? "← Switch to Multiple Choice" : "Switch to Free-Text Terminal"}
+            {isFreeTextMode ? "← Switch to Multiple Choice" : "Switch to Free-Text Mode"}
           </button>
         </div>
 
@@ -500,19 +500,19 @@ export default function SkillMicroProbeModal({
 
               <div>
                 <h4 className="text-base font-bold text-white">
-                  {isPassed ? "🎉 Challenge Passed! Competency Verified" : "Review Required: Gaps Detected"}
+                  {isPassed ? "🎉 Great job! Skill Verified" : "Review Recommended"}
                 </h4>
                 <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto">
                   {isPassed
-                    ? `Your empirical knowledge for ${skillName} is proven. Digital Twin updated: Damped Confidence ladder promoted by +1 tier and Bluff Risk cleared!`
-                    : `You answered ${calculateScore()}/2 correctly. Re-read the explanations below and re-test when ready.`}
+                    ? `Your knowledge of ${skillName} is confirmed! Your skill level has been updated and marked as verified.`
+                    : `You answered ${calculateScore()}/2 correctly. Re-read the explanations below and try again when ready.`}
                 </p>
               </div>
 
               {isPassed && (
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Damped Confidence Promoted +1 Tier • Bluff Risk Cleared</span>
+                  <span>Skill Level Promoted • Verified</span>
                 </div>
               )}
             </div>
@@ -522,7 +522,7 @@ export default function SkillMicroProbeModal({
           {isFreeTextMode && !submitted && (
             <div className="space-y-3">
               <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 text-xs text-slate-300 space-y-2">
-                <span className="font-bold text-white">Free-Text Adversarial Prompt:</span>
+                <span className="font-bold text-white">Open-Ended Question:</span>
                 <p className="leading-relaxed">
                   Explain how you handle concurrency, locking, and data integrity in {skillName} under heavy distributed traffic. Include trade-offs and error scenarios.
                 </p>
@@ -530,7 +530,7 @@ export default function SkillMicroProbeModal({
               <textarea
                 value={freeTextAnswer}
                 onChange={(e) => setFreeTextAnswer(e.target.value)}
-                placeholder="Type your architectural rationale here (minimum 35 characters for verification)..."
+                placeholder="Type your explanation here (minimum 35 characters)..."
                 rows={6}
                 className="w-full p-4 rounded-xl bg-black/60 border border-indigo-500/30 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 font-mono leading-relaxed"
               />
@@ -625,7 +625,7 @@ export default function SkillMicroProbeModal({
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-all border border-white/10 cursor-pointer"
           >
-            {submitted ? "Close Window" : "Abandon Probe"}
+            {submitted ? "Close" : "Cancel"}
           </button>
 
           {!submitted ? (
@@ -638,12 +638,12 @@ export default function SkillMicroProbeModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Verifying Empirical Proof...</span>
+                  <span>Checking Answers...</span>
                 </>
               ) : (
                 <>
                   <Zap className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Submit Proof (Verify Skill)</span>
+                  <span>Submit Answers</span>
                 </>
               )}
             </button>
@@ -661,7 +661,7 @@ export default function SkillMicroProbeModal({
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Retry Probe (60s)</span>
+                  <span>Try Again (60s)</span>
                 </button>
               )}
               <button

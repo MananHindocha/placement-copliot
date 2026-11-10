@@ -40,6 +40,7 @@ import {
   Target,
   Brain,
   AlertTriangle,
+  BookOpen,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
@@ -229,7 +230,7 @@ export default function TrackerPage() {
       setLoading(true);
       const seeded = await scoutAndSeedPipeline();
       setCards(seeded);
-      showToast("🤖 Auto-scouted 4 top matched roles based on your Career Digital Twin!");
+      showToast("🤖 Found top matching jobs for your skills!");
       triggerAgent({
         triggerType: "USER_GOAL_SUBMITTED",
         entityId: "pipeline-seed",
@@ -455,7 +456,7 @@ export default function TrackerPage() {
           </p>
         </div>
 
-        {/* View Switchers & Auto-Scout Button */}
+        {/* View Switchers & Action Button */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
@@ -463,7 +464,7 @@ export default function TrackerPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-md shadow-indigo-500/25 active:scale-[0.98] transition-all cursor-pointer"
           >
             <Bot className="w-3.5 h-3.5 text-cyan-200" />
-            <span>🤖 Auto-Scout &amp; Seed Top 4 Matched Roles</span>
+            <span>🤖 Find Jobs Automatically</span>
           </button>
 
           {/* Density Switcher: 4-Stage Compact vs 6-Stage Detailed */}
@@ -694,7 +695,7 @@ export default function TrackerPage() {
                           {card.title}
                         </p>
 
-                        {/* Match, Bluff Risk Overlap & Priority */}
+                        {/* Match, Skill Status & Priority */}
                         <div className="flex items-center justify-between text-[11px] mb-2 pt-2 border-t border-white/5 flex-wrap gap-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {card.matchScore > 0 && (
@@ -704,7 +705,7 @@ export default function TrackerPage() {
                             )}
                             {card.notes && (card.notes.includes("Bluff Risk") || card.notes.includes("Redis") || card.notes.includes("PostgreSQL")) && (
                               <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300">
-                                <span>⚠️ Bluff Risk Overlap</span>
+                                <span>⚠️ Needs Verification</span>
                               </span>
                             )}
                             {card.salary && (
@@ -763,8 +764,8 @@ export default function TrackerPage() {
                               : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
                           )}
                         >
-                          <Brain className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>🧠 Open Agent War-Room</span>
+                          <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>📚 Interview Prep Kit</span>
                         </button>
                       </div>
                     );
@@ -793,7 +794,7 @@ export default function TrackerPage() {
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
                             >
                               <Bot className="w-3.5 h-3.5 text-cyan-200" />
-                              <span>🤖 Auto-Scout 4 Roles</span>
+                              <span>🤖 Find Jobs Automatically</span>
                             </button>
                             <button
                               type="button"
@@ -1134,7 +1135,7 @@ export default function TrackerPage() {
               className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-              <span>🎙️ Practice Mock Interview for This Role</span>
+              <span>🎙️ Practice Interview for This Role</span>
             </button>
 
             {/* Footer Actions */}

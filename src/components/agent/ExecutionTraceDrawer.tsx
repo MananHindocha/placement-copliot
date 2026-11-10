@@ -34,7 +34,7 @@ const TOOL_CONFIG: Record<
   { label: string; icon: React.ElementType; color: string; badgeBg: string }
 > = {
   get_student_twin_context: {
-    label: "Hydrate Career Digital Twin",
+    label: "Load Skill Profile",
     icon: Brain,
     color: "text-indigo-400",
     badgeBg: "bg-indigo-500/10 border-indigo-500/30 text-indigo-300",
@@ -46,43 +46,43 @@ const TOOL_CONFIG: Record<
     badgeBg: "bg-amber-500/10 border-amber-500/30 text-amber-300",
   },
   inject_readiness_sprint: {
-    label: "Inject Readiness Sprint",
+    label: "Create Study Plan",
     icon: Zap,
     color: "text-emerald-400",
     badgeBg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
   },
   update_skill_evidence: {
-    label: "Update Skill Evidence Ladder",
+    label: "Update Skill History",
     icon: Code2,
     color: "text-sky-400",
     badgeBg: "bg-sky-500/10 border-sky-500/30 text-sky-300",
   },
   stage_resume_diff: {
-    label: "Stage Grounded Resume Diff",
+    label: "Suggest Resume Changes",
     icon: FileText,
     color: "text-purple-400",
     badgeBg: "bg-purple-500/10 border-purple-500/30 text-purple-300",
   },
   optimize_multi_company_overlap: {
-    label: "Optimize Multi-Company Overlap",
+    label: "Find Skills Across Companies",
     icon: Layers,
     color: "text-pink-400",
     badgeBg: "bg-pink-500/10 border-pink-500/30 text-pink-300",
   },
   sync_digital_twin_from_resume: {
-    label: "Sync Career Digital Twin from Resume",
+    label: "Sync Skill Profile from Resume",
     icon: Brain,
     color: "text-sky-400",
     badgeBg: "bg-sky-500/10 border-sky-500/30 text-sky-300",
   },
   auto_seed_kanban_pipeline: {
-    label: "Auto-Seed Matched Kanban Pipeline",
+    label: "Find Matching Jobs",
     icon: Target,
     color: "text-cyan-400",
     badgeBg: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300",
   },
   scout_and_seed_pipeline: {
-    label: "Auto-Scout & Seed Matched Roles",
+    label: "Find Matching Jobs",
     icon: Target,
     color: "text-cyan-400",
     badgeBg: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300",
@@ -286,14 +286,14 @@ export function ExecutionTraceDrawer() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-base font-bold text-white tracking-tight">
-                        Autonomous Career Copilot
+                        Assistant Activity Log
                       </h2>
                       <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono font-bold">
-                        Glass-Box Trace
+                        Activity Log
                       </span>
                     </div>
                     <p className="text-xs text-slate-400">
-                      Closed-loop observable execution across Resume, Tracker &amp; Interviews.
+                      Track actions, updates, and recommendations across your placement journey.
                     </p>
                   </div>
                 </div>
@@ -302,7 +302,7 @@ export function ExecutionTraceDrawer() {
                   type="button"
                   onClick={closeDrawer}
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Close Drawer"
+                  title="Close Activity Log"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -321,7 +321,7 @@ export function ExecutionTraceDrawer() {
                         : "text-slate-400 hover:text-white"
                     )}
                   >
-                    Active Run
+                    Latest Activity
                   </button>
                   <button
                     type="button"
@@ -333,7 +333,7 @@ export function ExecutionTraceDrawer() {
                         : "text-slate-400 hover:text-white"
                     )}
                   >
-                    <span>Run History</span>
+                    <span>Activity History</span>
                     <span className="px-1.5 py-0.2 rounded-full bg-black/40 text-[10px] font-mono">
                       {runs.length}
                     </span>
@@ -356,7 +356,7 @@ export function ExecutionTraceDrawer() {
                           : "bg-rose-500/20 text-rose-300 border-rose-500/30"
                       )}
                     >
-                      {activeRun.status}
+                      {activeRun.status === "AWAITING_APPROVAL" ? "Waiting for your review" : activeRun.status === "COMPLETED" ? "Completed" : activeRun.status}
                     </span>
                   </div>
                 )}
@@ -368,11 +368,11 @@ export function ExecutionTraceDrawer() {
                   /* RUN HISTORY LIST VIEW */
                   <div className="space-y-3">
                     <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                      Recent Autonomous Executions
+                      Recent Activity
                     </h3>
                     {runs.length === 0 ? (
                       <div className="text-center py-12 text-slate-500 text-xs">
-                        No agent runs recorded yet. Submit a goal below to trigger execution.
+                        No assistant actions recorded yet. Ask a question or submit a goal below.
                       </div>
                     ) : (
                       runs.map((r) => (
@@ -429,7 +429,7 @@ export function ExecutionTraceDrawer() {
                           type="text"
                           value={promptInput}
                           onChange={(e) => setPromptInput(e.target.value)}
-                          placeholder="Command agent: 'Prepare me for Razorpay SDE-2 in 3 days'..."
+                          placeholder="Ask your assistant: 'Prepare me for a Software Engineer interview'..."
                           disabled={isExecuting}
                           className="w-full bg-black/50 border border-white/12 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none pr-12 transition-all shadow-inner font-sans"
                         />
@@ -437,7 +437,7 @@ export function ExecutionTraceDrawer() {
                           type="submit"
                           disabled={isExecuting || !promptInput.trim()}
                           className="absolute right-2 top-2 p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-                          title="Execute Goal"
+                          title="Ask Assistant"
                         >
                           {isExecuting ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -450,45 +450,45 @@ export function ExecutionTraceDrawer() {
                       {/* Quick Trigger Chips */}
                       <div className="flex items-center gap-1.5 flex-wrap pt-1">
                         <span className="text-[10px] text-slate-500 font-semibold uppercase">
-                          Quick Presets:
+                          Quick Actions:
                         </span>
                         <button
                           type="button"
                           onClick={() =>
                             handlePresetTrigger(
-                              "Prepare me for a Backend SDE interview at Razorpay in 3 days. Focus on PostgreSQL MVCC, Kafka, and idempotency."
+                              "Prepare me for a Software Engineer interview. Focus on database design, APIs, and clean code."
                             )
                           }
                           disabled={isExecuting}
                           className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-[11px] text-indigo-300 transition-all font-medium flex items-center gap-1"
                         >
-                          <span>🏢 Razorpay Backend Prep</span>
+                          <span>🏢 Software Engineer Prep</span>
                         </button>
                         <button
                           type="button"
                           onClick={() =>
                             handlePresetTrigger(
-                              "Audit my Career Digital Twin for high-claimed skills with low verification confidence and flag resume bluff risks."
+                              "Check my skill profile and find skills that need more practice or verification."
                             )
                           }
                           disabled={isExecuting}
                           className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-[11px] text-rose-300 transition-all font-medium flex items-center gap-1"
                         >
                           <ShieldAlert className="w-3 h-3 text-rose-400" />
-                          <span>🚨 Audit Bluff Risks</span>
+                          <span>🔍 Check Skill Accuracy</span>
                         </button>
                         <button
                           type="button"
                           onClick={() =>
                             handlePresetTrigger(
-                              "Find high-leverage overlapping topics across all my active job applications and inject a unified sprint."
+                              "Find common skills across all my saved jobs and suggest a study plan."
                             )
                           }
                           disabled={isExecuting}
                           className="px-2.5 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 text-[11px] text-pink-300 transition-all font-medium flex items-center gap-1"
                         >
                           <Layers className="w-3 h-3 text-pink-400" />
-                          <span>⚡ Multi-Company Overlap</span>
+                          <span>⚡ Skills Across Jobs</span>
                         </button>
                       </div>
                     </div>
@@ -499,7 +499,7 @@ export function ExecutionTraceDrawer() {
                         <div className="flex items-center justify-between text-xs text-indigo-300 font-semibold">
                           <span className="flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                            Active Autonomous Goal
+                            Current Goal
                           </span>
                           <span className="text-[10px] text-slate-400 font-mono">
                             ID: {activeRun.id.slice(0, 16)}...
@@ -516,7 +516,7 @@ export function ExecutionTraceDrawer() {
                       <div className="flex items-center justify-between pb-1">
                         <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                           <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                          Glass-Box Execution Trace
+                          What your assistant did
                         </h3>
                         <span className="text-[11px] font-mono text-slate-400">
                           {activeRun?.reasoning_trace?.length || 0} Step(s) Recorded
@@ -527,7 +527,7 @@ export function ExecutionTraceDrawer() {
                       {(!activeRun?.reasoning_trace ||
                         activeRun.reasoning_trace.length === 0) && (
                         <div className="p-6 rounded-xl bg-black/20 border border-white/5 text-center text-xs text-slate-500">
-                          No trace recorded for this run. Submit a goal to watch the agent think and execute.
+                          No steps recorded yet. Ask a question or pick an action above.
                         </div>
                       )}
 
@@ -546,7 +546,7 @@ export function ExecutionTraceDrawer() {
                       {isExecuting && (
                         <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/30 text-indigo-300 text-xs animate-pulse">
                           <Loader2 className="w-4 h-4 animate-spin text-indigo-400 shrink-0" />
-                          <span>Autonomous agent synthesizing next action step...</span>
+                          <span>Assistant working on next step...</span>
                         </div>
                       )}
                     </div>
@@ -556,7 +556,7 @@ export function ExecutionTraceDrawer() {
                       <div className="p-4 rounded-xl bg-[#0d1428] border border-emerald-500/30 space-y-3">
                         <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>Platform Mutation Executive Summary</span>
+                          <span>Summary of Actions Taken</span>
                         </div>
                         <p className="text-xs text-slate-200 leading-relaxed font-sans">
                           {activeRun.final_summary}
@@ -569,7 +569,7 @@ export function ExecutionTraceDrawer() {
                             className="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs text-emerald-300 font-semibold transition-all flex items-center gap-1.5"
                           >
                             <Target className="w-3.5 h-3.5" />
-                            <span>View Readiness Milestones</span>
+                            <span>View Study Plan</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
                           <Link
@@ -578,7 +578,7 @@ export function ExecutionTraceDrawer() {
                             className="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs text-cyan-300 font-semibold transition-all flex items-center gap-1.5"
                           >
                             <Layers className="w-3.5 h-3.5" />
-                            <span>Open Seeded Kanban (4 Jobs)</span>
+                            <span>Open Job Tracker</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
                           <Link
@@ -587,7 +587,7 @@ export function ExecutionTraceDrawer() {
                             className="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-xs text-purple-300 font-semibold transition-all flex items-center gap-1.5"
                           >
                             <FileText className="w-3.5 h-3.5" />
-                            <span>Review Staged Resume Diff</span>
+                            <span>Review Suggested Resume Changes</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
                         </div>

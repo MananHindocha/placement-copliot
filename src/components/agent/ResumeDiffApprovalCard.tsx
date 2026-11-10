@@ -65,7 +65,7 @@ export function ResumeDiffApprovalCard({
             key={approval.id}
             className="p-5 md:p-6 bg-gradient-to-br from-[#120D24] via-[#0E1026] to-[#0A0D1F] border-purple-500/40 shadow-2xl space-y-5 animate-fadeIn rounded-2xl"
           >
-            {/* ─── HEADER: ROLE, HITL STATUS & ATS LIFT ─── */}
+            {/* ─── HEADER: ROLE, STATUS & ATS LIFT ─── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/8 gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -73,15 +73,15 @@ export function ResumeDiffApprovalCard({
                     <FileText className="w-5 h-5" />
                   </div>
                   <h3 className="text-base font-bold text-white tracking-tight">
-                    Resume Bullet Tailoring Gate
+                    Suggested Resume Improvements
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                    ⏸️ Paused for Human-in-the-Loop Approval
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Waiting for your review
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">
                   Target Role: <strong className="text-white">{targetRole}</strong>{" "}
-                  <span className="text-slate-500 font-mono">({jobId})</span> · Zero-hallucination grounded rewrite.
+                  <span className="text-slate-500 font-mono">({jobId})</span> · Based on your real project experience.
                 </p>
               </div>
 
@@ -89,19 +89,19 @@ export function ResumeDiffApprovalCard({
               <div className="flex items-center gap-2 self-start sm:self-auto">
                 <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-1.5 shadow-sm">
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <span>+{atsLift} ATS Compatibility</span>
+                  <span>+{atsLift}% Resume Score Boost</span>
                 </div>
               </div>
             </div>
 
-            {/* ─── PROPOSED BULLET DIFFS (GIT-STYLE SIDE-BY-SIDE / INLINE) ─── */}
+            {/* ─── PROPOSED BULLET DIFFS ─── */}
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span className="font-semibold text-slate-300">
-                  Proposed Grounded Changes ({bulletChanges.length} Bullet{bulletChanges.length !== 1 ? "s" : ""})
+                  Suggested Bullet Rewrites ({bulletChanges.length})
                 </span>
                 <span className="text-[11px] font-mono text-slate-500">
-                  Diff Format: Red (Current) ➔ Green (Proposed)
+                  Before and After
                 </span>
               </div>
 
@@ -111,11 +111,11 @@ export function ResumeDiffApprovalCard({
                     key={idx}
                     className="rounded-xl border border-white/8 bg-black/40 p-4 space-y-3 overflow-hidden"
                   >
-                    {/* Provenance Badge: Proof of zero hallucination */}
+                    {/* Provenance Badge */}
                     <div className="flex items-center justify-between text-[11px] flex-wrap gap-2">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono text-[10px]">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Grounded in Verified Project: <strong>{change.verifiedSourceProject}</strong></span>
+                        <span>From your project: <strong>{change.verifiedSourceProject}</strong></span>
                       </div>
 
                       {change.keywordsAdded && change.keywordsAdded.length > 0 && (
@@ -152,7 +152,7 @@ export function ResumeDiffApprovalCard({
             {/* ─── ACTION BAR (APPROVE OR REJECT) ─── */}
             <div className="pt-3 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-[11px] text-slate-400 font-sans">
-                🔒 Approving will permanently mutate your master resume. Rejecting leaves your master resume untainted.
+                Approving applies these rewrites to your resume. Skipping keeps your original text.
               </span>
 
               <div className="flex items-center gap-2.5 w-full sm:w-auto">
@@ -164,7 +164,7 @@ export function ResumeDiffApprovalCard({
                   disabled={isResolving}
                   className="w-full sm:w-auto border-rose-500/30 hover:border-rose-500/60 text-rose-300 hover:bg-rose-500/10 text-xs"
                 >
-                  Reject Diff
+                  Skip Changes
                 </Button>
 
                 <Button
@@ -175,7 +175,7 @@ export function ResumeDiffApprovalCard({
                   disabled={isResolving}
                   className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30"
                 >
-                  Approve &amp; Commit to Resume
+                  Apply to Resume
                 </Button>
               </div>
             </div>

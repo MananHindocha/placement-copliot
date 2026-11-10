@@ -82,8 +82,8 @@ export default function CustomInterviewSessionWorkspace({
       pageTitle={`${roleTitle}${companyTitle} Interview`}
       pageSubtitle={
         session.targetCompany
-          ? `Personalized mock interview for ${session.targetCompany} based on your resume projects and job description.`
-          : `Personalized mock interview tailored to your resume projects and target role.`
+          ? `Personalized practice interview for ${session.targetCompany} based on your resume projects and job description.`
+          : `Personalized practice interview tailored to your resume projects and target role.`
       }
       badgeLabel="✨ Custom Tailored Mode"
       badgeVariant="emerald"

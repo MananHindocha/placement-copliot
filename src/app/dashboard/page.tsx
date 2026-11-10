@@ -148,11 +148,11 @@ export default function DashboardPage() {
                     <CheckCircle2 className="h-5 w-5" />
                   </span>
                   <h2 className="text-lg font-bold text-white tracking-tight">
-                    Candidate Profile: {realResume.candidateName || "Verified Engineering Candidate"}
+                    {realResume.candidateName || "Candidate Profile"}
                   </h2>
                 </div>
                 <p className="text-xs text-slate-300">
-                  Extracted from <span className="font-semibold text-cyan-300">{realResume.fileName}</span> • Inferred Roles:{" "}
+                  From <span className="font-semibold text-cyan-300">{realResume.fileName}</span> · Best fit for:{" "}
                   <span className="text-indigo-300 font-semibold">{realResume.inferredTargetRoles?.join(" • ") || "Software Engineer"}</span>
                 </p>
               </div>
@@ -172,34 +172,33 @@ export default function DashboardPage() {
             {/* Profile Metrics Chips */}
             <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">ATS Match Score</span>
+                <span className="text-xs text-slate-400 font-medium">Resume Score</span>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-emerald-400">{realResume.atsScore}%</span>
-                  <span className="text-[11px] text-emerald-400/80 font-medium">Real Scan</span>
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "2px" }}>
+                  Overall formatting &amp; completeness
                 </div>
               </div>
 
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Real Skills Extracted</span>
+                <span className="text-xs text-slate-400 font-medium">Skills Found</span>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-white">{realResume.skills.length}</span>
-                  <span className="text-[11px] text-slate-400">Verified</span>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Projects Detected</span>
+                <span className="text-xs text-slate-400 font-medium">Projects</span>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-cyan-300">{realResume.projectsCount || realResume.projects?.length || 0}</span>
-                  <span className="text-[11px] text-slate-400">In Resume</span>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Study Topics Needed</span>
+                <span className="text-xs text-slate-400 font-medium">Gaps to Fill</span>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-amber-400">{realResume.missingRecommendedSkills?.length || 0}</span>
-                  <span className="text-[11px] text-slate-400">Recommended</span>
                 </div>
               </div>
             </div>
@@ -210,7 +209,7 @@ export default function DashboardPage() {
             <StatCard
               label="Total Applications"
               value={totalApps}
-              delta={totalApps > 0 ? `${totalApps} tracked` : "Pipeline unseeded"}
+              delta={totalApps > 0 ? `${totalApps} tracked` : "No applications tracked"}
               deltaPositive={totalApps > 0}
               icon="Send"
               color="indigo"
@@ -581,7 +580,7 @@ export default function DashboardPage() {
                 <MessageSquare className="h-5 w-5" />
               </div>
               <h4 className="text-sm font-bold text-white group-hover:text-purple-300">
-                4. Mock Interview Coach
+                4. Practice Interview Coach
               </h4>
               <p className="mt-1 text-xs text-slate-400">
                 Practice role-specific questions and get instant feedback.
