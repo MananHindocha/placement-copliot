@@ -41,15 +41,15 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
     icon: Code2,
     route: "/interview/dsa",
     accent: {
-      border: "border-[#22232D]",
-      borderHover: "hover:border-[#735BA0]/60",
+      border: "border-[#1D1D1D]",
+      borderHover: "hover:border-[#292929]",
       glow: "",
-      iconBg: "bg-[#171820] group-hover:bg-[#1D1D26] border-[#262733] group-hover:border-[#735BA0]/50",
-      iconColor: "text-[#B293E2]",
-      badgeBg: "bg-[#171820]",
-      badgeColor: "text-[#969085]",
-      arrowColor: "text-[#B293E2] group-hover:text-[#C3A9EB]",
-      numberColor: "text-[#B293E2] font-mono",
+      iconBg: "bg-[#121212] group-hover:bg-[#1A1A1A] border-[#292929] group-hover:border-[#3A3A3A]",
+      iconColor: "text-[#F5F5F5]",
+      badgeBg: "bg-[#0A0A0A]",
+      badgeColor: "text-[#A1A1AA]",
+      arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
+      numberColor: "text-[#71717A] font-mono",
     },
     tags: ["30 OA Problems", "Multi-Language IDE", "Test Runner", "Big-O Verification"],
     actionText: "Start Practice →",
@@ -61,15 +61,15 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
     icon: BookOpen,
     route: "/interview/question-bank",
     accent: {
-      border: "border-[#22232D]",
-      borderHover: "hover:border-[#735BA0]/60",
+      border: "border-[#1D1D1D]",
+      borderHover: "hover:border-[#292929]",
       glow: "",
-      iconBg: "bg-[#171820] group-hover:bg-[#1D1D26] border-[#262733] group-hover:border-[#735BA0]/50",
-      iconColor: "text-[#B293E2]",
-      badgeBg: "bg-[#171820]",
-      badgeColor: "text-[#969085]",
-      arrowColor: "text-[#B293E2] group-hover:text-[#C3A9EB]",
-      numberColor: "text-[#B293E2] font-mono",
+      iconBg: "bg-[#121212] group-hover:bg-[#1A1A1A] border-[#292929] group-hover:border-[#3A3A3A]",
+      iconColor: "text-[#F5F5F5]",
+      badgeBg: "bg-[#0A0A0A]",
+      badgeColor: "text-[#A1A1AA]",
+      arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
+      numberColor: "text-[#71717A] font-mono",
     },
     tags: ["Role-Specific", "STAR Framework", "Live Telemetry", "Bar-Raiser AI"],
     actionText: "Start Practice →",
@@ -81,15 +81,15 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
     icon: Flame,
     route: "/interview/resume-grill",
     accent: {
-      border: "border-[#22232D]",
-      borderHover: "hover:border-[#735BA0]/60",
+      border: "border-[#1D1D1D]",
+      borderHover: "hover:border-[#292929]",
       glow: "",
-      iconBg: "bg-[#171820] group-hover:bg-[#1D1D26] border-[#262733] group-hover:border-[#735BA0]/50",
-      iconColor: "text-amber-400",
-      badgeBg: "bg-[#171820]",
-      badgeColor: "text-[#969085]",
-      arrowColor: "text-[#B293E2] group-hover:text-[#C3A9EB]",
-      numberColor: "text-[#B293E2] font-mono",
+      iconBg: "bg-[#121212] group-hover:bg-[#1A1A1A] border-[#292929] group-hover:border-[#3A3A3A]",
+      iconColor: "text-[#F59E0B]",
+      badgeBg: "bg-[#0A0A0A]",
+      badgeColor: "text-[#A1A1AA]",
+      arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
+      numberColor: "text-[#71717A] font-mono",
     },
     tags: ["GitHub Deep-Grill", "Architecture Defense", "System Trade-offs", "Failure Recovery"],
     actionText: "Start Practice →",
@@ -101,15 +101,15 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
     icon: Sparkles,
     route: "/interview/customize",
     accent: {
-      border: "border-[#22232D]",
-      borderHover: "hover:border-[#735BA0]/60",
+      border: "border-[#1D1D1D]",
+      borderHover: "hover:border-[#292929]",
       glow: "",
-      iconBg: "bg-[#171820] group-hover:bg-[#1D1D26] border-[#262733] group-hover:border-[#735BA0]/50",
-      iconColor: "text-emerald-400",
-      badgeBg: "bg-[#171820]",
-      badgeColor: "text-[#969085]",
-      arrowColor: "text-[#B293E2] group-hover:text-[#C3A9EB]",
-      numberColor: "text-[#B293E2] font-mono",
+      iconBg: "bg-[#121212] group-hover:bg-[#1A1A1A] border-[#292929] group-hover:border-[#3A3A3A]",
+      iconColor: "text-[#A78BFA]",
+      badgeBg: "bg-[#0A0A0A]",
+      badgeColor: "text-[#A1A1AA]",
+      arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
+      numberColor: "text-[#71717A] font-mono",
     },
     tags: ["Resume Tailored", "Company Presets", "Job Description Match", "Dual-AI Synthesis"],
     actionText: "Start Practice →",
@@ -133,23 +133,23 @@ export default function InterviewLandingPage() {
       <title>Practice Interviews</title>
 
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#22232D]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#1D1D1D]">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
-            <div className="p-2 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
+            <div className="p-2 rounded-lg bg-[#121212] text-[#A78BFA] border border-[#292929]">
               <Brain className="w-5 h-5" />
             </div>
-            <h1 className="text-2xl font-bold text-[#F8F8F9] tracking-tight">
+            <h1 className="text-2xl font-bold text-[#F5F5F5] tracking-tight">
               Practice Interviews
             </h1>
           </div>
-          <p className="text-sm text-[#969085] leading-relaxed">
+          <p className="text-sm text-[#A1A1AA] leading-relaxed">
             Choose your interview mode and prepare for your next technical interview.
           </p>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#111218] border border-[#22232D] text-[#969085] self-start sm:self-auto">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#0D0D0D] border border-[#1D1D1D] text-[#A1A1AA] self-start sm:self-auto">
+          <span className="w-2 h-2 rounded-full bg-[#10B981]" />
           <span>4 INTERVIEW MODES AVAILABLE</span>
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function InterviewLandingPage() {
             <Link
               key={mode.number}
               href={mode.route}
-              className={`group block relative rounded-xl bg-[#111218] border ${mode.accent.border} ${mode.accent.borderHover} ${mode.accent.glow} p-6 transition-colors hover:bg-[#171820]/70 cursor-pointer`}
+              className={`group block relative rounded-xl bg-[#0D0D0D] border ${mode.accent.border} ${mode.accent.borderHover} ${mode.accent.glow} p-6 transition-colors hover:bg-[#121212] cursor-pointer`}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
                 {/* Left Section: Icon & Numbered Indicator */}
@@ -176,19 +176,19 @@ export default function InterviewLandingPage() {
                     <span className={`text-xs font-bold tracking-wider ${mode.accent.numberColor}`}>
                       MODE {mode.number}
                     </span>
-                    <div className="text-xs text-[#969085] font-medium">Select to open</div>
+                    <div className="text-xs text-[#71717A] font-medium">Select to open</div>
                   </div>
                 </div>
 
                 {/* Middle Section: Mode Title, Description, and Category Tags */}
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <h2 className="text-lg font-bold text-[#F8F8F9] group-hover:text-[#B293E2] transition-colors">
+                    <h2 className="text-lg font-bold text-[#F5F5F5] group-hover:text-[#F5F5F5] transition-colors">
                       {mode.title}
                     </h2>
                   </div>
 
-                  <p className="text-xs text-[#969085] leading-relaxed">
+                  <p className="text-xs text-[#A1A1AA] leading-relaxed">
                     {mode.description}
                   </p>
 
@@ -196,7 +196,7 @@ export default function InterviewLandingPage() {
                     {mode.tags.map((tag) => (
                       <span
                         key={tag}
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded-md border border-[#262733] transition-colors ${mode.accent.badgeBg} ${mode.accent.badgeColor}`}
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-md border border-[#1D1D1D] transition-colors ${mode.accent.badgeBg} ${mode.accent.badgeColor}`}
                       >
                         {tag}
                       </span>
@@ -205,12 +205,12 @@ export default function InterviewLandingPage() {
                 </div>
 
                 {/* Right Section: Action Indicator & Hover Arrow */}
-                <div className="flex items-center gap-2 text-xs font-semibold pt-2 md:pt-0 border-t md:border-t-0 border-[#22232D] md:border-none shrink-0 self-start md:self-center">
+                <div className="flex items-center gap-2 text-xs font-semibold pt-2 md:pt-0 border-t md:border-t-0 border-[#1D1D1D] md:border-none shrink-0 self-start md:self-center">
                   <span className={`transition-colors ${mode.accent.arrowColor}`}>
                     {mode.actionText}
                   </span>
                   <div
-                    className={`w-8 h-8 rounded-lg border border-[#262733] bg-[#171820] flex items-center justify-center transition-transform group-hover:translate-x-0.5 ${mode.accent.arrowColor}`}
+                    className={`w-8 h-8 rounded-lg border border-[#292929] bg-[#121212] flex items-center justify-center transition-transform group-hover:translate-x-0.5 ${mode.accent.arrowColor}`}
                   >
                     <ArrowRight className="w-4 h-4" />
                   </div>
@@ -222,14 +222,14 @@ export default function InterviewLandingPage() {
       </div>
 
       {/* ─── RECENT SESSIONS SECTION & EMPTY STATE ───────── */}
-      <div className="pt-6 border-t border-[#22232D] space-y-4">
-        <h2 className="text-base font-bold text-[#F8F8F9] tracking-tight">
+      <div className="pt-6 border-t border-[#1D1D1D] space-y-4">
+        <h2 className="text-base font-bold text-[#F5F5F5] tracking-tight">
           Recent Practice Sessions
         </h2>
 
         {sessions.length === 0 ? (
-          <div className="p-8 rounded-xl border border-[#22232D] bg-[#111218] text-center">
-            <p className="text-xs text-[#969085]">
+          <div className="p-8 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] text-center">
+            <p className="text-xs text-[#71717A]">
               You haven&apos;t done any practice sessions yet. Pick a mode above to start.
             </p>
           </div>
@@ -239,15 +239,15 @@ export default function InterviewLandingPage() {
               <Link
                 key={s.sessionId}
                 href={`/interview/customize/session/${s.sessionId}`}
-                className="p-4 rounded-xl border border-[#22232D] bg-[#111218] hover:border-[#735BA0]/50 hover:bg-[#171820]/70 transition-colors flex items-center justify-between"
+                className="p-4 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] hover:border-[#292929] hover:bg-[#121212] transition-colors flex items-center justify-between"
               >
                 <div>
-                  <h3 className="text-sm font-semibold text-[#F8F8F9]">{s.targetRole}</h3>
-                  <p className="text-xs text-[#969085]">
+                  <h3 className="text-sm font-semibold text-[#F5F5F5]">{s.targetRole}</h3>
+                  <p className="text-xs text-[#71717A]">
                     {s.targetCompany ? `${s.targetCompany} · ` : ""}{s.generatedQuestions?.length || 0} questions · {s.difficulty}
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-[#B293E2]" />
+                <ArrowRight className="w-4 h-4 text-[#A1A1AA]" />
               </Link>
             ))}
           </div>

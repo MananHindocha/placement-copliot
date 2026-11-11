@@ -29,10 +29,10 @@ interface SelectedDateActivitiesProps {
 }
 
 const CATEGORY_BADGE_STYLE: Record<CalendarActivityCategory, string> = {
-  readiness: "text-[#B293E2] bg-[#1D1D26] border-[#735BA0]/35",
-  interview: "text-amber-300 bg-amber-500/10 border-amber-500/25",
-  dsa: "text-sky-300 bg-sky-500/10 border-sky-500/25",
-  application: "text-emerald-300 bg-emerald-500/10 border-emerald-500/25",
+  readiness: "text-[#A78BFA] bg-[#121212] border-[#292929]",
+  interview: "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/25",
+  dsa: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/25",
+  application: "text-[#10B981] bg-[#10B981]/10 border-[#10B981]/25",
 };
 
 function formatDateKeyLabel(dateKey: string, todayDateKey: string): string {
@@ -70,21 +70,21 @@ export default function SelectedDateActivities({
     <div className="space-y-2.5">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-[#F8F8F9] truncate">
+        <span className="text-[11px] font-semibold text-[#F5F5F5] truncate">
           {dateHeading}
         </span>
-        <span className="text-[10px] font-mono tabular-nums px-2 py-0.5 rounded-full bg-[#171820] border border-[#22232D] text-[#969085] shrink-0">
+        <span className="text-[10px] font-mono tabular-nums px-2 py-0.5 rounded-full bg-[#0A0A0A] border border-[#1D1D1D] text-[#A1A1AA] shrink-0">
           {activities.length} {activities.length === 1 ? "item" : "items"}
         </span>
       </div>
 
       {/* Activities List or Empty State */}
       {activities.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#262733] bg-[#171820]/40 p-3.5 text-center space-y-2">
-          <div className="w-7 h-7 rounded-lg bg-[#171820] border border-[#22232D] flex items-center justify-center mx-auto text-[#969085]">
+        <div className="rounded-xl border border-dashed border-[#292929] bg-[#0A0A0A] p-3.5 text-center space-y-2">
+          <div className="w-7 h-7 rounded-lg bg-[#121212] border border-[#1D1D1D] flex items-center justify-center mx-auto text-[#71717A]">
             <CalendarDays className="w-3.5 h-3.5" />
           </div>
-          <p className="text-[11px] text-[#969085] leading-relaxed">
+          <p className="text-[11px] text-[#71717A] leading-relaxed">
             No scheduled activities on this date.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5">
@@ -92,7 +92,7 @@ export default function SelectedDateActivities({
               <button
                 type="button"
                 onClick={() => onJumpToDate(nextScheduledDateKey)}
-                className="text-[11px] font-medium text-[#B293E2] hover:text-[#C3A9EB] transition-colors cursor-pointer"
+                className="text-[11px] font-medium text-[#A78BFA] hover:text-[#F5F5F5] transition-colors cursor-pointer"
               >
                 Next: {formatCompactDateKey(nextScheduledDateKey)} →
               </button>
@@ -100,7 +100,7 @@ export default function SelectedDateActivities({
             <Link
               href="/readiness"
               onClick={onNavigate}
-              className="text-[11px] font-medium text-[#969085] hover:text-[#F8F8F9] transition-colors"
+              className="text-[11px] font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
             >
               Open Study Plan →
             </Link>
@@ -118,8 +118,8 @@ export default function SelectedDateActivities({
                 className={clsx(
                   "rounded-xl border p-2.5 transition-colors space-y-1.5",
                   isCompleted
-                    ? "bg-emerald-500/5 border-emerald-500/20"
-                    : "bg-[#171820]/80 border-[#22232D] hover:border-[#735BA0]/45"
+                    ? "bg-[#10B981]/5 border-[#10B981]/20"
+                    : "bg-[#0D0D0D] border-[#1D1D1D] hover:border-[#292929]"
                 )}
               >
                 <div className="flex items-start gap-2">
@@ -138,22 +138,22 @@ export default function SelectedDateActivities({
                           ? `Mark ${item.title} pending`
                           : `Mark ${item.title} completed`
                       }
-                      className="mt-0.5 shrink-0 text-[#969085] hover:text-[#F8F8F9] transition-colors cursor-pointer"
+                      className="mt-0.5 shrink-0 text-[#71717A] hover:text-[#F5F5F5] transition-colors cursor-pointer"
                     >
                       {item.milestoneCompleted ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
                       ) : (
-                        <Circle className="w-4 h-4 text-[#4F414D] hover:text-[#B293E2]" />
+                        <Circle className="w-4 h-4 text-[#52525B] hover:text-[#F5F5F5]" />
                       )}
                     </button>
                   ) : (
                     <span className="mt-0.5 shrink-0">
                       {isCompleted ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
                       ) : isUpcoming ? (
-                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />
                       ) : (
-                        <Circle className="w-3.5 h-3.5 text-[#969085]" />
+                        <Circle className="w-3.5 h-3.5 text-[#71717A]" />
                       )}
                     </span>
                   )}
@@ -169,13 +169,13 @@ export default function SelectedDateActivities({
                         className={clsx(
                           "text-xs font-medium leading-snug line-clamp-2 transition-colors",
                           isCompleted
-                            ? "text-[#969085] line-through"
-                            : "text-[#F8F8F9] group-hover/link:text-[#B293E2]"
+                            ? "text-[#71717A] line-through"
+                            : "text-[#F5F5F5] group-hover/link:text-[#A78BFA]"
                         )}
                       >
                         {item.title}
                       </p>
-                      <ArrowRight className="w-3 h-3 text-[#969085] group-hover/link:text-[#B293E2] shrink-0 mt-0.5 transition-colors" />
+                      <ArrowRight className="w-3 h-3 text-[#71717A] group-hover/link:text-[#F5F5F5] shrink-0 mt-0.5 transition-colors" />
                     </Link>
 
                     <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
@@ -192,10 +192,10 @@ export default function SelectedDateActivities({
                         className={clsx(
                           "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium border tabular-nums",
                           isCompleted
-                            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                            ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
                             : isUpcoming
-                            ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
-                            : "bg-[#111218] text-[#969085] border-[#262733]"
+                            ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25"
+                            : "bg-[#121212] text-[#A1A1AA] border-[#292929]"
                         )}
                       >
                         {item.statusLabel}
@@ -214,12 +214,12 @@ export default function SelectedDateActivities({
         <Link
           href="/readiness"
           onClick={onNavigate}
-          className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#171820]/50 border border-[#22232D] hover:border-[#735BA0]/40 text-[10px] text-[#969085] hover:text-[#F8F8F9] transition-colors"
+          className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#0A0A0A] border border-[#1D1D1D] hover:border-[#292929] text-[10px] text-[#71717A] hover:text-[#F5F5F5] transition-colors"
         >
           <span>
             {unscheduledCount} pending milestone{unscheduledCount === 1 ? "" : "s"} without due date
           </span>
-          <span className="text-[#B293E2] font-medium">Set →</span>
+          <span className="text-[#F5F5F5] font-medium">Set →</span>
         </Link>
       )}
     </div>

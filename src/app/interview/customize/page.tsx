@@ -235,22 +235,22 @@ export default function CustomizePage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#22232D] gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#1D1D1D] gap-4">
         <div>
           <Link
             href="/interview"
-            className="inline-flex items-center gap-1.5 text-xs text-[#B293E2] hover:text-[#C3A9EB] transition-colors mb-2 group font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors mb-2 group font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span>Back to Interview Modes</span>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#F8F8F9] flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#F5F5F5] flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-[#121212] text-[#A78BFA] border border-[#292929]">
               <Sparkles className="w-6 h-6" />
             </div>
             <span>Customize by Resume &amp; JD</span>
           </h1>
-          <p className="text-xs sm:text-sm text-[#969085] mt-1">
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
             Generate personalized interview questions matching your resume and target role.
           </p>
         </div>
@@ -263,22 +263,22 @@ export default function CustomizePage() {
       </div>
 
       {/* ─── DUAL-SYNTHESIZER AI QUESTION GENERATOR CARD ─────────────────────── */}
-      <Card className="p-5 md:p-8 bg-[#111218] border-[#22232D] rounded-xl space-y-6">
+      <Card className="p-5 md:p-8 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-6">
         {/* Card Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-[#22232D]">
+        <div className="flex items-start justify-between pb-4 border-b border-[#1D1D1D]">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <div className="p-2 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
+              <div className="p-2 rounded-lg bg-[#121212] text-[#A78BFA] border border-[#292929]">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h2 className="text-lg font-bold text-[#F8F8F9] tracking-tight">
+              <h2 className="text-lg font-bold text-[#F5F5F5] tracking-tight">
                 Dual-Synthesizer AI Question Generator
               </h2>
               <Badge variant="emerald" size="sm">
                 Resume &amp; JD Matched
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-[#969085] leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#A1A1AA] leading-relaxed">
               Synthesizes your uploaded resume projects &amp; skills with target company requirements to generate tailored, bar-raiser interview questions.
             </p>
           </div>
@@ -289,28 +289,28 @@ export default function CustomizePage() {
           className={clsx(
             "p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-colors",
             detectedResume
-              ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-200"
-              : "bg-[#171820] border-[#22232D] text-[#969085]"
+              ? "bg-[#10B981]/10 border-[#10B981]/25 text-emerald-200"
+              : "bg-[#0A0A0A] border-[#1D1D1D] text-[#A1A1AA]"
           )}
         >
           <div className="flex items-center gap-2.5">
             {detectedResume ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-[#10B981] flex-shrink-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <AlertCircle className="w-4 h-4 text-[#F59E0B] flex-shrink-0" />
             )}
             <div>
               {detectedResume ? (
-                <p className="font-semibold text-emerald-300">
-                  ✓ Loaded Resume: <span className="text-[#F8F8F9] font-mono">{detectedResume.fileName}</span>
-                  <span className="text-emerald-300/80 font-normal ml-1.5">
+                <p className="font-semibold text-[#10B981]">
+                  ✓ Loaded Resume: <span className="text-[#F5F5F5] font-mono">{detectedResume.fileName}</span>
+                  <span className="text-[#10B981]/80 font-normal ml-1.5">
                     ({detectedResume.projects.length} Projects, {detectedResume.skills.length} Skills detected)
                   </span>
                 </p>
               ) : (
                 <p>
                   No uploaded resume found in workspace. Using target role defaults, or upload your resume in the{" "}
-                  <Link href="/resume" className="text-[#B293E2] underline hover:text-[#C3A9EB] font-medium">
+                  <Link href="/resume" className="text-[#F5F5F5] underline hover:text-[#A1A1AA] font-medium">
                     Resume Screener
                   </Link>.
                 </p>
@@ -319,12 +319,12 @@ export default function CustomizePage() {
           </div>
 
           {detectedResume && (
-            <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-[#F8F8F9] hover:text-[#B293E2] bg-[#111218] px-2.5 py-1.5 rounded-lg border border-[#262733] shrink-0 transition-colors">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-[#F5F5F5] hover:text-[#A1A1AA] bg-[#0D0D0D] px-2.5 py-1.5 rounded-lg border border-[#292929] shrink-0 transition-colors">
               <input
                 type="checkbox"
                 checked={includeResumeContext}
                 onChange={(e) => setIncludeResumeContext(e.target.checked)}
-                className="rounded border-[#2A2B38] accent-[#B293E2] focus:ring-[#B293E2]/40"
+                className="rounded border-[#292929] accent-[#A78BFA] focus:ring-0"
               />
               <span>Include Resume in AI Prompt</span>
             </label>
@@ -335,16 +335,16 @@ export default function CustomizePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Section B: Target Role */}
           <div>
-            <label className="text-xs font-semibold text-[#F8F8F9] block mb-1">
-              Target Role <span className="text-[#B293E2]">*</span>
+            <label className="text-xs font-semibold text-[#F5F5F5] block mb-1">
+              Target Role <span className="text-[#A78BFA]">*</span>
             </label>
             <select
               value={customRole}
               onChange={(e) => setCustomRole(e.target.value)}
-              className="w-full text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-2.5 text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer"
+              className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2.5 text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer"
             >
               {INTERVIEW_ROLES.map((r) => (
-                <option key={r} value={r} className="bg-[#111218] text-[#F8F8F9]">
+                <option key={r} value={r} className="bg-[#0D0D0D] text-[#F5F5F5]">
                   {r}
                 </option>
               ))}
@@ -353,7 +353,7 @@ export default function CustomizePage() {
 
           {/* Section C: Target Company */}
           <div>
-            <label className="text-xs font-semibold text-[#F8F8F9] block mb-1">
+            <label className="text-xs font-semibold text-[#F5F5F5] block mb-1">
               Target Company (Optional)
             </label>
             <input
@@ -361,31 +361,31 @@ export default function CustomizePage() {
               placeholder="e.g. Google, Stripe, Zepto, Swiggy"
               value={customCompany}
               onChange={(e) => setCustomCompany(e.target.value)}
-              className="w-full text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-2.5 text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2]"
+              className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2.5 text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929]"
             />
           </div>
 
           {/* Section D: Difficulty */}
           <div>
-            <label className="text-xs font-semibold text-[#F8F8F9] block mb-1">
+            <label className="text-xs font-semibold text-[#F5F5F5] block mb-1">
               Difficulty Bar
             </label>
             <select
               value={customDifficulty}
               onChange={(e) => setCustomDifficulty(e.target.value as "Easy" | "Medium" | "Hard" | "Mixed")}
-              className="w-full text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-2.5 text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer"
+              className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2.5 text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer"
             >
-              <option value="Mixed" className="bg-[#111218]">Mixed (Bar-Raiser &amp; Core)</option>
-              <option value="Hard" className="bg-[#111218]">Hard (Senior / Staff)</option>
-              <option value="Medium" className="bg-[#111218]">Medium (Mid-Level SDE)</option>
-              <option value="Easy" className="bg-[#111218]">Easy (Foundational)</option>
+              <option value="Mixed" className="bg-[#0D0D0D]">Mixed (Bar-Raiser &amp; Core)</option>
+              <option value="Hard" className="bg-[#0D0D0D]">Hard (Senior / Staff)</option>
+              <option value="Medium" className="bg-[#0D0D0D]">Medium (Mid-Level SDE)</option>
+              <option value="Easy" className="bg-[#0D0D0D]">Easy (Foundational)</option>
             </select>
           </div>
         </div>
 
         {/* Section E: Question Mix Focus Categories */}
         <div>
-          <label className="text-xs font-semibold text-[#F8F8F9] block mb-1.5">
+          <label className="text-xs font-semibold text-[#F5F5F5] block mb-1.5">
             Target Question Focus Areas
           </label>
           <div className="flex flex-wrap gap-2">
@@ -414,8 +414,8 @@ export default function CustomizePage() {
                   className={clsx(
                     "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors select-none cursor-pointer",
                     selected
-                      ? "bg-[#1D1D26] border-[#735BA0]/55 text-[#B293E2] font-semibold"
-                      : "bg-[#171820] border-[#262733] text-[#969085] hover:text-[#F8F8F9]"
+                      ? "bg-[#121212] border-[#F5F5F5]/40 text-[#F5F5F5] font-semibold"
+                      : "bg-[#0A0A0A] border-[#1D1D1D] text-[#71717A] hover:text-[#F5F5F5]"
                   )}
                 >
                   {selected ? "✓ " : "+ "}{area.label}
@@ -428,17 +428,17 @@ export default function CustomizePage() {
         {/* Section F: Job Description & Requirements Textarea */}
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <label className="text-xs font-semibold text-[#F8F8F9]">
-              Job Description &amp; Technical Requirements <span className="text-[#B293E2]">*</span>
+            <label className="text-xs font-semibold text-[#F5F5F5]">
+              Job Description &amp; Technical Requirements <span className="text-[#A78BFA]">*</span>
             </label>
-            <span className="text-[10px] text-[#969085]">
+            <span className="text-[10px] text-[#71717A]">
               Paste responsibilities, required stack, or key qualifications
             </span>
           </div>
 
           {/* 1-Click Company Presets */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-[#969085] font-semibold uppercase tracking-wider mr-1">Presets:</span>
+            <span className="text-[10px] text-[#71717A] font-semibold uppercase tracking-wider mr-1">Presets:</span>
             {COMPANY_JD_PRESETS.map((preset) => (
               <button
                 key={preset.name}
@@ -448,7 +448,7 @@ export default function CustomizePage() {
                   setCustomRole(preset.role);
                   setCustomJdText(preset.desc);
                 }}
-                className="px-2.5 py-1 rounded-lg bg-[#171820] hover:bg-[#1D1D26] border border-[#262733] hover:border-[#735BA0]/45 text-xs text-[#B293E2] font-medium transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-xs text-[#A1A1AA] hover:text-[#F5F5F5] font-medium transition-colors cursor-pointer"
               >
                 🏢 {preset.name}
               </button>
@@ -460,21 +460,21 @@ export default function CustomizePage() {
             placeholder="Paste target Job Description, required competencies, or tech stack expectations (e.g. 'Must have experience with Next.js, Kafka, microservices, and high-concurrency database indexing')..."
             value={customJdText}
             onChange={(e) => setCustomJdText(e.target.value)}
-            className="w-full text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg p-3.5 text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] leading-relaxed font-sans"
+            className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg p-3.5 text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] leading-relaxed font-sans"
           />
         </div>
 
         {/* Error Feedback */}
         {error && (
-          <div className="p-3.5 rounded-xl bg-rose-500/8 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-[#F43F5E]/10 border border-[#F43F5E]/25 text-[#F43F5E] text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-[#F43F5E] shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Section G: Question Generation Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#22232D]">
-          <span className="text-[11px] text-[#969085]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#1D1D1D]">
+          <span className="text-[11px] text-[#71717A]">
             Configure parameters above and generate your personalized bar-raiser interview questions.
           </span>
 
@@ -482,7 +482,7 @@ export default function CustomizePage() {
             <Button
               variant="secondary"
               size="sm"
-              icon={isGeneratingCustom ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 text-[#B293E2]" />}
+              icon={isGeneratingCustom ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 text-[#A1A1AA]" />}
               onClick={() => handleGenerateCustomQuestions(true)}
               disabled={isGeneratingCustom || (!customJdText.trim() && !customRole)}
               className="text-xs"

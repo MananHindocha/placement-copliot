@@ -64,7 +64,7 @@ const FOUR_STAGES: StageConfig[] = [
     label: "Interested",
     statuses: ["Wishlist"],
     defaultStatus: "Wishlist",
-    accentColor: "border-t-[#4F414D]",
+    accentColor: "border-t-[#3F3F46]",
     badgeVariant: "slate",
   },
   {
@@ -72,7 +72,7 @@ const FOUR_STAGES: StageConfig[] = [
     label: "Applied",
     statuses: ["Applied"],
     defaultStatus: "Applied",
-    accentColor: "border-t-[#B293E2]",
+    accentColor: "border-t-[#38BDF8]",
     badgeVariant: "indigo",
   },
   {
@@ -99,7 +99,7 @@ const SIX_STAGES: StageConfig[] = [
     label: "Interested",
     statuses: ["Wishlist"],
     defaultStatus: "Wishlist",
-    accentColor: "border-t-[#4F414D]",
+    accentColor: "border-t-[#3F3F46]",
     badgeVariant: "slate",
   },
   {
@@ -107,7 +107,7 @@ const SIX_STAGES: StageConfig[] = [
     label: "Applied",
     statuses: ["Applied"],
     defaultStatus: "Applied",
-    accentColor: "border-t-[#B293E2]",
+    accentColor: "border-t-[#38BDF8]",
     badgeVariant: "indigo",
   },
   {
@@ -115,7 +115,7 @@ const SIX_STAGES: StageConfig[] = [
     label: "Online Test",
     statuses: ["Phone Screen"],
     defaultStatus: "Phone Screen",
-    accentColor: "border-t-[#735BA0]",
+    accentColor: "border-t-[#A78BFA]",
     badgeVariant: "violet",
   },
   {
@@ -166,18 +166,18 @@ const ALL_STATUSES: KanbanStatus[] = [
 ];
 
 const STATUS_PILL_COLOR: Record<KanbanStatus, string> = {
-  Wishlist: "text-[#969085] bg-[#171820] border-[#262733]",
-  Applied: "text-[#B293E2] bg-[#1D1D26] border-[#735BA0]/40",
-  "Phone Screen": "text-[#C3A9EB] bg-[#735BA0]/20 border-[#735BA0]/40",
-  Interview: "text-amber-300 bg-amber-500/12 border-amber-500/25",
-  Offer: "text-emerald-300 bg-emerald-500/12 border-emerald-500/25",
-  Rejected: "text-rose-300 bg-rose-500/12 border-rose-500/25",
+  Wishlist: "text-[#A1A1AA] bg-[#0A0A0A] border-[#1D1D1D]",
+  Applied: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/25",
+  "Phone Screen": "text-[#A78BFA] bg-[#A78BFA]/10 border-[#A78BFA]/25",
+  Interview: "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/25",
+  Offer: "text-[#10B981] bg-[#10B981]/10 border-[#10B981]/25",
+  Rejected: "text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/25",
 };
 
 const PRIORITY_COLOR: Record<string, string> = {
-  high: "text-rose-400 bg-rose-500/10 border-rose-500/20",
-  medium: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-  low: "text-slate-400 bg-slate-500/10 border-slate-500/20",
+  high: "text-[#F43F5E] bg-[#F43F5E]/10 border-[#F43F5E]/25",
+  medium: "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/25",
+  low: "text-[#71717A] bg-[#121212] border-[#1D1D1D]",
 };
 
 export default function TrackerPage() {
@@ -442,8 +442,8 @@ export default function TrackerPage() {
 
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="rounded-xl border border-[#735BA0]/40 bg-[#171820] p-3.5 flex items-center gap-2 text-xs text-[#F8F8F9]">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="rounded-xl border border-[#292929] bg-[#0D0D0D] p-3.5 flex items-center gap-2 text-xs text-[#F5F5F5]">
+          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
           {toastMessage}
         </div>
       )}
@@ -460,13 +460,13 @@ export default function TrackerPage() {
       {/* Controls & Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[#F8F8F9] tracking-tight flex items-center gap-2">
+          <h1 className="text-xl font-bold text-[#F5F5F5] tracking-tight flex items-center gap-2">
             My Applications
-            <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35 tabular-nums">
+            <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#121212] text-[#A1A1AA] border border-[#292929] tabular-nums">
               {cards.length} Tracked
             </span>
           </h1>
-          <p className="text-xs text-[#969085] mt-0.5">
+          <p className="text-xs text-[#A1A1AA] mt-0.5">
             Import real job listings into Wishlist, then drag and drop cards to track your interview pipeline.
           </p>
         </div>
@@ -486,22 +486,22 @@ export default function TrackerPage() {
           <button
             type="button"
             onClick={handleAutoScoutAndSeed}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#171820] hover:bg-[#1D1D26] border border-[#735BA0]/45 text-[#B293E2] hover:text-[#F8F8F9] font-semibold text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[#F5F5F5] font-semibold text-xs transition-colors cursor-pointer"
           >
-            <Bot className="w-3.5 h-3.5 text-[#B293E2]" />
+            <Bot className="w-3.5 h-3.5 text-[#A78BFA]" />
             <span>🤖 Find Jobs Automatically</span>
           </button>
 
           {/* Density Switcher: 4-Stage Compact vs 6-Stage Detailed */}
-          <div className="flex items-center gap-1 p-1 bg-[#111218] border border-[#22232D] rounded-xl text-xs">
+          <div className="flex items-center gap-1 p-1 bg-[#0A0A0A] border border-[#1D1D1D] rounded-xl text-xs">
             <button
               type="button"
               onClick={() => setViewDensity("compact")}
               className={clsx(
                 "px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer",
                 viewDensity === "compact"
-                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                  : "text-[#969085] hover:text-[#F8F8F9]"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5]"
               )}
             >
               4-Stage Compact
@@ -512,8 +512,8 @@ export default function TrackerPage() {
               className={clsx(
                 "px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer",
                 viewDensity === "detailed"
-                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                  : "text-[#969085] hover:text-[#F8F8F9]"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5]"
               )}
             >
               6-Stage Detailed
@@ -521,15 +521,15 @@ export default function TrackerPage() {
           </div>
 
           {/* Layout Mode: Board vs List */}
-          <div className="flex items-center gap-1 p-1 bg-[#111218] border border-[#22232D] rounded-xl text-xs">
+          <div className="flex items-center gap-1 p-1 bg-[#0A0A0A] border border-[#1D1D1D] rounded-xl text-xs">
             <button
               type="button"
               onClick={() => setLayoutMode("board")}
               className={clsx(
                 "p-1.5 rounded-lg transition-colors cursor-pointer",
                 layoutMode === "board"
-                  ? "bg-[#1D1D26] text-[#B293E2]"
-                  : "text-[#969085] hover:text-[#F8F8F9]"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5]"
               )}
               title="Kanban Board View"
             >
@@ -541,8 +541,8 @@ export default function TrackerPage() {
               className={clsx(
                 "p-1.5 rounded-lg transition-colors cursor-pointer",
                 layoutMode === "table"
-                  ? "bg-[#1D1D26] text-[#B293E2]"
-                  : "text-[#969085] hover:text-[#F8F8F9]"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5]"
               )}
               title="List View"
             >
@@ -553,22 +553,22 @@ export default function TrackerPage() {
       </div>
 
       {/* Filter Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#111218] p-3 rounded-xl border border-[#22232D]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0D0D0D] p-3 rounded-xl border border-[#1D1D1D]">
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#969085]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by company or role..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#0A0B0F] border border-[#262733] rounded-lg text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+            className="w-full pl-9 pr-3 py-1.5 bg-[#080808] border border-[#1D1D1D] rounded-lg text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
           />
         </div>
 
         {/* Priority Filter */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-[#969085] font-medium">Priority:</span>
+          <span className="text-xs text-[#71717A] font-medium">Priority:</span>
           {(["all", "high", "medium", "low"] as const).map((p) => (
             <button
               key={p}
@@ -577,8 +577,8 @@ export default function TrackerPage() {
               className={clsx(
                 "px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-colors cursor-pointer",
                 priorityFilter === p
-                  ? "bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/50"
-                  : "text-[#969085] hover:text-[#F8F8F9] hover:bg-[#171820] border border-transparent"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] border border-transparent"
               )}
             >
               {p}
@@ -589,25 +589,25 @@ export default function TrackerPage() {
 
       {/* Board or Table Render */}
       {loading ? (
-        <div className="flex items-center justify-center py-24 text-[#969085] gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-[#B293E2]" />
+        <div className="flex items-center justify-center py-24 text-[#71717A] gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-[#A78BFA]" />
           <span className="text-xs">Loading application pipeline...</span>
         </div>
       ) : cards.length === 0 ? (
-        <div className="p-12 rounded-xl border border-[#22232D] bg-[#111218] text-center space-y-4 max-w-xl mx-auto my-8">
-          <div className="w-12 h-12 rounded-xl bg-[#171820] border border-[#262733] text-[#B293E2] flex items-center justify-center mx-auto">
+        <div className="p-12 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] text-center space-y-4 max-w-xl mx-auto my-8">
+          <div className="w-12 h-12 rounded-xl bg-[#121212] border border-[#292929] text-[#A1A1AA] flex items-center justify-center mx-auto">
             <Briefcase className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-semibold text-[#F8F8F9]">No applications yet.</h3>
-            <p className="text-xs text-[#969085] leading-relaxed">
+            <h3 className="text-base font-semibold text-[#F5F5F5]">No applications yet.</h3>
+            <p className="text-xs text-[#A1A1AA] leading-relaxed">
               Find a job you like on the Find Jobs page and save it here to track your progress.
             </p>
           </div>
           <div className="flex items-center justify-center gap-3 pt-2">
             <Link
               href="/jobs"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs transition-colors cursor-pointer"
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span>Find Jobs</span>
@@ -640,20 +640,20 @@ export default function TrackerPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, stage.defaultStatus)}
                 className={clsx(
-                  "flex flex-col rounded-xl bg-[#111218] border border-t-2 border-[#22232D] min-h-[500px] transition-colors",
+                  "flex flex-col rounded-xl bg-[#0A0A0A] border border-t-2 border-[#1D1D1D] min-h-[500px] transition-colors",
                   stage.accentColor,
                   isDropActive
-                    ? "ring-2 ring-[#B293E2]/70 bg-[#171820]"
+                    ? "ring-2 ring-[#A78BFA]/70 bg-[#121212]"
                     : ""
                 )}
               >
                 {/* Column Header */}
-                <div className="p-3.5 border-b border-[#22232D] flex items-center justify-between">
+                <div className="p-3.5 border-b border-[#1D1D1D] flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#F8F8F9]">
+                    <span className="text-xs font-semibold text-[#F5F5F5]">
                       {stage.label}
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#171820] text-[#969085] border border-[#262733] tabular-nums">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#121212] text-[#71717A] border border-[#1D1D1D] tabular-nums">
                       {stageCards.length}
                     </span>
                   </div>
@@ -671,16 +671,16 @@ export default function TrackerPage() {
                         onDragStart={(e) => handleDragStart(e, card.id)}
                         onClick={() => setSelectedCard(card)}
                         className={clsx(
-                          "rounded-xl border p-3.5 bg-[#171820] cursor-grab active:cursor-grabbing hover:border-[#735BA0]/55 hover:bg-[#1D1D26] transition-colors relative group",
+                          "rounded-xl border p-3.5 bg-[#0D0D0D] cursor-grab active:cursor-grabbing hover:border-[#292929] hover:bg-[#121212] transition-colors relative group",
                           isCardSelected
-                            ? "border-[#B293E2] ring-1 ring-[#B293E2]/40"
-                            : "border-[#22232D]"
+                            ? "border-[#A78BFA] ring-1 ring-[#A78BFA]/40"
+                            : "border-[#1D1D1D]"
                         )}
                       >
                         {/* Company Avatar + Name & Status Pill */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="w-7 h-7 rounded-lg bg-[#111218] border border-[#262733] text-[#B293E2] font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                            <div className="w-7 h-7 rounded-lg bg-[#121212] border border-[#292929] text-[#F5F5F5] font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
                               {card.companyLogo ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -695,7 +695,7 @@ export default function TrackerPage() {
                                 <span>{card.logo || card.company.slice(0, 2).toUpperCase()}</span>
                               )}
                             </div>
-                            <span className="text-xs font-bold text-[#F8F8F9] truncate">
+                            <span className="text-xs font-bold text-[#F5F5F5] truncate">
                               {card.company}
                             </span>
                           </div>
@@ -716,7 +716,7 @@ export default function TrackerPage() {
                             )}
                           >
                             {ALL_STATUSES.map((s) => (
-                              <option key={s} value={s} className="bg-[#111218] text-[#F8F8F9]">
+                              <option key={s} value={s} className="bg-[#0D0D0D] text-[#F5F5F5]">
                                 {STATUS_DISPLAY_LABEL[s] || s}
                               </option>
                             ))}
@@ -724,25 +724,25 @@ export default function TrackerPage() {
                         </div>
 
                         {/* Role Title */}
-                        <p className="text-xs text-[#969085] font-medium mb-3 line-clamp-1">
+                        <p className="text-xs text-[#A1A1AA] font-medium mb-3 line-clamp-1">
                           {card.title}
                         </p>
 
                         {/* Match, Skill Status & Priority */}
-                        <div className="flex items-center justify-between text-[11px] mb-2 pt-2 border-t border-[#22232D] flex-wrap gap-1">
+                        <div className="flex items-center justify-between text-[11px] mb-2 pt-2 border-t border-[#171717] flex-wrap gap-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {card.matchScore > 0 && (
-                              <span className="text-emerald-400 font-bold font-mono text-[10px] bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded tabular-nums">
+                              <span className="text-[#10B981] font-bold font-mono text-[10px] bg-[#10B981]/10 border border-[#10B981]/25 px-1.5 py-0.5 rounded tabular-nums">
                                 {card.matchScore}% Match
                               </span>
                             )}
                             {card.notes && (card.notes.includes("Bluff Risk") || card.notes.includes("Redis") || card.notes.includes("PostgreSQL")) && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F43F5E]/10 border border-[#F43F5E]/25 text-[#F43F5E]">
                                 <span>⚠️ Needs Verification</span>
                               </span>
                             )}
                             {card.salary && (
-                              <span className="text-[10px] text-[#969085] font-medium truncate">
+                              <span className="text-[10px] text-[#71717A] font-medium truncate">
                                 {card.salary}
                               </span>
                             )}
@@ -760,7 +760,7 @@ export default function TrackerPage() {
 
                         {/* Next Action Date / Step or Added Date */}
                         {card.nextStep ? (
-                          <div className="flex items-center gap-1.5 text-[10px] text-amber-300 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
+                          <div className="flex items-center gap-1.5 text-[10px] text-[#F59E0B] bg-[#F59E0B]/10 px-2 py-1 rounded-md border border-[#F59E0B]/20">
                             <Clock className="w-3 h-3 shrink-0" />
                             <span className="truncate">
                               {card.nextStep}
@@ -768,13 +768,13 @@ export default function TrackerPage() {
                             </span>
                           </div>
                         ) : card.appliedDate ? (
-                          <div className="text-[10px] text-[#969085] flex items-center gap-1">
+                          <div className="text-[10px] text-[#71717A] flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             <span>Applied: {card.appliedDate}</span>
                           </div>
                         ) : (
-                          <div className="text-[10px] text-[#969085] flex items-center gap-1">
-                            <Briefcase className="w-3 h-3 text-[#969085]/70" />
+                          <div className="text-[10px] text-[#71717A] flex items-center gap-1">
+                            <Briefcase className="w-3 h-3 text-[#52525B]" />
                             <span className="truncate">
                               {card.source ? `Source: ${card.source}` : "Discovered opportunity"}
                             </span>
@@ -791,10 +791,10 @@ export default function TrackerPage() {
                           className={clsx(
                             "mt-2.5 w-full py-1.5 px-3 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
                             card.status === "Interview" || card.status === "Phone Screen"
-                              ? "bg-[#B293E2] hover:bg-[#C3A9EB] border-[#B293E2] text-[#0A0B0F]"
+                              ? "bg-[#F5F5F5] hover:bg-[#E4E4E7] border-[#F5F5F5] text-[#000000]"
                               : card.status === "Applied"
-                              ? "bg-[#1D1D26] hover:bg-[#262633] border-[#735BA0]/45 text-[#B293E2]"
-                              : "bg-[#111218] hover:bg-[#1D1D26] border-[#262733] text-[#969085] hover:text-[#F8F8F9]"
+                              ? "bg-[#121212] hover:bg-[#1A1A1A] border-[#292929] text-[#F5F5F5]"
+                              : "bg-[#121212] hover:bg-[#1A1A1A] border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5]"
                           )}
                         >
                           <BookOpen className="w-3.5 h-3.5" />
@@ -809,14 +809,14 @@ export default function TrackerPage() {
                     <div className="flex-1 flex flex-col items-center justify-center py-10 px-4 text-center">
                       {isFirstStage ? (
                         <div className="space-y-3">
-                          <div className="w-10 h-10 rounded-lg bg-[#171820] border border-[#262733] text-[#B293E2] flex items-center justify-center mx-auto">
+                          <div className="w-10 h-10 rounded-lg bg-[#121212] border border-[#292929] text-[#A1A1AA] flex items-center justify-center mx-auto">
                             <Briefcase className="w-5 h-5" />
                           </div>
                           <div className="space-y-1">
-                            <p className="text-xs font-semibold text-[#F8F8F9]">
+                            <p className="text-xs font-semibold text-[#F5F5F5]">
                               No jobs added yet.
                             </p>
-                            <p className="text-[11px] text-[#969085] max-w-[200px] mx-auto leading-relaxed">
+                            <p className="text-[11px] text-[#71717A] max-w-[200px] mx-auto leading-relaxed">
                               Start building your application pipeline by importing jobs from Job Discovery.
                             </p>
                           </div>
@@ -824,7 +824,7 @@ export default function TrackerPage() {
                             <button
                               type="button"
                               onClick={handleAutoScoutAndSeed}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] text-xs font-semibold transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] text-xs font-semibold transition-colors cursor-pointer"
                             >
                               <Bot className="w-3.5 h-3.5" />
                               <span>🤖 Find Jobs Automatically</span>
@@ -832,38 +832,38 @@ export default function TrackerPage() {
                           </div>
                         </div>
                       ) : stage.id === "applied" || stage.id === "Applied" ? (
-                        <div className="space-y-1.5 text-[#969085]">
-                          <div className="w-8 h-8 rounded-lg bg-[#171820] border border-[#262733] flex items-center justify-center mx-auto text-[#B293E2]">
+                        <div className="space-y-1.5 text-[#71717A]">
+                          <div className="w-8 h-8 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center mx-auto text-[#38BDF8]">
                             <Send className="w-4 h-4" />
                           </div>
-                          <p className="text-xs font-medium text-[#F8F8F9]">
+                          <p className="text-xs font-medium text-[#F5F5F5]">
                             No applications in this stage
                           </p>
-                          <p className="text-[10px] text-[#969085] max-w-[180px] mx-auto leading-relaxed">
+                          <p className="text-[10px] text-[#71717A] max-w-[180px] mx-auto leading-relaxed">
                             Drag jobs here once you submit an application or complete an OA.
                           </p>
                         </div>
                       ) : stage.id === "interviewing" || stage.id === "Interview" || stage.id === "Phone Screen" ? (
-                        <div className="space-y-1.5 text-[#969085]">
-                          <div className="w-8 h-8 rounded-lg bg-[#171820] border border-[#262733] flex items-center justify-center mx-auto text-amber-400">
+                        <div className="space-y-1.5 text-[#71717A]">
+                          <div className="w-8 h-8 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center mx-auto text-[#F59E0B]">
                             <Calendar className="w-4 h-4" />
                           </div>
-                          <p className="text-xs font-medium text-[#F8F8F9]">
+                          <p className="text-xs font-medium text-[#F5F5F5]">
                             No interviews scheduled
                           </p>
-                          <p className="text-[10px] text-[#969085] max-w-[180px] mx-auto leading-relaxed">
+                          <p className="text-[10px] text-[#71717A] max-w-[180px] mx-auto leading-relaxed">
                             Move applications here when interview rounds or screenings are confirmed.
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-1.5 text-[#969085]">
-                          <div className="w-8 h-8 rounded-lg bg-[#171820] border border-[#262733] flex items-center justify-center mx-auto text-emerald-400">
+                        <div className="space-y-1.5 text-[#71717A]">
+                          <div className="w-8 h-8 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center mx-auto text-[#10B981]">
                             <Award className="w-4 h-4" />
                           </div>
-                          <p className="text-xs font-medium text-[#F8F8F9]">
+                          <p className="text-xs font-medium text-[#F5F5F5]">
                             No final decisions yet
                           </p>
-                          <p className="text-[10px] text-[#969085] max-w-[180px] mx-auto leading-relaxed">
+                          <p className="text-[10px] text-[#71717A] max-w-[180px] mx-auto leading-relaxed">
                             Track job offers, negotiations, and outcome decisions here.
                           </p>
                         </div>
@@ -877,10 +877,10 @@ export default function TrackerPage() {
         </div>
       ) : (
         /* Table / List View */
-        <div className="rounded-xl border border-[#22232D] bg-[#111218] overflow-hidden">
+        <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#171820] text-[#969085] border-b border-[#22232D] uppercase text-[10px] tracking-wider">
+              <thead className="bg-[#0A0A0A] text-[#71717A] border-b border-[#1D1D1D] uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Company</th>
                   <th className="py-3 px-4">Role</th>
@@ -890,18 +890,18 @@ export default function TrackerPage() {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#22232D] text-[#969085]">
+              <tbody className="divide-y divide-[#171717] text-[#A1A1AA]">
                 {filteredCards.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-16 text-center">
                       <div className="max-w-sm mx-auto space-y-3">
-                        <div className="w-12 h-12 rounded-xl bg-[#171820] border border-[#262733] text-[#B293E2] flex items-center justify-center mx-auto">
+                        <div className="w-12 h-12 rounded-xl bg-[#121212] border border-[#292929] text-[#A1A1AA] flex items-center justify-center mx-auto">
                           <Briefcase className="w-6 h-6" />
                         </div>
-                        <h4 className="text-sm font-semibold text-[#F8F8F9]">
+                        <h4 className="text-sm font-semibold text-[#F5F5F5]">
                           No applications in pipeline
                         </h4>
-                        <p className="text-xs text-[#969085]">
+                        <p className="text-xs text-[#71717A]">
                           Switch to Kanban view or import open positions from live job APIs directly into your Saved / Wishlist.
                         </p>
                         <Button
@@ -924,16 +924,16 @@ export default function TrackerPage() {
                     <tr
                       key={card.id}
                       onClick={() => setSelectedCard(card)}
-                      className="hover:bg-[#171820]/70 cursor-pointer transition-colors"
+                      className="hover:bg-[#121212] cursor-pointer transition-colors"
                     >
-                      <td className="py-3.5 px-4 font-semibold text-[#F8F8F9] flex items-center gap-2.5">
-                        <div className="w-6 h-6 rounded bg-[#1D1D26] border border-[#735BA0]/30 text-[#B293E2] font-bold text-[10px] flex items-center justify-center shrink-0">
+                      <td className="py-3.5 px-4 font-semibold text-[#F5F5F5] flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded bg-[#121212] border border-[#292929] text-[#F5F5F5] font-bold text-[10px] flex items-center justify-center shrink-0">
                           {card.logo || card.company.slice(0, 2).toUpperCase()}
                         </div>
                         <span>{card.company}</span>
                       </td>
 
-                      <td className="py-3.5 px-4 font-medium text-[#F8F8F9]/90">
+                      <td className="py-3.5 px-4 font-medium text-[#F5F5F5]/90">
                         {card.title}
                       </td>
 
@@ -958,7 +958,7 @@ export default function TrackerPage() {
                             <option
                               key={s}
                               value={s}
-                              className="bg-[#111218] text-[#F8F8F9]"
+                              className="bg-[#0D0D0D] text-[#F5F5F5]"
                             >
                               {STATUS_DISPLAY_LABEL[s] || s}
                             </option>
@@ -969,17 +969,17 @@ export default function TrackerPage() {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5">
                           {card.matchScore > 0 ? (
-                            <span className="text-emerald-400 font-bold tabular-nums">
+                            <span className="text-[#10B981] font-bold tabular-nums">
                               {card.matchScore}%
                             </span>
                           ) : null}
                           {card.salary && (
-                            <span className="text-[#969085] text-[11px]">
+                            <span className="text-[#71717A] text-[11px]">
                               {card.matchScore > 0 ? "• " : ""}{card.salary}
                             </span>
                           )}
                           {!card.salary && (!card.matchScore || card.matchScore === 0) && (
-                            <span className="text-[#969085]/75 text-[11px]">Not specified</span>
+                            <span className="text-[#52525B] text-[11px]">Not specified</span>
                           )}
                         </div>
                       </td>
@@ -1002,7 +1002,7 @@ export default function TrackerPage() {
                         <button
                           type="button"
                           onClick={() => handleDeleteCard(card.id)}
-                          className="text-[#969085] hover:text-rose-400 p-1 transition-colors cursor-pointer"
+                          className="text-[#71717A] hover:text-[#F43F5E] p-1 transition-colors cursor-pointer"
                           title="Delete Application"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1019,26 +1019,26 @@ export default function TrackerPage() {
 
       {/* Slide-over Detail Panel */}
       {selectedCard && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#111218] border-l border-[#2A2B38] h-full p-6 overflow-y-auto space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 animate-fadeIn">
+          <div className="w-full max-w-md bg-[#0D0D0D] border-l border-[#1D1D1D] h-full p-6 overflow-y-auto space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-[#22232D]">
+            <div className="flex items-start justify-between pb-4 border-b border-[#1D1D1D]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#171820] border border-[#262733] text-[#B293E2] font-bold text-sm flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-[#121212] border border-[#292929] text-[#F5F5F5] font-bold text-sm flex items-center justify-center shrink-0">
                   {selectedCard.logo || selectedCard.company.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#F8F8F9]">
+                  <h3 className="text-base font-bold text-[#F5F5F5]">
                     {selectedCard.company}
                   </h3>
-                  <p className="text-xs text-[#969085]">{selectedCard.title}</p>
+                  <p className="text-xs text-[#A1A1AA]">{selectedCard.title}</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setSelectedCard(null)}
-                className="p-1 rounded-lg text-[#969085] hover:text-[#F8F8F9] hover:bg-[#171820] cursor-pointer"
+                className="p-1 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1046,7 +1046,7 @@ export default function TrackerPage() {
 
             {/* Status Selector */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-[#F8F8F9]">
+              <label className="text-xs font-semibold text-[#F5F5F5]">
                 Pipeline Stage
               </label>
               <select
@@ -1057,10 +1057,10 @@ export default function TrackerPage() {
                     e.target.value as KanbanStatus
                   )
                 }
-                className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg p-2.5 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2]"
+                className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg p-2.5 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
               >
                 {ALL_STATUSES.map((s) => (
-                  <option key={s} value={s} className="bg-[#111218]">
+                  <option key={s} value={s} className="bg-[#0D0D0D]">
                     {STATUS_DISPLAY_LABEL[s] || s}
                   </option>
                 ))}
@@ -1069,23 +1069,23 @@ export default function TrackerPage() {
 
             {/* External Links & Metadata */}
             {(selectedCard.url || selectedCard.sourceUrl || selectedCard.location || selectedCard.closingDate) && (
-              <div className="p-3 rounded-xl bg-[#171820] border border-[#22232D] space-y-2 text-xs">
-                {selectedCard.location && <p className="text-[#969085]">Location: {selectedCard.location}</p>}
-                {selectedCard.source && <p className="text-[#969085]">Source: {selectedCard.source}</p>}
+              <div className="p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-2 text-xs">
+                {selectedCard.location && <p className="text-[#A1A1AA]">Location: {selectedCard.location}</p>}
+                {selectedCard.source && <p className="text-[#A1A1AA]">Source: {selectedCard.source}</p>}
                 {selectedCard.closingDate && (
-                  <p className="text-[#969085]">
+                  <p className="text-[#A1A1AA]">
                     Deadline: {selectedCard.closingDate}
                     {selectedCard.deadlineProvenance === "verified_source" ? " · verified by source" : " · user entered"}
                   </p>
                 )}
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {selectedCard.url && (
-                    <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="text-[#B293E2] hover:text-[#C3A9EB] inline-flex items-center gap-1">
+                    <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="text-[#F5F5F5] hover:text-[#A1A1AA] underline inline-flex items-center gap-1">
                       Application page <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                   {selectedCard.sourceUrl && selectedCard.sourceUrl !== selectedCard.url && (
-                    <a href={selectedCard.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[#B293E2] hover:text-[#C3A9EB] inline-flex items-center gap-1">
+                    <a href={selectedCard.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[#F5F5F5] hover:text-[#A1A1AA] underline inline-flex items-center gap-1">
                       Listing source <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -1096,7 +1096,7 @@ export default function TrackerPage() {
             {/* Priority & Match */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <span className="text-[10px] text-[#969085] uppercase tracking-wider font-semibold">
+                <span className="text-[10px] text-[#71717A] uppercase tracking-wider font-semibold">
                   Match Score
                 </span>
                 <p className="text-xl font-bold text-emerald-400 tabular-nums">
@@ -1105,36 +1105,36 @@ export default function TrackerPage() {
               </div>
 
               <div className="space-y-1">
-                <span className="text-[10px] text-[#969085] uppercase tracking-wider font-semibold">
+                <span className="text-[10px] text-[#71717A] uppercase tracking-wider font-semibold">
                   Priority
                 </span>
-                <p className="text-sm font-semibold capitalize text-[#F8F8F9]">
+                <p className="text-sm font-semibold capitalize text-[#F5F5F5]">
                   {selectedCard.priority} Priority
                 </p>
               </div>
             </div>
 
             {/* Next Steps & Action Dates */}
-            <div className="p-4 rounded-xl bg-[#171820] border border-[#22232D] space-y-2">
+            <div className="p-4 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#F8F8F9] flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
                   Next Step Action
                 </span>
                 {selectedCard.nextStepDate && (
-                  <span className="text-[10px] text-[#969085]">
+                  <span className="text-[10px] text-[#71717A]">
                     {selectedCard.nextStepDate}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#969085]">
+              <p className="text-xs text-[#A1A1AA]">
                 {selectedCard.nextStep || "No scheduled interview or next action set."}
               </p>
             </div>
 
             {/* Notes Section */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-[#F8F8F9]">
+              <label className="text-xs font-semibold text-[#F5F5F5]">
                 Application Notes
               </label>
               <textarea
@@ -1146,9 +1146,9 @@ export default function TrackerPage() {
                   showToast("Saved application notes.");
                 }}
                 placeholder="Add preparation links, interviewer feedback, or notes..."
-                className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg p-3 text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2]"
+                className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg p-3 text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929]"
               />
-              <span className="text-[10px] text-[#969085]">
+              <span className="text-[10px] text-[#71717A]">
                 Auto-saves when you click out of the box.
               </span>
             </div>
@@ -1157,14 +1157,14 @@ export default function TrackerPage() {
             <button
               type="button"
               onClick={() => handlePracticeInterview(selectedCard)}
-              className="w-full py-2.5 px-4 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>🎙️ Practice Interview for This Role</span>
             </button>
 
             {/* Footer Actions */}
-            <div className="pt-4 border-t border-[#22232D] flex items-center justify-between">
+            <div className="pt-4 border-t border-[#1D1D1D] flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => handleDeleteCard(selectedCard.id)}

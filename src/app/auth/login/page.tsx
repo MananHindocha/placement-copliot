@@ -56,16 +56,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#171820] border border-[#2A2B38] mb-3">
-            <GraduationCap className="w-6 h-6 text-[#B293E2]" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] mb-3">
+            <GraduationCap className="w-6 h-6 text-[#A78BFA]" />
           </div>
-          <h1 className="text-2xl font-bold text-[#F8F8F9] tracking-tight">Placement Co-pilot</h1>
-          <p className="text-sm text-[#969085] mt-1">
+          <h1 className="text-2xl font-bold text-[#F5F5F5] tracking-tight">Placement Co-pilot</h1>
+          <p className="text-sm text-[#A1A1AA] mt-1">
             Sign in to access your persistent job search dashboard
           </p>
 
           {/* Config status badge */}
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-[#111218] border-[#22232D] text-[#969085]">
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-[#0D0D0D] border-[#1D1D1D] text-[#A1A1AA]">
             {configured ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -81,9 +81,9 @@ export default function LoginPage() {
         </div>
 
         {/* Auth Card */}
-        <div className="rounded-2xl bg-[#111218] border border-[#22232D] p-6 sm:p-8 shadow-xl">
+        <div className="rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] p-6 sm:p-8">
           {/* Mode Switcher */}
-          <div className="grid grid-cols-2 p-1 rounded-xl bg-[#0A0B0F] border border-[#22232D] mb-6 text-sm">
+          <div className="grid grid-cols-2 p-1 rounded-xl bg-[#050505] border border-[#1D1D1D] mb-6 text-sm">
             <button
               type="button"
               onClick={() => {
@@ -93,8 +93,8 @@ export default function LoginPage() {
               }}
               className={`py-2 rounded-lg font-medium transition-colors cursor-pointer ${
                 mode === "signin"
-                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                  : "text-[#969085] hover:text-[#F8F8F9]"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5]"
               }`}
             >
               Sign In
@@ -108,8 +108,8 @@ export default function LoginPage() {
               }}
               className={`py-2 rounded-lg font-medium transition-colors cursor-pointer ${
                 mode === "signup"
-                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                  : "text-[#969085] hover:text-[#F8F8F9]"
+                  ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                  : "text-[#71717A] hover:text-[#F5F5F5]"
               }`}
             >
               Create Account
@@ -135,7 +135,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <div>
-                <label className="block text-xs font-semibold text-[#F8F8F9] mb-1.5">
+                <label className="block text-xs font-semibold text-[#F5F5F5] mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -144,13 +144,13 @@ export default function LoginPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Arjun Kumar"
-                  className="w-full px-3.5 py-2.5 text-sm bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+                  className="w-full px-3.5 py-2.5 text-sm bg-[#080808] border border-[#1D1D1D] rounded-xl text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-[#F8F8F9] mb-1.5">
+              <label className="block text-xs font-semibold text-[#F5F5F5] mb-1.5">
                 Email Address
               </label>
               <input
@@ -159,12 +159,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@university.edu"
-                className="w-full px-3.5 py-2.5 text-sm bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+                className="w-full px-3.5 py-2.5 text-sm bg-[#080808] border border-[#1D1D1D] rounded-xl text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#F8F8F9] mb-1.5">
+              <label className="block text-xs font-semibold text-[#F5F5F5] mb-1.5">
                 Password
               </label>
               <input
@@ -174,7 +174,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 text-sm bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+                className="w-full px-3.5 py-2.5 text-sm bg-[#080808] border border-[#1D1D1D] rounded-xl text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
               />
             </div>
 
@@ -196,26 +196,26 @@ export default function LoginPage() {
               {/* Divider */}
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#22232D]" />
+                  <div className="w-full border-t border-[#171717]" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-[#111218] px-3 text-[#969085]">Or explore without an account</span>
+                  <span className="bg-[#0D0D0D] px-3 text-[#71717A]">Or explore without an account</span>
                 </div>
               </div>
 
               {/* Demo Mode Button */}
               <Link
                 href="/dashboard"
-                className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#171820] border border-[#262733] hover:bg-[#1D1D26] hover:border-[#735BA0]/45 text-[#969085] hover:text-[#F8F8F9] transition-colors text-sm font-medium group"
+                className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] hover:bg-[#121212] hover:border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors text-sm font-medium group"
               >
-                <Sparkles className="w-4 h-4 text-[#B293E2]" />
+                <Sparkles className="w-4 h-4 text-[#A78BFA]" />
                 <span>Continue in Demo Mode</span>
-                <ArrowRight className="w-4 h-4 text-[#969085] group-hover:translate-x-0.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-[#71717A] group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </>
           )}
 
-          <p className="mt-4 text-center text-xs text-[#969085] flex items-center justify-center gap-1.5">
+          <p className="mt-4 text-center text-xs text-[#71717A] flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Secure Supabase RLS ownership isolation</span>
           </p>

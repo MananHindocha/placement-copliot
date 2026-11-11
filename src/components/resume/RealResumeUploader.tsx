@@ -189,36 +189,36 @@ export default function RealResumeUploader({
         className={clsx(
           "group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 sm:p-12 text-center transition-colors cursor-pointer",
           dragActive
-            ? "border-[#B293E2] bg-[#1D1D26]"
-            : "border-[#2A2B38] bg-[#111218] hover:border-[#735BA0]/70 hover:bg-[#171820]",
+            ? "border-[#A78BFA] bg-[#121212]"
+            : "border-[#292929] bg-[#0D0D0D] hover:border-[#3F3F46] hover:bg-[#121212]",
           isUploading && "pointer-events-none opacity-85"
         )}
       >
         {isUploading ? (
           <div className="flex flex-col items-center space-y-3 relative z-10">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#171820] border border-[#735BA0]/40 text-[#B293E2]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#121212] border border-[#292929] text-[#A78BFA]">
               <Loader2 className="h-7 w-7 animate-spin" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-base font-bold text-[#F8F8F9]">
+              <h4 className="text-base font-bold text-[#F5F5F5]">
                 Reading and extracting {uploadFileName}...
               </h4>
-              <p className="text-xs text-[#B293E2]">
+              <p className="text-xs text-[#A1A1AA]">
                 Parsing verified skills, projects, and computing real ATS score with AI...
               </p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center space-y-3 relative z-10 max-w-lg">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#171820] border border-[#262733] text-[#B293E2] group-hover:border-[#735BA0]/60 transition-colors">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#121212] border border-[#292929] text-[#A1A1AA] group-hover:text-[#F5F5F5] group-hover:border-[#3F3F46] transition-colors">
               <Upload className="h-7 w-7" />
             </div>
 
             <div className="space-y-1">
-              <h4 className="text-base sm:text-lg font-bold text-[#F8F8F9]">
+              <h4 className="text-base sm:text-lg font-bold text-[#F5F5F5]">
                 {headline}
               </h4>
-              <p className="text-xs text-[#969085] leading-relaxed">
+              <p className="text-xs text-[#71717A] leading-relaxed">
                 {description}
               </p>
             </div>
@@ -226,12 +226,12 @@ export default function RealResumeUploader({
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] px-5 py-2.5 text-xs font-semibold text-[#0A0B0F] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] px-5 py-2.5 text-xs font-semibold text-[#000000] transition-colors cursor-pointer"
               >
                 <FileText className="h-4 w-4" />
                 <span>Browse &amp; Upload File</span>
               </button>
-              <span className="text-[11px] text-[#969085]">Supports PDF, DOCX, TXT (up to 10MB)</span>
+              <span className="text-[11px] text-[#71717A]">Supports PDF, DOCX, TXT (up to 10MB)</span>
             </div>
           </div>
         )}
@@ -239,8 +239,8 @@ export default function RealResumeUploader({
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="rounded-xl border border-rose-500/25 bg-[#171820] p-4 flex items-center gap-3 text-xs text-rose-300">
-          <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
+        <div className="rounded-xl border border-[#F43F5E]/25 bg-[#0D0D0D] p-4 flex items-center gap-3 text-xs text-[#F43F5E]">
+          <AlertCircle className="h-5 w-5 text-[#F43F5E] shrink-0" />
           <div className="flex-1">
             <span className="font-bold">Upload Failed: </span>
             <span>{errorMessage}</span>
@@ -250,14 +250,14 @@ export default function RealResumeUploader({
 
       {/* Success Notification */}
       {successData && (
-        <div className="rounded-xl border border-emerald-500/25 bg-[#171820] p-4 flex items-center justify-between gap-3 text-xs text-emerald-300 animate-in fade-in slide-in-from-top-2">
+        <div className="rounded-xl border border-[#10B981]/25 bg-[#0D0D0D] p-4 flex items-center justify-between gap-3 text-xs text-[#10B981] animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2.5">
-            <FileCheck className="h-5 w-5 text-emerald-400 shrink-0" />
+            <FileCheck className="h-5 w-5 text-[#10B981] shrink-0" />
             <div>
-              <p className="font-bold text-[#F8F8F9]">
+              <p className="font-bold text-[#F5F5F5]">
                 Successfully parsed {successData.fileName}!
               </p>
-              <p className="text-[11px] text-[#969085] mt-0.5">
+              <p className="text-[11px] text-[#71717A] mt-0.5">
                 Extracted {successData.skills.length} skills, {successData.projectsCount} projects • Initial ATS Score: {successData.atsScore}%
               </p>
             </div>

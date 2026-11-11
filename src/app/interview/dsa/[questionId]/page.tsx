@@ -28,17 +28,17 @@ export default async function DsaQuestionPage({ params }: PageProps) {
   if (!problem) {
     return (
       <div className="max-w-2xl mx-auto py-16 px-4">
-        <Card className="p-8 text-center space-y-5 bg-[#111218] border-[#22232D] rounded-xl">
-          <div className="w-12 h-12 rounded-xl bg-rose-500/12 text-rose-400 border border-rose-500/25 flex items-center justify-center mx-auto">
+        <Card className="p-8 text-center space-y-5 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl">
+          <div className="w-12 h-12 rounded-xl bg-[#F43F5E]/10 text-[#F43F5E] border border-[#F43F5E]/25 flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>
 
           <div>
-            <h1 className="text-xl font-bold text-[#F8F8F9] mb-2">
+            <h1 className="text-xl font-bold text-[#F5F5F5] mb-2">
               Problem Not Found
             </h1>
-            <p className="text-xs text-[#969085] max-w-md mx-auto">
-              We couldn&apos;t find a coding challenge with identifier <span className="font-mono text-[#B293E2] font-bold">&ldquo;{questionId}&rdquo;</span>. Please check the problem number or return to the problemset.
+            <p className="text-xs text-[#A1A1AA] max-w-md mx-auto">
+              We couldn&apos;t find a coding challenge with identifier <span className="font-mono text-[#F5F5F5] font-bold">&ldquo;{questionId}&rdquo;</span>. Please check the problem number or return to the problemset.
             </p>
           </div>
 

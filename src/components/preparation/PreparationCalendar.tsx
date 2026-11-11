@@ -27,10 +27,10 @@ const CATEGORY_DOT_ORDER: CalendarActivityCategory[] = [
 ];
 
 const CATEGORY_DOT_COLORS: Record<CalendarActivityCategory, string> = {
-  readiness: "bg-[#B293E2]",
-  interview: "bg-amber-400",
-  dsa: "bg-sky-400",
-  application: "bg-emerald-400",
+  readiness: "bg-[#A78BFA]",
+  interview: "bg-[#F59E0B]",
+  dsa: "bg-[#38BDF8]",
+  application: "bg-[#10B981]",
 };
 
 interface CalendarCell {
@@ -115,10 +115,10 @@ export default function PreparationCalendar({
   };
 
   return (
-    <div className="rounded-xl border border-[#22232D] bg-[#171820]/70 p-3 space-y-2.5">
+    <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-3 space-y-2.5">
       {/* Month / Year Navigation */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-[#F8F8F9] tracking-tight">
+        <span className="text-xs font-semibold text-[#F5F5F5] tracking-tight">
           {monthLabel}
         </span>
 
@@ -127,7 +127,7 @@ export default function PreparationCalendar({
             <button
               type="button"
               onClick={handleResetToday}
-              className="px-2 py-0.5 rounded-md text-[10px] font-medium text-[#B293E2] bg-[#1D1D26] border border-[#735BA0]/40 hover:bg-[#262733] transition-colors cursor-pointer mr-0.5"
+              className="px-2 py-0.5 rounded-md text-[10px] font-medium text-[#A78BFA] bg-[#121212] border border-[#292929] hover:bg-[#1A1A1A] transition-colors cursor-pointer mr-0.5"
             >
               Today
             </button>
@@ -136,7 +136,7 @@ export default function PreparationCalendar({
             type="button"
             onClick={handlePrevMonth}
             aria-label="Previous month"
-            className="w-6 h-6 rounded-md flex items-center justify-center bg-[#111218] border border-[#22232D] text-[#969085] hover:text-[#F8F8F9] hover:border-[#313241] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md flex items-center justify-center bg-[#0D0D0D] border border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5] hover:border-[#292929] transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -144,7 +144,7 @@ export default function PreparationCalendar({
             type="button"
             onClick={handleNextMonth}
             aria-label="Next month"
-            className="w-6 h-6 rounded-md flex items-center justify-center bg-[#111218] border border-[#22232D] text-[#969085] hover:text-[#F8F8F9] hover:border-[#313241] transition-colors cursor-pointer"
+            className="w-6 h-6 rounded-md flex items-center justify-center bg-[#0D0D0D] border border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5] hover:border-[#292929] transition-colors cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -156,7 +156,7 @@ export default function PreparationCalendar({
         {WEEKDAYS.map((day) => (
           <div
             key={day}
-            className="text-[10px] font-semibold text-[#969085]/80 uppercase tracking-wider py-0.5"
+            className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider py-0.5"
           >
             {day}
           </div>
@@ -189,12 +189,12 @@ export default function PreparationCalendar({
               className={clsx(
                 "relative h-8 rounded-lg flex flex-col items-center justify-center text-[11px] tabular-nums transition-colors cursor-pointer select-none",
                 isSelected
-                  ? "bg-[#B293E2] text-[#0A0B0F] font-bold"
+                  ? "bg-[#121212] text-[#F5F5F5] font-semibold ring-1 ring-[#A78BFA]"
                   : isToday
-                  ? "bg-[#1D1D26] text-[#B293E2] font-bold ring-1 ring-[#B293E2]/60 hover:bg-[#242533]"
+                  ? "bg-[#0D0D0D] text-[#F5F5F5] font-semibold border border-[#292929] hover:bg-[#121212]"
                   : cell.inCurrentMonth
-                  ? "text-[#F8F8F9] hover:bg-[#1D1D26] font-medium"
-                  : "text-[#969085]/40 hover:bg-[#1D1D26]/50"
+                  ? "text-[#F5F5F5] hover:bg-[#121212] font-medium"
+                  : "text-[#52525B] hover:bg-[#0D0D0D]"
               )}
             >
               <span className="leading-none">{cell.dayNumber}</span>
@@ -207,7 +207,7 @@ export default function PreparationCalendar({
                       key={cat}
                       className={clsx(
                         "w-1 h-1 rounded-full",
-                        isSelected ? "bg-[#0A0B0F]/75" : CATEGORY_DOT_COLORS[cat]
+                        CATEGORY_DOT_COLORS[cat]
                       )}
                     />
                   ))}
@@ -219,21 +219,21 @@ export default function PreparationCalendar({
       </div>
 
       {/* Understated Legend */}
-      <div className="pt-2 border-t border-[#22232D] flex items-center justify-between gap-2 text-[10px] text-[#969085]">
+      <div className="pt-2 border-t border-[#171717] flex items-center justify-between gap-2 text-[10px] text-[#71717A]">
         <span className="inline-flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#B293E2]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#A78BFA]" />
           Study
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
           Interview
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
           DSA/Tech
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
           Apps
         </span>
       </div>

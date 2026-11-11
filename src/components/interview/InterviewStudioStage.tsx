@@ -419,8 +419,8 @@ export default function InterviewStudioStage({
     const drawVirtualFrame = () => {
       frame++;
       const grad = ctx.createLinearGradient(0, 0, 640, 480);
-      grad.addColorStop(0, "#111218");
-      grad.addColorStop(1, "#0A0B0F");
+      grad.addColorStop(0, "#0A0A0A");
+      grad.addColorStop(1, "#000000");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 640, 480);
 
@@ -443,7 +443,7 @@ export default function InterviewStudioStage({
       const headX = 320 + Math.sin(frame * 0.02) * 5;
       const headY = 210 + breathe;
 
-      ctx.fillStyle = "#1D1D26";
+      ctx.fillStyle = "#171717";
       ctx.beginPath();
       ctx.ellipse(headX, headY, 65, 80, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -874,25 +874,25 @@ export default function InterviewStudioStage({
   const activeStartCardTitle = startCardTitle || (isGrillMode ? "Ready for Your Technical Grill?" : "Ready to Begin Your Interview?");
   const activeStartCardDesc = startCardDescription || (isGrillMode ? "Your AI interviewer is ready to challenge your engineering decisions, architecture, and implementation choices." : "Your AI interviewer is ready. Make sure your camera and microphone are available before starting.");
   const activeStartCardIndicators = startCardIndicators || (isGrillMode ? [
-    { label: "AI Technical Interviewer", dotColor: "bg-amber-400" },
-    { label: "Repository-Aware Questions", dotColor: "bg-emerald-400" },
-    { label: "Voice & Video Analysis", dotColor: "bg-indigo-400" },
-    { label: "Architecture Trade-offs", dotColor: "bg-violet-400" },
+    { label: "AI Technical Interviewer", dotColor: "bg-[#F59E0B]" },
+    { label: "Repository-Aware Questions", dotColor: "bg-[#10B981]" },
+    { label: "Voice & Video Analysis", dotColor: "bg-[#A78BFA]" },
+    { label: "Architecture Trade-offs", dotColor: "bg-[#38BDF8]" },
   ] : [
-    { label: "AI Interviewer (TTS)", dotColor: "bg-emerald-400" },
-    { label: "Voice & WPM Telemetry", dotColor: "bg-indigo-400" },
-    { label: "STAR AI Evaluation", dotColor: "bg-violet-400" },
-    { label: "Visual Telemetry", dotColor: "bg-amber-400" },
+    { label: "AI Interviewer (TTS)", dotColor: "bg-[#10B981]" },
+    { label: "Voice & WPM Telemetry", dotColor: "bg-[#A78BFA]" },
+    { label: "STAR AI Evaluation", dotColor: "bg-[#38BDF8]" },
+    { label: "Visual Telemetry", dotColor: "bg-[#F59E0B]" },
   ]);
 
   return (
     <div className="max-w-7xl mx-auto pb-16 relative">
       {/* ─── HEADER BAR (Unblurred so navigation & history are always accessible) ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#22232D] gap-4 mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#1D1D1D] gap-4 mb-5">
         <div>
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1.5 text-xs text-[#B293E2] hover:text-[#C3A9EB] transition-colors mb-2 group font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors mb-2 group font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span>
@@ -903,31 +903,31 @@ export default function InterviewStudioStage({
                 : "Back to Interview Modes"}
             </span>
           </Link>
-          <h1 className="text-2xl font-bold text-[#F8F8F9] flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-[#F5F5F5] flex items-center gap-2.5">
             <div className={clsx(
               "p-1.5 rounded-lg border",
-              isGrillMode ? "bg-[#171820] text-amber-400 border-[#262733]" : "bg-[#171820] text-[#B293E2] border-[#262733]"
+              isGrillMode ? "bg-[#121212] text-[#F59E0B] border-[#292929]" : "bg-[#121212] text-[#A78BFA] border-[#292929]"
             )}>
-              {isGrillMode ? <Flame className="w-6 h-6 text-amber-400" /> : <Brain className="w-6 h-6 text-[#B293E2]" />}
+              {isGrillMode ? <Flame className="w-6 h-6 text-[#F59E0B]" /> : <Brain className="w-6 h-6 text-[#A78BFA]" />}
             </div>
             <span>{pageTitle}</span>
           </h1>
-          <p className="text-xs text-[#969085] mt-1">{pageSubtitle}</p>
+          <p className="text-xs text-[#A1A1AA] mt-1">{pageSubtitle}</p>
         </div>
 
         {/* View Switcher: Studio vs Session History */}
-        <div className="flex items-center gap-1.5 bg-[#111218] p-1 rounded-xl border border-[#22232D] self-start sm:self-auto flex-wrap">
+        <div className="flex items-center gap-1.5 bg-[#0A0A0A] p-1 rounded-xl border border-[#1D1D1D] self-start sm:self-auto flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab("practice")}
             className={clsx(
               "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer",
               activeTab === "practice"
-                ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                : "text-[#969085] hover:text-[#F8F8F9]"
+                ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                : "text-[#71717A] hover:text-[#F5F5F5]"
             )}
           >
-            <Mic className="w-3.5 h-3.5 text-[#B293E2]" />
+            <Mic className="w-3.5 h-3.5 text-[#A78BFA]" />
             AI Studio Stage
           </button>
           <button
@@ -936,20 +936,20 @@ export default function InterviewStudioStage({
             className={clsx(
               "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer tabular-nums",
               activeTab === "history"
-                ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                : "text-[#969085] hover:text-[#F8F8F9]"
+                ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                : "text-[#71717A] hover:text-[#F5F5F5]"
             )}
           >
-            <Clock className="w-3.5 h-3.5 text-[#B293E2]" />
+            <Clock className="w-3.5 h-3.5 text-[#A1A1AA]" />
             Session History ({sessions.length})
           </button>
           <button
             type="button"
             onClick={() => setShowScorecardModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#171820] hover:bg-[#1D1D26] text-amber-300 border border-amber-500/25 transition-colors cursor-pointer tabular-nums"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#121212] hover:bg-[#1A1A1A] text-[#F59E0B] border border-[#F59E0B]/25 transition-colors cursor-pointer tabular-nums"
             title="View Round Scorecard and Hiring Verdict"
           >
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <Trophy className="w-3.5 h-3.5 text-[#F59E0B]" />
             <span>Scorecard ({allRoundTurns.length})</span>
           </button>
         </div>
@@ -957,11 +957,11 @@ export default function InterviewStudioStage({
 
       {error && <ErrorBanner message={error} onRetry={() => setError(null)} />}
       {saveSuccessMsg && (
-        <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-300 text-xs flex items-center justify-between">
+        <div className="mb-4 p-3 bg-[#10B981]/10 border border-[#10B981]/25 rounded-xl text-[#10B981] text-xs flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {saveSuccessMsg}
+            <CheckCircle2 className="w-4 h-4 text-[#10B981]" /> {saveSuccessMsg}
           </span>
-          <button type="button" onClick={() => setSaveSuccessMsg(null)} className="text-emerald-400 hover:text-[#F8F8F9] cursor-pointer">
+          <button type="button" onClick={() => setSaveSuccessMsg(null)} className="text-[#10B981] hover:text-[#F5F5F5] cursor-pointer">
             ✕
           </button>
         </div>
@@ -972,17 +972,17 @@ export default function InterviewStudioStage({
 
       {/* Adaptive Targeting Alert if candidate has unverified bluff risks */}
       {bluffRiskCount > 0 && digitalTwin?.skills && digitalTwin.skills.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-500/8 border border-rose-500/25 flex items-center justify-between gap-3 text-xs text-rose-300">
+        <div className="mb-4 p-3 rounded-xl bg-[#F43F5E]/10 border border-[#F43F5E]/25 flex items-center justify-between gap-3 text-xs text-[#F43F5E]">
           <div className="flex items-center gap-2.5">
-            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+            <ShieldAlert className="w-4 h-4 text-[#F43F5E] shrink-0" />
             <div>
-              <span className="font-bold text-[#F8F8F9]">Targeted Practice Active: </span>
+              <span className="font-bold text-[#F5F5F5]">Targeted Practice Active: </span>
               <span>
                 {bluffRiskCount} skill{bluffRiskCount > 1 ? "s on your resume need" : " on your resume needs"} more practice. The interviewer will include questions to help you strengthen these topics.
               </span>
             </div>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-200 border border-rose-500/25 shrink-0">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#F43F5E]/15 text-[#F43F5E] border border-[#F43F5E]/25 shrink-0">
             Focused Practice
           </span>
         </div>
@@ -997,7 +997,7 @@ export default function InterviewStudioStage({
           )}
         >
           {/* ─── STUDIO CONTROLS BAR ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-3 rounded-xl bg-[#111218] border border-[#22232D]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-3 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D]">
         <div className="flex items-center gap-2 flex-wrap">
           {badgeLabel && (
             <Badge variant={badgeVariant} size="md">
@@ -1007,7 +1007,7 @@ export default function InterviewStudioStage({
 
           {showRoleSelector ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#969085] font-medium">Role:</span>
+              <span className="text-[11px] text-[#71717A] font-medium">Role:</span>
               <select
                 value={selectedRole}
                 onChange={(e) => {
@@ -1020,10 +1020,10 @@ export default function InterviewStudioStage({
                   setQuestions(newQuestions);
                   onQuestionsChange?.(newQuestions);
                 }}
-                className="text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-1.5 text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer"
+                className="text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-1.5 text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer"
               >
                 {INTERVIEW_ROLES.map((r) => (
-                  <option key={r} value={r} className="bg-[#111218] text-[#F8F8F9]">
+                  <option key={r} value={r} className="bg-[#0D0D0D] text-[#F5F5F5]">
                     {r}
                   </option>
                 ))}
@@ -1031,8 +1031,8 @@ export default function InterviewStudioStage({
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#969085] font-medium">Role:</span>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35 font-mono">
+              <span className="text-[11px] text-[#71717A] font-medium">Role:</span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#121212] text-[#F5F5F5] border border-[#292929] font-mono">
                 {selectedRole}
               </span>
             </div>
@@ -1052,18 +1052,18 @@ export default function InterviewStudioStage({
             className={clsx(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer",
               ttsEnabled
-                ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25"
-                : "bg-[#171820] text-[#969085] border-[#262733] hover:text-[#F8F8F9]"
+                ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
+                : "bg-[#121212] text-[#A1A1AA] border-[#292929] hover:text-[#F5F5F5]"
             )}
           >
             {ttsEnabled ? (
               <>
-                <Volume2 className={clsx("w-3.5 h-3.5 text-emerald-400", isSpeakingTTS && "animate-pulse")} />
+                <Volume2 className={clsx("w-3.5 h-3.5 text-[#10B981]", isSpeakingTTS && "animate-pulse")} />
                 <span>Interviewer Voice ON</span>
               </>
             ) : (
               <>
-                <VolumeX className="w-3.5 h-3.5 text-[#969085]" />
+                <VolumeX className="w-3.5 h-3.5 text-[#71717A]" />
                 <span>Voice Muted</span>
               </>
             )}
@@ -1072,8 +1072,8 @@ export default function InterviewStudioStage({
       </div>
 
       {loading && questions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-28 text-[#969085] gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-[#B293E2]" />
+        <div className="flex flex-col items-center justify-center py-28 text-[#71717A] gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#A78BFA]" />
           <p className="text-sm font-medium">Initializing Multi-Modal AI Interview Studio...</p>
         </div>
       ) : activeTab === "history" ? (
@@ -1081,30 +1081,30 @@ export default function InterviewStudioStage({
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <Card className="text-center p-4">
-              <MessageSquare className="w-5 h-5 mx-auto mb-2 text-[#B293E2]" />
-              <p className="text-2xl font-bold text-[#F8F8F9] tabular-nums">{sessions.length}</p>
-              <p className="text-xs text-[#969085]">Total Sessions</p>
+              <MessageSquare className="w-5 h-5 mx-auto mb-2 text-[#A78BFA]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">{sessions.length}</p>
+              <p className="text-xs text-[#71717A]">Total Sessions</p>
             </Card>
             <Card className="text-center p-4">
-              <Star className="w-5 h-5 mx-auto mb-2 text-amber-400" />
-              <p className="text-2xl font-bold text-[#F8F8F9] tabular-nums">
+              <Star className="w-5 h-5 mx-auto mb-2 text-[#F59E0B]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">
                 {sessions.length
                   ? `${Math.round(sessions.reduce((s, i) => s + i.score, 0) / sessions.length)}%`
                   : "N/A"}
               </p>
-              <p className="text-xs text-[#969085]">Average Composite Score</p>
+              <p className="text-xs text-[#71717A]">Average Composite Score</p>
             </Card>
             <Card className="text-center p-4">
-              <TrendingUp className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
-              <p className="text-2xl font-bold text-[#F8F8F9] tabular-nums">
+              <TrendingUp className="w-5 h-5 mx-auto mb-2 text-[#10B981]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">
                 {sessions.reduce((s, i) => s + (i.questionsAnswered || 1), 0)}
               </p>
-              <p className="text-xs text-[#969085]">Questions Answered</p>
+              <p className="text-xs text-[#71717A]">Questions Answered</p>
             </Card>
             <Card className="text-center p-4">
-              <Activity className="w-5 h-5 mx-auto mb-2 text-[#B293E2]" />
-              <p className="text-2xl font-bold text-[#F8F8F9] tabular-nums">128 WPM</p>
-              <p className="text-xs text-[#969085]">Average Speaking Pacing</p>
+              <Activity className="w-5 h-5 mx-auto mb-2 text-[#38BDF8]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">128 WPM</p>
+              <p className="text-xs text-[#71717A]">Average Speaking Pacing</p>
             </Card>
           </div>
 
@@ -1115,7 +1115,7 @@ export default function InterviewStudioStage({
                   <div className="flex items-center gap-4">
                     <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
                       <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
-                        <circle cx="28" cy="28" r="22" fill="none" stroke="#22232D" strokeWidth="5" />
+                        <circle cx="28" cy="28" r="22" fill="none" stroke="#1D1D1D" strokeWidth="5" />
                         <circle
                           cx="28"
                           cy="28"
@@ -1128,26 +1128,26 @@ export default function InterviewStudioStage({
                           strokeDashoffset={`${2 * Math.PI * 22 * (1 - session.score / 100)}`}
                         />
                       </svg>
-                      <span className="absolute text-sm font-bold text-[#F8F8F9] tabular-nums">{session.score}</span>
+                      <span className="absolute text-sm font-bold text-[#F5F5F5] tabular-nums">{session.score}</span>
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-semibold text-[#F8F8F9]">{session.role}</h4>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-[#969085] flex-wrap">
+                      <h4 className="text-sm font-semibold text-[#F5F5F5]">{session.role}</h4>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-[#71717A] flex-wrap">
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-[#969085]" /> {session.date}
+                          <Clock className="w-3 h-3 text-[#71717A]" /> {session.date}
                         </span>
                         <span className="flex items-center gap-1 tabular-nums">
-                          <Brain className="w-3 h-3 text-[#969085]" /> {session.questionsAnswered} Turns
+                          <Brain className="w-3 h-3 text-[#71717A]" /> {session.questionsAnswered} Turns
                         </span>
                         <span className="flex items-center gap-1">
-                          <Activity className="w-3 h-3 text-[#969085]" /> {session.duration}
+                          <Activity className="w-3 h-3 text-[#71717A]" /> {session.duration}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-xs text-[#969085] bg-[#171820] px-3 py-2 rounded-lg border border-[#22232D] max-w-md">
+                  <div className="text-xs text-[#A1A1AA] bg-[#0A0A0A] px-3 py-2 rounded-lg border border-[#1D1D1D] max-w-md">
                     💬 {session.feedback}
                   </div>
                 </div>
@@ -1155,7 +1155,7 @@ export default function InterviewStudioStage({
             ))}
 
             {sessions.length === 0 && (
-              <div className="p-12 text-center text-[#969085] border border-dashed border-[#2A2B38] rounded-xl">
+              <div className="p-12 text-center text-[#71717A] border border-dashed border-[#292929] rounded-xl">
                 No past sessions recorded yet. Start practicing in the AI Studio Stage above!
               </div>
             )}
@@ -1180,8 +1180,8 @@ export default function InterviewStudioStage({
                   className={clsx(
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border",
                     filterCategory === cat.id
-                      ? "bg-[#1D1D26] text-[#F8F8F9] border-[#735BA0]/50"
-                      : "bg-[#111218] text-[#969085] hover:text-[#F8F8F9] border-[#22232D]"
+                      ? "bg-[#121212] text-[#F5F5F5] border-[#292929]"
+                      : "bg-[#0D0D0D] text-[#71717A] hover:text-[#F5F5F5] border-[#1D1D1D]"
                   )}
                 >
                   {cat.label}
@@ -1194,9 +1194,9 @@ export default function InterviewStudioStage({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ─── LEFT PANEL: Live Webcam HUD & Acoustic Waveform (5 cols) ─── */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="relative rounded-xl overflow-hidden bg-[#111218] border border-[#22232D]">
+              <div className="relative rounded-xl overflow-hidden bg-[#0D0D0D] border border-[#1D1D1D]">
                 {/* Video Feed Box */}
-                <div className="relative aspect-video w-full bg-[#07080C] flex items-center justify-center overflow-hidden">
+                <div className="relative aspect-video w-full bg-[#050505] flex items-center justify-center overflow-hidden">
                   <video
                     ref={videoRef}
                     autoPlay
@@ -1210,10 +1210,10 @@ export default function InterviewStudioStage({
 
                   {(!cameraActive || cameraPermissionDenied) && (
                     <div className="flex flex-col items-center justify-center p-5 text-center max-w-sm mx-auto">
-                      <div className="p-2.5 rounded-full bg-rose-500/10 border border-rose-500/20 mb-2">
-                        <VideoOff className="w-8 h-8 text-rose-400" />
+                      <div className="p-2.5 rounded-full bg-[#F43F5E]/10 border border-[#F43F5E]/20 mb-2">
+                        <VideoOff className="w-8 h-8 text-[#F43F5E]" />
                       </div>
-                      <p className="text-xs font-semibold text-[#F8F8F9]">
+                      <p className="text-xs font-semibold text-[#F5F5F5]">
                         {cameraPermissionDenied
                           ? cameraErrorInfo?.type === "in_use"
                             ? "Webcam In Use By Another App"
@@ -1222,7 +1222,7 @@ export default function InterviewStudioStage({
                             : "Camera Permission Denied"
                           : "Camera Turned Off"}
                       </p>
-                      <p className="text-[11px] text-[#969085] mt-1 leading-snug">
+                      <p className="text-[11px] text-[#71717A] mt-1 leading-snug">
                         {cameraPermissionDenied
                           ? cameraErrorInfo?.message || "Please allow camera access in your browser address bar."
                           : "Audio-Only practice mode is active. Turn on camera or use Virtual Avatar mode."}
@@ -1233,7 +1233,7 @@ export default function InterviewStudioStage({
                           type="button"
                           onClick={startCamera}
                           disabled={isRequestingCamera}
-                          className="px-3 py-1.5 text-[11px] font-semibold bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-1.5 text-[11px] font-semibold bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
                           {isRequestingCamera ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1246,9 +1246,9 @@ export default function InterviewStudioStage({
                         <button
                           type="button"
                           onClick={startVirtualCamera}
-                          className="px-3 py-1.5 text-[11px] font-medium bg-[#171820] hover:bg-[#1D1D26] border border-[#735BA0]/45 text-[#B293E2] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-1.5 text-[11px] font-medium bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[#F5F5F5] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />
+                          <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
                           <span>⚡ Virtual AI Avatar Mode</span>
                         </button>
                       </div>
@@ -1258,21 +1258,21 @@ export default function InterviewStudioStage({
                   {/* Top HUD Telemetry Bar */}
                   {cameraActive && (
                     <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between text-[11px] font-mono pointer-events-none">
-                      <div className="flex items-center gap-1.5 bg-[#0A0B0F]/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-[#262733] text-[#F8F8F9]">
+                      <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
                         <span
                           className={clsx(
                             "w-2 h-2 rounded-full",
                             reticleColor === "green"
-                              ? "bg-emerald-400 animate-pulse"
+                              ? "bg-[#10B981] animate-pulse"
                               : reticleColor === "amber"
-                              ? "bg-amber-400"
-                              : "bg-rose-400 animate-ping"
+                              ? "bg-[#F59E0B]"
+                              : "bg-[#F43F5E] animate-ping"
                           )}
                         />
                         <span>Eye Contact: {liveEyeContact >= 0 ? `${liveEyeContact}%` : "Scanning..."}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 bg-[#0A0B0F]/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-[#262733] text-[#F8F8F9]">
+                      <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
                         <span>Posture: {livePosture}</span>
                       </div>
                     </div>
@@ -1283,7 +1283,7 @@ export default function InterviewStudioStage({
                     <button
                       type="button"
                       onClick={stopCamera}
-                      className="absolute bottom-2.5 right-2.5 p-1.5 rounded-lg bg-[#0A0B0F]/85 text-[#969085] hover:text-[#F8F8F9] border border-[#262733] text-xs cursor-pointer"
+                      className="absolute bottom-2.5 right-2.5 p-1.5 rounded-lg bg-[#050505]/90 text-[#A1A1AA] hover:text-[#F5F5F5] border border-[#292929] text-xs cursor-pointer"
                       title="Turn off camera"
                     >
                       <VideoOff className="w-4 h-4" />
@@ -1292,18 +1292,18 @@ export default function InterviewStudioStage({
                 </div>
 
                 {/* Acoustic Canvas Waveform Bar */}
-                <div className="p-3 bg-[#0A0B0F] border-t border-[#22232D] flex items-center justify-between gap-3">
+                <div className="p-3 bg-[#080808] border-t border-[#1D1D1D] flex items-center justify-between gap-3">
                   <div className="flex-1">
                     <canvas ref={audioCanvasRef} width={280} height={36} className="w-full h-9 rounded" />
                   </div>
-                  <div className="text-[11px] font-mono text-[#969085] shrink-0 tabular-nums">
+                  <div className="text-[11px] font-mono text-[#71717A] shrink-0 tabular-nums">
                     {micActiveLevel > 0 ? `${micActiveLevel}% input` : "Mic idle"}
                   </div>
                 </div>
               </div>
 
               {/* Speech Controls & Real-Time Verbal Telemetry */}
-              <Card className="p-4 bg-[#111218] border-[#22232D] space-y-3">
+              <Card className="p-4 bg-[#0D0D0D] border-[#1D1D1D] space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     {!isRecording ? (
@@ -1312,7 +1312,7 @@ export default function InterviewStudioStage({
                         size="sm"
                         onClick={startRecording}
                         icon={<Mic className="w-4 h-4" />}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs"
+                        className="bg-[#10B981] hover:bg-emerald-500 text-black font-semibold text-xs"
                       >
                         Start Speaking
                       </Button>
@@ -1329,22 +1329,22 @@ export default function InterviewStudioStage({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs font-mono text-[#969085] tabular-nums">
+                  <div className="flex items-center gap-3 text-xs font-mono text-[#71717A] tabular-nums">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-[#969085]" /> {durationSeconds}s
+                      <Clock className="w-3.5 h-3.5 text-[#71717A]" /> {durationSeconds}s
                     </span>
                     <span>•</span>
-                    <span className="text-[#B293E2] font-semibold">{liveWpm} WPM</span>
+                    <span className="text-[#F5F5F5] font-semibold">{liveWpm} WPM</span>
                     <span>•</span>
-                    <span className={totalFillersSpoken > 2 ? "text-rose-400" : "text-emerald-400"}>
+                    <span className={totalFillersSpoken > 2 ? "text-[#F43F5E]" : "text-[#10B981]"}>
                       {totalFillersSpoken} fillers
                     </span>
                   </div>
                 </div>
 
                 {isTranscribingWithWhisper && (
-                  <div className="p-2 rounded-lg bg-[#171820] border border-[#735BA0]/35 text-xs text-[#B293E2] flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B293E2]" />
+                  <div className="p-2 rounded-lg bg-[#0A0A0A] border border-[#292929] text-xs text-[#A1A1AA] flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A78BFA]" />
                     <span>Transcribing with Neural Whisper Model...</span>
                   </div>
                 )}
@@ -1352,13 +1352,13 @@ export default function InterviewStudioStage({
 
               {/* Expected Rubric Concepts */}
               {activeExpectedConcepts.length > 0 && (
-                <Card className="p-4 bg-[#111218] border-[#22232D] space-y-2">
+                <Card className="p-4 bg-[#0D0D0D] border-[#1D1D1D] space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[#F8F8F9] flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5 text-[#B293E2]" />
+                    <span className="font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-[#A78BFA]" />
                       Key Expected Concepts
                     </span>
-                    <span className="text-[11px] text-emerald-400 font-medium tabular-nums">
+                    <span className="text-[11px] text-[#10B981] font-medium tabular-nums">
                       {coveredConceptsCount} of {activeExpectedConcepts.length} addressed
                     </span>
                   </div>
@@ -1371,14 +1371,14 @@ export default function InterviewStudioStage({
                           className={clsx(
                             "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors",
                             covered
-                              ? "bg-emerald-500/12 text-emerald-300 border-emerald-500/25"
-                              : "bg-[#171820] text-[#969085] border-[#262733]"
+                              ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
+                              : "bg-[#121212] text-[#A1A1AA] border-[#1D1D1D]"
                           )}
                         >
                           {covered ? (
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <CheckCircle2 className="w-3 h-3 text-[#10B981]" />
                           ) : (
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#4F414D]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3F3F46]" />
                           )}
                           <span>{concept}</span>
                         </span>
@@ -1392,8 +1392,8 @@ export default function InterviewStudioStage({
             {/* ─── RIGHT PANEL: Active Question Flashcard & Response Workspace (7 cols) ─── */}
             <div className="lg:col-span-7 space-y-5">
               {/* Question Flashcard */}
-              <Card className="p-5 md:p-6 bg-[#111218] border-[#22232D] rounded-xl space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#22232D]">
+              <Card className="p-5 md:p-6 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#1D1D1D]">
                   <div className="flex items-center gap-2">
                     <Badge variant={CATEGORY_CONFIG[activeQuestion?.category || "technical"]?.variant || "indigo"} size="sm">
                       {CATEGORY_CONFIG[activeQuestion?.category || "technical"]?.label || activeQuestion?.category}
@@ -1413,11 +1413,11 @@ export default function InterviewStudioStage({
                         setResponse("");
                       }}
                       disabled={currentIdx === 0}
-                      className="p-1.5 rounded-lg bg-[#171820] border border-[#262733] text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg bg-[#121212] border border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="font-mono tabular-nums text-[#969085]">
+                    <span className="font-mono tabular-nums text-[#A1A1AA]">
                       {currentIdx + 1} / {availableQuestions.length}
                     </span>
                     <button
@@ -1428,14 +1428,14 @@ export default function InterviewStudioStage({
                         setResponse("");
                       }}
                       disabled={currentIdx >= availableQuestions.length - 1}
-                      className="p-1.5 rounded-lg bg-[#171820] border border-[#262733] text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg bg-[#121212] border border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                <h2 className="text-base sm:text-lg font-semibold text-[#F8F8F9] leading-relaxed">
+                <h2 className="text-base sm:text-lg font-semibold text-[#F5F5F5] leading-relaxed">
                   &ldquo;{activeQuestion?.question}&rdquo;
                 </h2>
 
@@ -1445,7 +1445,7 @@ export default function InterviewStudioStage({
                     <button
                       type="button"
                       onClick={() => setShowHint(!showHint)}
-                      className="text-xs text-[#B293E2] hover:text-[#C3A9EB] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-xs text-[#A1A1AA] hover:text-[#F5F5F5] font-medium flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <Lightbulb className="w-3.5 h-3.5" />
                       {showHint ? "Hide Hint" : "Interviewer Hint"}
@@ -1465,8 +1465,8 @@ export default function InterviewStudioStage({
                 </div>
 
                 {showHint && activeQuestion?.hint && (
-                  <div className="p-3.5 rounded-xl bg-[#171820] border border-[#735BA0]/40 text-xs text-[#F8F8F9]/90 leading-relaxed font-sans animate-fadeIn">
-                    <strong className="text-[#B293E2] block mb-1">Interviewer Expectations:</strong>
+                  <div className="p-3.5 rounded-xl bg-[#0A0A0A] border border-[#292929] text-xs text-[#F5F5F5]/90 leading-relaxed font-sans animate-fadeIn">
+                    <strong className="text-[#A78BFA] block mb-1">Interviewer Expectations:</strong>
                     {activeQuestion.hint}
                   </div>
                 )}
@@ -1480,8 +1480,8 @@ export default function InterviewStudioStage({
               </Card>
 
               {/* Response Workspace */}
-              <Card className="p-5 bg-[#111218] border-[#22232D] rounded-xl space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
+              <Card className="p-5 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -1489,8 +1489,8 @@ export default function InterviewStudioStage({
                       className={clsx(
                         "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
                         nonDsaWorkspaceTab === "verbal"
-                          ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                          : "text-[#969085] hover:text-[#F8F8F9] border border-transparent"
+                          ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                          : "text-[#71717A] hover:text-[#F5F5F5] border border-transparent"
                       )}
                     >
                       Verbal Response
@@ -1501,8 +1501,8 @@ export default function InterviewStudioStage({
                       className={clsx(
                         "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer",
                         nonDsaWorkspaceTab === "ide"
-                          ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
-                          : "text-[#969085] hover:text-[#F8F8F9] border border-transparent"
+                          ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                          : "text-[#71717A] hover:text-[#F5F5F5] border border-transparent"
                       )}
                     >
                       <Code2 className="w-3.5 h-3.5" />
@@ -1510,7 +1510,7 @@ export default function InterviewStudioStage({
                     </button>
                   </div>
 
-                  <span className="text-[11px] tabular-nums text-[#969085]">
+                  <span className="text-[11px] tabular-nums text-[#71717A]">
                     {response.trim().split(/\s+/).filter(Boolean).length} words
                   </span>
                 </div>
@@ -1524,7 +1524,7 @@ export default function InterviewStudioStage({
                       countFillers(e.target.value);
                     }}
                     placeholder="Speak your answer out loud (or type here). The live transcript will transcribe here..."
-                    className="w-full p-3.5 text-xs bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/50 focus:outline-none focus:border-[#B293E2] leading-relaxed font-sans"
+                    className="w-full p-3.5 text-xs bg-[#080808] border border-[#1D1D1D] rounded-xl text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] leading-relaxed font-sans"
                   />
                 ) : (
                   <div className="space-y-2">
@@ -1532,7 +1532,7 @@ export default function InterviewStudioStage({
                       <select
                         value={scratchpadLang}
                         onChange={(e) => setScratchpadLang(e.target.value)}
-                        className="text-xs bg-[#171820] border border-[#262733] rounded-lg px-2.5 py-1.5 text-[#F8F8F9] focus:outline-none focus:border-[#B293E2]"
+                        className="text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-2.5 py-1.5 text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
                       >
                         {CODE_LANGUAGES.map((lang) => (
                           <option key={lang.id} value={lang.id}>
@@ -1547,14 +1547,14 @@ export default function InterviewStudioStage({
                       onChange={(e) => setCodeSnippet(e.target.value)}
                       onKeyDown={(e) => handleEditorKeyDown(e, codeSnippet, setCodeSnippet)}
                       placeholder="// Type architecture notes, pseudo-code, or SQL queries here..."
-                      className="w-full p-3.5 text-xs bg-[#0A0B0F] border border-[#262733] rounded-xl text-emerald-300 font-mono placeholder-[#969085]/50 focus:outline-none focus:border-[#B293E2] leading-relaxed"
+                      className="w-full p-3.5 text-xs bg-[#080808] border border-[#1D1D1D] rounded-xl text-emerald-300 font-mono placeholder-[#52525B] focus:outline-none focus:border-[#292929] leading-relaxed"
                       spellCheck={false}
                     />
                   </div>
                 )}
 
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-[11px] text-[#969085]">
+                  <span className="text-[11px] text-[#71717A]">
                     Evaluated against Amazon / Google Bar-Raiser rubric.
                   </span>
                   <Button
@@ -1573,21 +1573,21 @@ export default function InterviewStudioStage({
               {/* ─── DETAILED EVALUATION & SCORECARD RESULT ─── */}
               {evalResult && (
                 <div ref={evaluationRef} className="space-y-5 animate-fadeIn">
-                  <Card className="p-6 bg-[#111218] border-[#22232D] rounded-xl space-y-5">
+                  <Card className="p-6 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-5">
                     {/* Overall Score Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#22232D] gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#1D1D1D] gap-4">
                       <div>
                         <div className="flex items-center gap-2">
                           <Award className="w-5 h-5 text-amber-400" />
-                          <h3 className="text-lg font-bold text-[#F8F8F9]">Bar-Raiser Evaluation Scorecard</h3>
+                          <h3 className="text-lg font-bold text-[#F5F5F5]">Bar-Raiser Evaluation Scorecard</h3>
                         </div>
-                        <p className="text-xs text-[#969085] mt-1">{evalResult.deliveryCritique.pacingAdvice}</p>
+                        <p className="text-xs text-[#A1A1AA] mt-1">{evalResult.deliveryCritique.pacingAdvice}</p>
                       </div>
 
                       <div className="text-center sm:text-right shrink-0">
-                        <span className="text-3xl font-extrabold tabular-nums text-[#F8F8F9]">
+                        <span className="text-3xl font-extrabold tabular-nums text-[#F5F5F5]">
                           {evalResult.overallScore}
-                          <span className="text-sm font-normal text-[#969085]">/100</span>
+                          <span className="text-sm font-normal text-[#71717A]">/100</span>
                         </span>
                         <span className="text-xs text-emerald-400 block font-semibold">
                           {evalResult.overallScore >= 85
@@ -1610,14 +1610,14 @@ export default function InterviewStudioStage({
                           result: "Result",
                         };
                         return (
-                          <div key={step} className="p-3 rounded-xl bg-[#171820] border border-[#22232D] space-y-1">
+                          <div key={step} className="p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-1">
                             <div className="flex items-center justify-between font-bold">
-                              <span className="text-[#F8F8F9] capitalize">{titles[step]}</span>
+                              <span className="text-[#F5F5F5] capitalize">{titles[step]}</span>
                               <span className={clsx("tabular-nums", data.present ? "text-emerald-400" : "text-rose-400")}>
                                 {data.score}%
                               </span>
                             </div>
-                            <p className="text-[11px] text-[#969085] leading-snug">{data.feedback}</p>
+                            <p className="text-[11px] text-[#A1A1AA] leading-snug">{data.feedback}</p>
                           </div>
                         );
                       })}
@@ -1628,11 +1628,11 @@ export default function InterviewStudioStage({
                       <div className="p-4 rounded-xl bg-rose-500/8 border border-rose-500/25 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-rose-300">
                           <span>Your Transcript</span>
-                          <span className="text-[#969085] text-[10px] tabular-nums">
+                          <span className="text-[#71717A] text-[10px] tabular-nums">
                             {response.trim().split(/\s+/).filter(Boolean).length} words
                           </span>
                         </div>
-                        <p className="text-xs text-[#F8F8F9]/90 leading-relaxed font-sans max-h-48 overflow-y-auto">
+                        <p className="text-xs text-[#F5F5F5]/90 leading-relaxed font-sans max-h-48 overflow-y-auto">
                           {response}
                         </p>
                       </div>
@@ -1643,7 +1643,7 @@ export default function InterviewStudioStage({
                           <button
                             type="button"
                             onClick={handleCopyModelAnswer}
-                            className="text-[10px] text-emerald-400 hover:text-[#F8F8F9] flex items-center gap-1 font-normal cursor-pointer transition-colors"
+                            className="text-[10px] text-emerald-400 hover:text-[#F5F5F5] flex items-center gap-1 font-normal cursor-pointer transition-colors"
                           >
                             {copiedAnswer ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             <span>{copiedAnswer ? "Copied" : "Copy"}</span>
@@ -1657,15 +1657,15 @@ export default function InterviewStudioStage({
 
                     {/* Dynamic Follow-Up Turn Chain */}
                     {evalResult.followUpQuestion && (
-                      <div className="p-4 rounded-xl bg-[#171820] border border-[#735BA0]/40 flex flex-col sm:flex-row items-start justify-between gap-4">
+                      <div className="p-4 rounded-xl bg-[#0A0A0A] border border-[#292929] flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="space-y-1 flex-1">
-                          <span className="text-[10px] uppercase font-bold text-[#B293E2] tracking-wider">
+                          <span className="text-[10px] uppercase font-bold text-[#A78BFA] tracking-wider">
                             Follow-Up Probe
                           </span>
-                          <p className="text-sm font-semibold text-[#F8F8F9]">
+                          <p className="text-sm font-semibold text-[#F5F5F5]">
                             &ldquo;{evalResult.followUpQuestion.prompt}&rdquo;
                           </p>
-                          <p className="text-[11px] text-[#969085] italic">
+                          <p className="text-[11px] text-[#A1A1AA] italic">
                             Interviewer Intent: {evalResult.followUpQuestion.intent}
                           </p>
                         </div>
@@ -1699,51 +1699,51 @@ export default function InterviewStudioStage({
 
       {/* ─── ROUND SCORECARD MODAL ────────────────────────────────────────── */}
       {showScorecardModal && (
-        <div className="fixed inset-0 z-50 bg-[#0A0B0F]/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-[#111218] border border-[#22232D] rounded-2xl p-6 shadow-2xl space-y-5">
-            <div className="flex items-start justify-between pb-3 border-b border-[#22232D]">
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-2xl bg-[#0D0D0D] border border-[#292929] rounded-2xl p-6 space-y-5">
+            <div className="flex items-start justify-between pb-3 border-b border-[#1D1D1D]">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-[#F8F8F9]">Round Composite Scorecard</h3>
+                <h3 className="text-base font-bold text-[#F5F5F5]">Round Composite Scorecard</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowScorecardModal(false)}
-                className="p-1.5 rounded-lg text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] cursor-pointer transition-colors"
+                className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#171820] border border-[#22232D] flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] flex items-center justify-between">
               <div>
-                <span className="text-xs text-[#969085] block font-medium">Composite Round Verdict</span>
+                <span className="text-xs text-[#A1A1AA] block font-medium">Composite Round Verdict</span>
                 <span className="text-lg font-bold text-emerald-400">
                   {scorecardAvgScore >= 85 ? "Strong Hire (Offer Recommended)" : scorecardAvgScore >= 70 ? "Hire" : "Needs Further Preparation"}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-extrabold tabular-nums text-[#F8F8F9]">{scorecardAvgScore}</span>
-                <span className="text-xs text-[#969085]"> / 100</span>
+                <span className="text-2xl font-extrabold tabular-nums text-[#F5F5F5]">{scorecardAvgScore}</span>
+                <span className="text-xs text-[#71717A]"> / 100</span>
               </div>
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {allRoundTurns.map((turn, i) => (
-                <div key={turn.id} className="p-3 rounded-xl bg-[#171820] border border-[#22232D] flex items-center justify-between text-xs">
+                <div key={turn.id} className="p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-semibold text-[#F8F8F9]">Q{i + 1}: {turn.questionText}</span>
-                    <p className="text-[11px] text-[#969085] mt-0.5 truncate max-w-md">{turn.aiFeedback}</p>
+                    <span className="font-semibold text-[#F5F5F5]">Q{i + 1}: {turn.questionText}</span>
+                    <p className="text-[11px] text-[#A1A1AA] mt-0.5 truncate max-w-md">{turn.aiFeedback}</p>
                   </div>
-                  <span className="font-mono tabular-nums font-bold text-[#B293E2] ml-2">{turn.score}%</span>
+                  <span className="font-mono tabular-nums font-bold text-[#F5F5F5] ml-2">{turn.score}%</span>
                 </div>
               ))}
               {allRoundTurns.length === 0 && (
-                <p className="text-xs text-[#969085] text-center py-4">No completed turns yet this session.</p>
+                <p className="text-xs text-[#71717A] text-center py-4">No completed turns yet this session.</p>
               )}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#22232D]">
+            <div className="flex justify-end pt-2 border-t border-[#1D1D1D]">
               <Button
                 variant="primary"
                 size="sm"
@@ -1760,22 +1760,22 @@ export default function InterviewStudioStage({
 
       {/* ─── PRE-INTERVIEW START OVERLAY ─────────────────────────────────────── */}
       {isPreStart && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 min-h-[480px] bg-[#0A0B0F]/75 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 min-h-[480px] bg-black/80 animate-in fade-in duration-200">
           <Card className={clsx(
-            "max-w-lg w-full bg-[#111218] rounded-2xl p-6 sm:p-8 shadow-2xl text-center space-y-6 relative overflow-hidden border",
-            isGrillMode ? "border-amber-500/35" : "border-[#22232D]"
+            "max-w-lg w-full bg-[#0D0D0D] rounded-2xl p-6 sm:p-8 text-center space-y-6 relative overflow-hidden border",
+            isGrillMode ? "border-amber-500/35" : "border-[#1D1D1D]"
           )}>
             {/* Large BrainCircuit / Flame Icon */}
             <div className={clsx(
-              "relative mx-auto w-16 h-16 rounded-2xl border flex items-center justify-center bg-[#171820]",
+              "relative mx-auto w-16 h-16 rounded-2xl border flex items-center justify-center bg-[#121212]",
               isGrillMode
                 ? "border-amber-500/35 text-amber-400"
-                : "border-[#735BA0]/40 text-[#B293E2]"
+                : "border-[#292929] text-[#A78BFA]"
             )}>
               {isGrillMode ? (
                 <Flame className="w-8 h-8 text-amber-400" />
               ) : (
-                <BrainCircuit className="w-8 h-8 text-[#B293E2]" />
+                <BrainCircuit className="w-8 h-8 text-[#A78BFA]" />
               )}
             </div>
 
@@ -1785,15 +1785,15 @@ export default function InterviewStudioStage({
                 "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase font-mono border",
                 isGrillMode
                   ? "bg-amber-500/12 border-amber-500/30 text-amber-300"
-                  : "bg-[#1D1D26] border-[#735BA0]/40 text-[#B293E2]"
+                  : "bg-[#121212] border-[#292929] text-[#F5F5F5]"
               )}>
-                {isGrillMode ? <Flame className="w-3.5 h-3.5 text-amber-400" /> : <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />}
+                {isGrillMode ? <Flame className="w-3.5 h-3.5 text-amber-400" /> : <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />}
                 <span>{selectedRole} Interview</span>
               </div>
-              <h2 className="text-2xl font-bold text-[#F8F8F9] tracking-tight">
+              <h2 className="text-2xl font-bold text-[#F5F5F5] tracking-tight">
                 {activeStartCardTitle}
               </h2>
-              <p className="text-xs sm:text-sm text-[#969085] max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#A1A1AA] max-w-sm mx-auto leading-relaxed">
                 {activeStartCardDesc}
               </p>
             </div>
@@ -1801,9 +1801,9 @@ export default function InterviewStudioStage({
             {/* Feature Indicators */}
             <div className="grid grid-cols-2 gap-2 text-left">
               {activeStartCardIndicators.map((ind, i) => (
-                <div key={i} className="p-2.5 rounded-xl bg-[#171820] border border-[#22232D] flex items-center gap-2">
+                <div key={i} className="p-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] flex items-center gap-2">
                   <div className={clsx("w-2 h-2 rounded-full shrink-0", ind.dotColor)} />
-                  <span className="text-[11px] text-[#F8F8F9]/90 font-medium">{ind.label}</span>
+                  <span className="text-[11px] text-[#F5F5F5]/90 font-medium">{ind.label}</span>
                 </div>
               ))}
             </div>
@@ -1819,7 +1819,7 @@ export default function InterviewStudioStage({
               >
                 <span>Start Interview</span>
               </Button>
-              <p className="text-[11px] text-[#969085]">
+              <p className="text-[11px] text-[#71717A]">
                 Camera and microphone access may be requested after starting.
               </p>
             </div>

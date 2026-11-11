@@ -124,20 +124,20 @@ function FilterSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-[#22232D] last:border-b-0">
+    <div className="border-b border-[#1D1D1D] last:border-b-0">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full py-3 px-1 text-left group cursor-pointer"
       >
-        <span className="flex items-center gap-2 text-xs font-semibold text-[#F8F8F9] uppercase tracking-wider">
-          <Icon className="w-3.5 h-3.5 text-[#969085] group-hover:text-[#B293E2] transition-colors" />
+        <span className="flex items-center gap-2 text-xs font-semibold text-[#F5F5F5] uppercase tracking-wider">
+          <Icon className="w-3.5 h-3.5 text-[#71717A] group-hover:text-[#F5F5F5] transition-colors" />
           {title}
         </span>
         {open ? (
-          <ChevronUp className="w-3.5 h-3.5 text-[#969085]" />
+          <ChevronUp className="w-3.5 h-3.5 text-[#71717A]" />
         ) : (
-          <ChevronDown className="w-3.5 h-3.5 text-[#969085]" />
+          <ChevronDown className="w-3.5 h-3.5 text-[#71717A]" />
         )}
       </button>
       {open && <div className="pb-3 px-1">{children}</div>}
@@ -152,7 +152,7 @@ function DimensionRow({ label, score }: { label: string; score: number }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-[#969085] font-medium">{label}</span>
+        <span className="text-[10px] text-[#71717A] font-medium">{label}</span>
         <span className={clsx("text-[10px] font-bold tabular-nums", SCORE_COLOR(score))}>{score}%</span>
       </div>
       <ProgressBar value={score} color={color} size="sm" label={label} />
@@ -165,14 +165,14 @@ function DimensionRow({ label, score }: { label: string; score: number }) {
 function ScoreSourcePill({ source }: { source: "gemini" | "heuristic" }) {
   if (source === "gemini") {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35">
-        <Sparkles className="w-2.5 h-2.5" />
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#121212] text-[#A1A1AA] border border-[#292929]">
+        <Sparkles className="w-2.5 h-2.5 text-[#A78BFA]" />
         AI Analysis
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#171820] text-[#969085] border border-[#262733]">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#0A0A0A] text-[#71717A] border border-[#1D1D1D]">
       <Target className="w-2.5 h-2.5" />
       Skill Analysis
     </span>
@@ -191,7 +191,7 @@ function MatchInsightPanel({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-xl bg-[#171820] border border-[#22232D] overflow-hidden">
+    <div className="rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] overflow-hidden">
       {/* Summary row — always visible */}
       <div className="p-3 space-y-2">
         {/* Fit label + source + reason */}
@@ -205,10 +205,10 @@ function MatchInsightPanel({
           </div>
         </div>
 
-        <p className="text-xs text-[#969085] leading-relaxed">{match.matchReason}</p>
+        <p className="text-xs text-[#A1A1AA] leading-relaxed">{match.matchReason}</p>
 
         {/* Score disclaimer */}
-        <p className="text-[10px] text-[#969085]/70 italic">
+        <p className="text-[10px] text-[#52525B] italic">
           Score reflects profile-to-job alignment, not a hiring probability.
         </p>
       </div>
@@ -217,14 +217,14 @@ function MatchInsightPanel({
       <div className="px-3 pb-2 space-y-2">
         {match.strengths.length > 0 && (
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-[#969085] font-semibold mb-1">
+            <p className="text-[10px] uppercase tracking-wider text-[#71717A] font-semibold mb-1">
               Matching skills
             </p>
             <div className="flex flex-wrap gap-1">
               {match.strengths.map((s) => (
                 <span
                   key={s}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25"
                 >
                   <CheckCircle className="w-2.5 h-2.5" />
                   {s}
@@ -237,14 +237,14 @@ function MatchInsightPanel({
         {match.missingSkills.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] uppercase tracking-wider text-[#969085] font-semibold">
+              <p className="text-[10px] uppercase tracking-wider text-[#71717A] font-semibold">
                 Skills to learn
               </p>
               {onAddSkills && (
                 <button
                   type="button"
                   onClick={onAddSkills}
-                  className="text-[10px] text-[#B293E2] hover:text-[#C3A9EB] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="text-[10px] text-[#F5F5F5] hover:text-[#A1A1AA] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Target className="w-2.5 h-2.5" /> + Add to Readiness Plan
                 </button>
@@ -254,7 +254,7 @@ function MatchInsightPanel({
               {match.missingSkills.map((s) => (
                 <span
                   key={s}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#F43F5E]/10 text-[#F43F5E] border border-[#F43F5E]/25"
                 >
                   <XCircle className="w-2.5 h-2.5" />
                   {s}
@@ -269,7 +269,7 @@ function MatchInsightPanel({
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-center gap-1.5 py-2 border-t border-[#22232D] text-[10px] font-medium text-[#969085] hover:text-[#B293E2] hover:bg-[#1D1D26] transition-colors cursor-pointer"
+        className="w-full flex items-center justify-center gap-1.5 py-2 border-t border-[#1D1D1D] text-[10px] font-medium text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors cursor-pointer"
         aria-expanded={expanded}
         aria-controls={`match-detail-${match.jobId}`}
       >
@@ -290,11 +290,11 @@ function MatchInsightPanel({
       {expanded && (
         <div
           id={`match-detail-${match.jobId}`}
-          className="border-t border-[#22232D] p-3 space-y-4"
+          className="border-t border-[#1D1D1D] p-3 space-y-4"
         >
           {/* Dimension breakdown */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-[#969085] font-semibold mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-[#71717A] font-semibold mb-2">
               Score breakdown
             </p>
             <div className="space-y-2">
@@ -311,14 +311,14 @@ function MatchInsightPanel({
           {/* Improvement suggestions */}
           {match.improvements.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#969085] font-semibold mb-2">
+              <p className="text-[10px] uppercase tracking-wider text-[#71717A] font-semibold mb-2">
                 How to strengthen your application
               </p>
               <ul className="space-y-2">
                 {match.improvements.map((tip, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <ArrowRight className="w-3 h-3 text-[#B293E2] mt-0.5 shrink-0" />
-                    <span className="text-xs text-[#969085] leading-relaxed">{tip}</span>
+                    <ArrowRight className="w-3 h-3 text-[#F5F5F5] mt-0.5 shrink-0" />
+                    <span className="text-xs text-[#A1A1AA] leading-relaxed">{tip}</span>
                   </li>
                 ))}
               </ul>
@@ -327,14 +327,14 @@ function MatchInsightPanel({
 
           {/* Unknown requirements */}
           {match.unknownRequirements.length > 0 && (
-            <div className="p-2 rounded-lg bg-amber-500/8 border border-amber-500/20">
+            <div className="p-2 rounded-lg bg-[#F59E0B]/8 border border-[#F59E0B]/20">
               <div className="flex items-start gap-2">
-                <HelpCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <HelpCircle className="w-3.5 h-3.5 text-[#F59E0B] shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[10px] font-semibold text-amber-300 mb-1">Cannot verify from profile</p>
+                  <p className="text-[10px] font-semibold text-[#F59E0B] mb-1">Cannot verify from profile</p>
                   <ul className="space-y-0.5">
                     {match.unknownRequirements.map((req, i) => (
-                      <li key={i} className="text-[10px] text-amber-300/75">{req}</li>
+                      <li key={i} className="text-[10px] text-[#F59E0B]/80">{req}</li>
                     ))}
                   </ul>
                 </div>
@@ -343,10 +343,10 @@ function MatchInsightPanel({
           )}
 
           {/* Disclaimer */}
-          <div className="p-2 rounded-lg bg-[#111218] border border-[#22232D]">
+          <div className="p-2 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D]">
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-3.5 h-3.5 text-[#969085] shrink-0 mt-0.5" />
-              <p className="text-[10px] text-[#969085] leading-relaxed">
+              <AlertCircle className="w-3.5 h-3.5 text-[#71717A] shrink-0 mt-0.5" />
+              <p className="text-[10px] text-[#71717A] leading-relaxed">
                 This analysis is based on available profile information and job description text.
                 It estimates profile-to-job alignment, not your probability of being selected.
                 Actual requirements may differ from what the description states.
@@ -717,10 +717,10 @@ export default function JobsPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <h1 className="text-xl font-bold text-[#F8F8F9] tracking-tight">
+          <h1 className="text-xl font-bold text-[#F5F5F5] tracking-tight">
             Find Jobs
           </h1>
-          <p className="text-xs text-[#969085] mt-0.5">
+          <p className="text-xs text-[#A1A1AA] mt-0.5">
             Discover and track real technical jobs matched to your extracted skills.
           </p>
         </div>
@@ -728,16 +728,16 @@ export default function JobsPage() {
 
       {/* No Resume Empty State Banner */}
       {userSkills.length === 0 && (
-        <div className="p-4 rounded-xl border border-[#22232D] bg-[#111218] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-4 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="space-y-0.5 text-center sm:text-left">
-            <h3 className="text-xs font-semibold text-[#F8F8F9]">Upload your resume on the Home page first.</h3>
-            <p className="text-[11px] text-[#969085]">
+            <h3 className="text-xs font-semibold text-[#F5F5F5]">Upload your resume on the Home page first.</h3>
+            <p className="text-[11px] text-[#71717A]">
               I&apos;ll then show you how well you match each job.
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] text-xs font-semibold shrink-0 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] text-xs font-semibold shrink-0 transition-colors cursor-pointer"
           >
             <span>Go to Home</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -754,7 +754,7 @@ export default function JobsPage() {
         />
       )}
       {providerWarning && (
-        <div role="status" className="px-4 py-2 rounded-xl border border-amber-500/20 bg-amber-500/8 text-xs text-amber-200">
+        <div role="status" className="px-4 py-2 rounded-xl border border-[#F59E0B]/25 bg-[#F59E0B]/10 text-xs text-[#F59E0B]">
           Some job sources are unavailable: {providerWarning}
         </div>
       )}
@@ -768,14 +768,14 @@ export default function JobsPage() {
             className={clsx(
               "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border cursor-pointer",
               filterPanelOpen
-                ? "bg-[#1D1D26] border-[#735BA0]/50 text-[#F8F8F9]"
-                : "bg-[#111218] border-[#22232D] text-[#969085] hover:text-[#F8F8F9] hover:border-[#2E303E]"
+                ? "bg-[#121212] border-[#292929] text-[#F5F5F5]"
+                : "bg-[#0D0D0D] border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5] hover:border-[#292929]"
             )}
           >
-            <SlidersHorizontal className="w-4 h-4 text-[#B293E2]" />
+            <SlidersHorizontal className="w-4 h-4 text-[#A1A1AA]" />
             Filters
             {activeFilterCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#B293E2] text-[#0A0B0F] text-xs font-bold min-w-[20px] text-center tabular-nums">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#F5F5F5] text-[#000000] text-xs font-bold min-w-[20px] text-center tabular-nums">
                 {activeFilterCount}
               </span>
             )}
@@ -785,7 +785,7 @@ export default function JobsPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="flex items-center gap-1 text-xs text-[#969085] hover:text-rose-400 transition-colors cursor-pointer"
+              className="flex items-center gap-1 text-xs text-[#71717A] hover:text-[#F43F5E] transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               Clear all
@@ -799,8 +799,8 @@ export default function JobsPage() {
             className={clsx(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border",
               dataSource === "demo"
-                ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
-                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+                ? "bg-[#F59E0B]/10 border-[#F59E0B]/25 text-[#F59E0B]"
+                : "bg-[#10B981]/10 border-[#10B981]/25 text-[#10B981]"
             )}
           >
             {dataSource === "demo" ? (
@@ -818,11 +818,11 @@ export default function JobsPage() {
 
           {/* Results count */}
           <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />
-            <span className="text-xs text-[#969085]">
-              <span className="text-[#F8F8F9] font-semibold tabular-nums">{filtered.length}</span> roles
+            <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
+            <span className="text-xs text-[#71717A]">
+              <span className="text-[#F5F5F5] font-semibold tabular-nums">{filtered.length}</span> roles
               {searching && (
-                <Loader2 className="w-3 h-3 animate-spin inline ml-1.5 text-[#B293E2]" />
+                <Loader2 className="w-3 h-3 animate-spin inline ml-1.5 text-[#F5F5F5]" />
               )}
             </span>
           </div>
@@ -832,7 +832,7 @@ export default function JobsPage() {
       {/* Loading Skeleton */}
       {loading && jobs.length === 0 ? (
         <div className="flex flex-col @3xl/main:flex-row gap-4">
-          <div className="w-full @3xl/main:w-[220px] @5xl/main:w-[250px] shrink-0 p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-4">
+          <div className="w-full @3xl/main:w-[220px] @5xl/main:w-[250px] shrink-0 p-4 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] space-y-4">
             <div className="h-5 w-24 skeleton mb-2" />
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-2 py-2">
@@ -844,7 +844,7 @@ export default function JobsPage() {
 
           <div className="flex-1 min-w-0 space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-3">
+              <div key={i} className="p-4 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-lg skeleton shrink-0" />
                   <div className="space-y-1.5 flex-1">
@@ -860,7 +860,7 @@ export default function JobsPage() {
             ))}
           </div>
 
-          <div className="w-full @4xl/main:w-[340px] @5xl/main:w-[400px] shrink-0 p-5 rounded-xl bg-[#111218] border border-[#22232D] space-y-4 hidden @4xl/main:block">
+          <div className="w-full @4xl/main:w-[340px] @5xl/main:w-[400px] shrink-0 p-5 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] space-y-4 hidden @4xl/main:block">
             <div className="h-6 w-48 skeleton" />
             <div className="h-4 w-32 skeleton" />
             <div className="h-24 w-full skeleton my-4" />
@@ -880,15 +880,15 @@ export default function JobsPage() {
               <Card className="md:sticky md:top-0 md:max-h-[calc(100vh-160px)] overflow-y-auto scrollbar-thin">
                 <div className="space-y-1">
                   {/* Panel header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
-                    <span className="flex items-center gap-2 text-sm font-bold text-[#F8F8F9]">
-                      <Filter className="w-4 h-4 text-[#B293E2]" />
+                  <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
+                    <span className="flex items-center gap-2 text-sm font-bold text-[#F5F5F5]">
+                      <Filter className="w-4 h-4 text-[#A1A1AA]" />
                       Filters
                     </span>
                     <button
                       type="button"
                       onClick={() => setFilterPanelOpen(false)}
-                      className="p-1 rounded-lg hover:bg-[#171820] text-[#969085] hover:text-[#F8F8F9] transition-colors cursor-pointer"
+                      className="p-1 rounded-lg hover:bg-[#121212] text-[#71717A] hover:text-[#F5F5F5] transition-colors cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -898,23 +898,23 @@ export default function JobsPage() {
                   <FilterSection title="Search" icon={Search} defaultOpen={true}>
                     <div className="space-y-2">
                       <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#969085]" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A]" />
                         <input
                           type="text"
                           placeholder="Role, company, or keyword..."
                           value={filters.search}
                           onChange={(e) => updateFilter("search", e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] transition-colors"
+                          className="w-full pl-8 pr-3 py-2 text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
                         />
                       </div>
                       <div className="relative">
-                        <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#969085]" />
+                        <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A]" />
                         <input
                           type="text"
                           placeholder="City or Remote"
                           value={filters.location}
                           onChange={(e) => updateFilter("location", e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 text-xs bg-[#0A0B0F] border border-[#262733] rounded-lg text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] transition-colors"
+                          className="w-full pl-8 pr-3 py-2 text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
                         />
                       </div>
                     </div>
@@ -924,12 +924,12 @@ export default function JobsPage() {
                     <select
                       value={filters.workArrangement}
                       onChange={(e) => updateFilter("workArrangement", e.target.value as JobFilters["workArrangement"])}
-                      className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg p-2 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2]"
+                      className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg p-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
                     >
-                      <option value="any">Any arrangement</option>
-                      <option value="remote">Remote</option>
-                      <option value="hybrid">Hybrid</option>
-                      <option value="onsite">On-site</option>
+                      <option value="any" className="bg-[#0D0D0D]">Any arrangement</option>
+                      <option value="remote" className="bg-[#0D0D0D]">Remote</option>
+                      <option value="hybrid" className="bg-[#0D0D0D]">Hybrid</option>
+                      <option value="onsite" className="bg-[#0D0D0D]">On-site</option>
                     </select>
                   </FilterSection>
 
@@ -942,9 +942,9 @@ export default function JobsPage() {
                             type="checkbox"
                             checked={filters.jobTypes.includes(type)}
                             onChange={() => toggleJobType(type)}
-                            className="w-3.5 h-3.5 rounded border-[#2A2B38] bg-[#0A0B0F] accent-[#B293E2] focus:ring-[#B293E2]/30 focus:ring-offset-0"
+                            className="w-3.5 h-3.5 rounded border-[#292929] bg-[#080808] accent-[#F5F5F5] focus:ring-0"
                           />
-                          <span className="text-xs text-[#969085] group-hover:text-[#F8F8F9] transition-colors">
+                          <span className="text-xs text-[#A1A1AA] group-hover:text-[#F5F5F5] transition-colors">
                             {type}
                           </span>
                         </label>
@@ -963,9 +963,9 @@ export default function JobsPage() {
                             value={lvl.value}
                             checked={filters.experienceLevel === lvl.value}
                             onChange={(e) => updateFilter("experienceLevel", e.target.value)}
-                            className="w-3.5 h-3.5 border-[#2A2B38] bg-[#0A0B0F] accent-[#B293E2] focus:ring-[#B293E2]/30 focus:ring-offset-0"
+                            className="w-3.5 h-3.5 border-[#292929] bg-[#080808] accent-[#F5F5F5] focus:ring-0"
                           />
-                          <span className="text-xs text-[#969085] group-hover:text-[#F8F8F9] transition-colors">
+                          <span className="text-xs text-[#A1A1AA] group-hover:text-[#F5F5F5] transition-colors">
                             {lvl.label}
                           </span>
                         </label>
@@ -974,7 +974,7 @@ export default function JobsPage() {
                         <button
                           type="button"
                           onClick={() => updateFilter("experienceLevel", "")}
-                          className="text-xs text-[#969085] hover:text-[#B293E2] mt-1 transition-colors cursor-pointer"
+                          className="text-xs text-[#71717A] hover:text-[#F5F5F5] mt-1 transition-colors cursor-pointer"
                         >
                           Clear selection
                         </button>
@@ -986,7 +986,7 @@ export default function JobsPage() {
                   <FilterSection title="Match Score" icon={TrendingUp} defaultOpen={false}>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-[#969085]">Min match %</span>
+                        <span className="text-xs text-[#A1A1AA]">Min match %</span>
                         <span className={clsx("text-xs font-bold tabular-nums", SCORE_COLOR(filters.minMatchScore))}>
                           {filters.minMatchScore}%
                         </span>
@@ -998,9 +998,9 @@ export default function JobsPage() {
                         step={5}
                         value={filters.minMatchScore}
                         onChange={(e) => updateFilter("minMatchScore", parseInt(e.target.value, 10))}
-                        className="w-full h-1.5 rounded-full appearance-none bg-[#22232D] accent-[#B293E2] cursor-pointer"
+                        className="w-full h-1.5 rounded-full appearance-none bg-[#171717] accent-[#F5F5F5] cursor-pointer"
                       />
-                      <div className="flex justify-between text-[10px] text-[#969085]/70 tabular-nums">
+                      <div className="flex justify-between text-[10px] text-[#71717A] tabular-nums">
                         <span>0%</span>
                         <span>50%</span>
                         <span>100%</span>
@@ -1013,8 +1013,8 @@ export default function JobsPage() {
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-[#969085]">Range (LPA)</span>
-                          <span className="text-xs font-medium text-[#F8F8F9] tabular-nums">
+                          <span className="text-xs text-[#A1A1AA]">Range (LPA)</span>
+                          <span className="text-xs font-medium text-[#F5F5F5] tabular-nums">
                             ₹{filters.salaryMin}L – ₹{filters.salaryMax}L
                           </span>
                         </div>
@@ -1029,7 +1029,7 @@ export default function JobsPage() {
                               const val = parseInt(e.target.value, 10);
                               if (val <= filters.salaryMax) updateFilter("salaryMin", val);
                             }}
-                            className="w-full h-1.5 rounded-full appearance-none bg-[#22232D] accent-[#B293E2] cursor-pointer"
+                            className="w-full h-1.5 rounded-full appearance-none bg-[#171717] accent-[#F5F5F5] cursor-pointer"
                           />
                           <input
                             type="range"
@@ -1041,7 +1041,7 @@ export default function JobsPage() {
                               const val = parseInt(e.target.value, 10);
                               if (val >= filters.salaryMin) updateFilter("salaryMax", val);
                             }}
-                            className="w-full h-1.5 rounded-full appearance-none bg-[#22232D] accent-[#735BA0] cursor-pointer"
+                            className="w-full h-1.5 rounded-full appearance-none bg-[#171717] accent-[#A1A1AA] cursor-pointer"
                           />
                         </div>
                       </div>
@@ -1052,9 +1052,9 @@ export default function JobsPage() {
                           onChange={(e) =>
                             updateFilter("includeSalaryNotDisclosed", e.target.checked)
                           }
-                          className="w-3.5 h-3.5 rounded border-[#2A2B38] bg-[#0A0B0F] accent-[#B293E2] focus:ring-[#B293E2]/30 focus:ring-offset-0"
+                          className="w-3.5 h-3.5 rounded border-[#292929] bg-[#080808] accent-[#F5F5F5] focus:ring-0"
                         />
-                        <span className="text-xs text-[#969085]">Include &quot;Not disclosed&quot;</span>
+                        <span className="text-xs text-[#A1A1AA]">Include &quot;Not disclosed&quot;</span>
                       </label>
                     </div>
                   </FilterSection>
@@ -1070,8 +1070,8 @@ export default function JobsPage() {
                           className={clsx(
                             "px-2 py-1 rounded-md text-xs font-medium transition-colors border cursor-pointer",
                             filters.skills.includes(skill)
-                              ? "bg-[#1D1D26] border-[#735BA0]/60 text-[#B293E2]"
-                              : "bg-[#171820] border-[#262733] text-[#969085] hover:text-[#F8F8F9] hover:border-[#2E303E]"
+                              ? "bg-[#121212] border-[#F5F5F5]/40 text-[#F5F5F5]"
+                              : "bg-[#0A0A0A] border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5] hover:border-[#292929]"
                           )}
                         >
                           {skill}
@@ -1091,9 +1091,9 @@ export default function JobsPage() {
                             value={opt.value}
                             checked={filters.postedWithin === opt.value}
                             onChange={(e) => updateFilter("postedWithin", e.target.value)}
-                            className="w-3.5 h-3.5 border-[#2A2B38] bg-[#0A0B0F] accent-[#B293E2] focus:ring-[#B293E2]/30 focus:ring-offset-0"
+                            className="w-3.5 h-3.5 border-[#292929] bg-[#080808] accent-[#F5F5F5] focus:ring-0"
                           />
-                          <span className="text-xs text-[#969085] group-hover:text-[#F8F8F9] transition-colors">
+                          <span className="text-xs text-[#A1A1AA] group-hover:text-[#F5F5F5] transition-colors">
                             {opt.label}
                           </span>
                         </label>
@@ -1109,24 +1109,24 @@ export default function JobsPage() {
           <div className="flex-1 min-w-0 space-y-2">
             {/* AI Scoring indicator */}
             {scoring && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#111218] border border-[#735BA0]/35">
-                <Zap className="w-3.5 h-3.5 text-[#B293E2]" />
-                <span className="text-xs text-[#B293E2]">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0D0D0D] border border-[#292929]">
+                <Zap className="w-3.5 h-3.5 text-[#A78BFA]" />
+                <span className="text-xs text-[#F5F5F5]">
                   Analysing profile-to-job alignment...
                 </span>
-                <Loader2 className="w-3 h-3 animate-spin text-[#B293E2] ml-auto" />
+                <Loader2 className="w-3 h-3 animate-spin text-[#A78BFA] ml-auto" />
               </div>
             )}
 
             {userSkills.length === 0 && (
-              <div className="p-3.5 rounded-xl bg-[#111218] border border-[#22232D] text-xs text-[#969085] flex items-center justify-between gap-3">
+              <div className="p-3.5 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] text-xs text-[#A1A1AA] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <Sparkles className="w-4 h-4 text-[#B293E2] shrink-0" />
+                  <Sparkles className="w-4 h-4 text-[#A78BFA] shrink-0" />
                   <span>Upload your resume on the Dashboard to see which skills you match for each job.</span>
                 </div>
                 <Link
                   href="/dashboard"
-                  className="px-3 py-1 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs shrink-0 transition-colors"
+                  className="px-3 py-1 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs shrink-0 transition-colors"
                 >
                   Upload Resume
                 </Link>
@@ -1149,45 +1149,45 @@ export default function JobsPage() {
                     }
                   }}
                   className={clsx(
-                    "group relative p-4 rounded-xl border cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-[#B293E2]/40",
+                    "group relative p-4 rounded-xl border cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-[#292929]",
                     activeJob?.id === job.id
-                      ? "bg-[#1D1D26] border-[#735BA0]"
-                      : "bg-[#111218] border-[#22232D] hover:border-[#735BA0]/45 hover:bg-[#171820]"
+                      ? "bg-[#121212] border-[#3A3A3A]"
+                      : "bg-[#0D0D0D] border-[#1D1D1D] hover:border-[#292929] hover:bg-[#121212]"
                   )}
                 >
                   <div className="flex items-start gap-3">
                     {/* Company logo */}
-                    <div className="w-11 h-11 rounded-lg bg-[#171820] border border-[#262733] flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-[#B293E2]">{job.logo}</span>
+                    <div className="w-11 h-11 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center shrink-0">
+                      <span className="text-sm font-bold text-[#F5F5F5]">{job.logo}</span>
                     </div>
 
                     <div className="flex-1 min-w-0">
                       {/* Title row */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#F8F8F9] truncate group-hover:text-[#B293E2] transition-colors">
+                          <p className="text-sm font-semibold text-[#F5F5F5] truncate group-hover:text-[#A1A1AA] transition-colors">
                             {job.title}
                           </p>
-                          <p className="text-xs text-[#969085] mt-0.5">{job.company}</p>
+                          <p className="text-xs text-[#71717A] mt-0.5">{job.company}</p>
                           <div className="flex items-center gap-1.5 mt-1">
                             <span
                               className={clsx(
                                 "px-2 py-0.5 rounded-full text-[10px] font-semibold border inline-flex items-center gap-1",
                                 job.source === "openwebninja"
-                                  ? "bg-[#1D1D26] border-[#735BA0]/35 text-[#B293E2]"
+                                  ? "bg-[#121212] border-[#292929] text-[#A1A1AA]"
                                   : job.source === "himalayas"
-                                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
-                                  : "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                                  ? "bg-[#10B981]/10 border-[#10B981]/25 text-[#10B981]"
+                                  : "bg-[#F59E0B]/10 border-[#F59E0B]/25 text-[#F59E0B]"
                               )}
                             >
                               <span
                                 className={clsx(
                                   "w-1.5 h-1.5 rounded-full",
                                   job.source === "openwebninja"
-                                    ? "bg-[#B293E2]"
+                                    ? "bg-[#A78BFA]"
                                     : job.source === "himalayas"
-                                    ? "bg-emerald-400"
-                                    : "bg-amber-400"
+                                    ? "bg-[#10B981]"
+                                    : "bg-[#F59E0B]"
                                 )}
                               />
                               {job.source === "openwebninja"
@@ -1207,10 +1207,10 @@ export default function JobsPage() {
                             e.stopPropagation();
                             toggleSave(job.id);
                           }}
-                          className="text-[#969085] hover:text-amber-400 transition-colors shrink-0 p-1 rounded-lg hover:bg-amber-500/10 focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer"
+                          className="text-[#71717A] hover:text-[#F59E0B] transition-colors shrink-0 p-1 rounded-lg hover:bg-[#F59E0B]/10 focus:outline-none focus:ring-1 focus:ring-[#F59E0B] cursor-pointer"
                         >
                           {savedJobs.has(job.id) ? (
-                            <BookmarkCheck className="w-4 h-4 text-amber-400" />
+                            <BookmarkCheck className="w-4 h-4 text-[#F59E0B]" />
                           ) : (
                             <Bookmark className="w-4 h-4" />
                           )}
@@ -1219,15 +1219,15 @@ export default function JobsPage() {
 
                       {/* Meta row */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                        <span className="flex items-center gap-1 text-xs text-[#969085]">
+                        <span className="flex items-center gap-1 text-xs text-[#71717A]">
                           <MapPin className="w-3 h-3" />
                           {job.location.length > 25 ? job.location.slice(0, 25) + "…" : job.location}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-[#969085]">
+                        <span className="flex items-center gap-1 text-xs text-[#71717A]">
                           <DollarSign className="w-3 h-3" />
                           {job.salary}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-[#969085]">
+                        <span className="flex items-center gap-1 text-xs text-[#71717A]">
                           <Clock className="w-3 h-3" />
                           {job.posted}
                         </span>
@@ -1261,7 +1261,7 @@ export default function JobsPage() {
                         {/* Score source indicator (compact) */}
                         {match?.scoreSource === "gemini" && (
                           <span title="AI-scored">
-                            <Sparkles className="w-3 h-3 text-[#B293E2]" />
+                            <Sparkles className="w-3 h-3 text-[#A78BFA]" />
                           </span>
                         )}
 
@@ -1289,10 +1289,10 @@ export default function JobsPage() {
                                 className={clsx(
                                   "px-1.5 py-0.5 rounded text-[10px] font-medium border",
                                   userSkills.length > 0 && isUserSkill
-                                    ? "bg-emerald-500/12 text-emerald-300 border-emerald-500/25"
+                                    ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
                                     : userSkills.length > 0
-                                    ? "bg-amber-500/12 text-amber-300 border-amber-500/25"
-                                    : "bg-[#171820] text-[#969085] border-[#262733]"
+                                    ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25"
+                                    : "bg-[#121212] text-[#A1A1AA] border-[#1D1D1D]"
                                 )}
                                 title={
                                   userSkills.length > 0
@@ -1308,7 +1308,7 @@ export default function JobsPage() {
                             );
                           })}
                           {job.tags.length > 4 && (
-                            <span className="px-1.5 py-0.5 text-[10px] text-[#969085]">
+                            <span className="px-1.5 py-0.5 text-[10px] text-[#71717A]">
                               +{job.tags.length - 4}
                             </span>
                           )}
@@ -1321,14 +1321,14 @@ export default function JobsPage() {
             })}
 
             {filtered.length === 0 && !loading && (
-              <div className="p-12 text-center bg-[#111218] border border-[#22232D] rounded-xl">
-                <Globe className="w-10 h-10 text-[#969085]/50 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-[#F8F8F9]">
+              <div className="p-12 text-center bg-[#0D0D0D] border border-[#1D1D1D] rounded-xl">
+                <Globe className="w-10 h-10 text-[#52525B] mx-auto mb-3" />
+                <p className="text-sm font-semibold text-[#F5F5F5]">
                   {jobs.length === 0
                     ? "No jobs found right now. Try a different role or check back later."
                     : "No matching roles found"}
                 </p>
-                <p className="text-xs text-[#969085] mt-1">
+                <p className="text-xs text-[#71717A] mt-1">
                   {jobs.length > 0
                     ? "Your current filters removed all jobs. Try broadening your search or resetting filters."
                     : "Try a different role or check back later."}
@@ -1337,7 +1337,7 @@ export default function JobsPage() {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#171820] text-[#B293E2] border border-[#735BA0]/35 hover:bg-[#1D1D26] transition-colors cursor-pointer"
+                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#121212] text-[#F5F5F5] border border-[#292929] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3 h-3" />
                     Clear all filters
@@ -1357,14 +1357,14 @@ export default function JobsPage() {
             {activeJob ? (
               <Card className="sticky top-0 max-h-[calc(100vh-160px)] overflow-y-auto scrollbar-thin">
                 {/* Header */}
-                <div className="flex items-start gap-4 pb-5 border-b border-[#22232D] mb-5">
-                  <div className="w-14 h-14 rounded-xl bg-[#171820] border border-[#262733] flex items-center justify-center shrink-0">
-                    <span className="text-xl font-bold text-[#B293E2]">{activeJob.logo}</span>
+                <div className="flex items-start gap-4 pb-5 border-b border-[#1D1D1D] mb-5">
+                  <div className="w-14 h-14 rounded-xl bg-[#121212] border border-[#292929] flex items-center justify-center shrink-0">
+                    <span className="text-xl font-bold text-[#F5F5F5]">{activeJob.logo}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-bold text-[#F8F8F9]">{activeJob.title}</h2>
-                    <p className="text-[#969085] text-sm">{activeJob.company}</p>
-                    <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#969085]">
+                    <h2 className="text-lg font-bold text-[#F5F5F5]">{activeJob.title}</h2>
+                    <p className="text-[#A1A1AA] text-sm">{activeJob.company}</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#71717A]">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5" />
                         {activeJob.location}
@@ -1382,11 +1382,11 @@ export default function JobsPage() {
                 </div>
 
                 {(activeJob.attributionLabel || activeJob.workArrangement || activeJob.closingDate) && (
-                  <div className="mb-5 p-3 rounded-xl bg-[#171820] border border-[#22232D] space-y-1.5 text-xs text-[#969085]">
+                  <div className="mb-5 p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-1.5 text-xs text-[#71717A]">
                     {activeJob.attributionLabel && (
                       <p>
                         Source: {activeJob.sourceUrl ? (
-                          <a href={activeJob.sourceUrl} target="_blank" rel="noreferrer" className="text-[#B293E2] hover:text-[#C3A9EB] underline underline-offset-2">
+                          <a href={activeJob.sourceUrl} target="_blank" rel="noreferrer" className="text-[#F5F5F5] hover:text-[#A1A1AA] underline underline-offset-2">
                             {activeJob.attributionLabel}
                           </a>
                         ) : activeJob.attributionLabel}
@@ -1405,7 +1405,7 @@ export default function JobsPage() {
                 {/* Match score section */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-[#969085]">Profile Alignment</span>
+                    <span className="text-xs font-medium text-[#71717A]">Profile Alignment</span>
                     <span className={clsx("text-sm font-bold tabular-nums", SCORE_COLOR(activeJob.matchScore))}>
                       {activeJob.matchScore}%
                     </span>
@@ -1432,17 +1432,17 @@ export default function JobsPage() {
                       />
                     </div>
                   ) : scoring ? (
-                    <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-[#171820] border border-[#22232D]">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B293E2] shrink-0" />
-                      <span className="text-xs text-[#969085]">Analysing profile alignment...</span>
+                    <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D]">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A78BFA] shrink-0" />
+                      <span className="text-xs text-[#A1A1AA]">Analysing profile alignment...</span>
                     </div>
                   ) : null}
                 </div>
 
                 {/* Tags — matched against real resume */}
                 {userSkills.length === 0 ? (
-                  <div className="mb-5 p-3 rounded-xl bg-[#171820] border border-[#262733] text-xs text-[#969085] flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#B293E2] shrink-0" />
+                  <div className="mb-5 p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] text-xs text-[#A1A1AA] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#A78BFA] shrink-0" />
                     <span>Upload your resume on the Dashboard to see which skills you match for each job.</span>
                   </div>
                 ) : (
@@ -1460,8 +1460,8 @@ export default function JobsPage() {
                           className={clsx(
                             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border",
                             isUserSkill
-                              ? "bg-emerald-500/12 text-emerald-300 border-emerald-500/25"
-                              : "bg-amber-500/12 text-amber-300 border-amber-500/25"
+                              ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
+                              : "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25"
                           )}
                         >
                           {isUserSkill ? "✅ In Your Resume: " : "⚡ Need to Cover: "}
@@ -1474,8 +1474,8 @@ export default function JobsPage() {
 
                 {/* Description */}
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-[#F8F8F9] mb-2">About the Role</h3>
-                  <p className="text-sm text-[#969085] leading-relaxed">
+                  <h3 className="text-sm font-semibold text-[#F5F5F5] mb-2">About the Role</h3>
+                  <p className="text-sm text-[#A1A1AA] leading-relaxed">
                     {activeJob.description}
                   </p>
                 </div>
@@ -1514,7 +1514,7 @@ export default function JobsPage() {
                   <Button
                     variant="secondary"
                     size="md"
-                    icon={<Sparkles className="w-4 h-4 text-[#B293E2]" />}
+                    icon={<Sparkles className="w-4 h-4 text-[#A78BFA]" />}
                     onClick={() => {
                       sessionStorage.setItem(
                         "copilot_target_jd_handoff",
@@ -1568,7 +1568,7 @@ export default function JobsPage() {
                 </div>
               </Card>
             ) : (
-              <div className="flex items-center justify-center h-64 text-[#969085] text-sm">
+              <div className="flex items-center justify-center h-64 text-[#71717A] text-sm">
                 Select a job to view details
               </div>
             )}

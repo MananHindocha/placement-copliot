@@ -36,9 +36,9 @@ const COMPANY_DNA_REGISTRY: Record<string, CompanyInterviewDna> = {
   razorpay: {
     company: "Razorpay",
     roundDistribution: [
-      { name: "API Concurrency & DB Indexing", pct: 45, focus: "PostgreSQL MVCC, Row Locks, FillFactor 80, Idempotency", color: "bg-blue-500 text-blue-300" },
-      { name: "DSA (Graphs & Queues)", pct: 35, focus: "Topological Sort, LRU Cache, Sliding Window", color: "bg-indigo-500 text-indigo-300" },
-      { name: "Production Debugging", pct: 20, focus: "Memory leaks, Event Loop blocking, Deadlock analysis", color: "bg-cyan-500 text-cyan-300" },
+      { name: "API Concurrency & DB Indexing", pct: 45, focus: "PostgreSQL MVCC, Row Locks, FillFactor 80, Idempotency", color: "bg-[#38BDF8] text-[#38BDF8]" },
+      { name: "DSA (Graphs & Queues)", pct: 35, focus: "Topological Sort, LRU Cache, Sliding Window", color: "bg-[#F5F5F5] text-[#F5F5F5]" },
+      { name: "Production Debugging", pct: 20, focus: "Memory leaks, Event Loop blocking, Deadlock analysis", color: "bg-[#10B981] text-[#10B981]" },
     ],
     keyTopics: ["PostgreSQL B-Tree & Concurrency", "Redis Distributed Locking", "Idempotent Webhooks", "Zero-Data-Loss Queues"],
     interviewerPersona: "Fintech Systems Architect focusing on zero-data-loss, transactional guarantees, and graceful degradation.",
@@ -47,9 +47,9 @@ const COMPANY_DNA_REGISTRY: Record<string, CompanyInterviewDna> = {
   vercel: {
     company: "Vercel",
     roundDistribution: [
-      { name: "Next.js & React 19 Performance", pct: 50, focus: "Server Components, Streaming SSR, Suspense, Cache Boundaries", color: "bg-violet-500 text-violet-300" },
-      { name: "Architecture & TypeScript", pct: 30, focus: "Discriminated unions, edge runtime limits, bundle budget", color: "bg-pink-500 text-pink-300" },
-      { name: "System Design (Edge & CDN)", pct: 20, focus: "Stale-While-Revalidate, edge routing, global replication", color: "bg-purple-500 text-purple-300" },
+      { name: "Next.js & React 19 Performance", pct: 50, focus: "Server Components, Streaming SSR, Suspense, Cache Boundaries", color: "bg-[#F5F5F5] text-[#F5F5F5]" },
+      { name: "Architecture & TypeScript", pct: 30, focus: "Discriminated unions, edge runtime limits, bundle budget", color: "bg-[#38BDF8] text-[#38BDF8]" },
+      { name: "System Design (Edge & CDN)", pct: 20, focus: "Stale-While-Revalidate, edge routing, global replication", color: "bg-[#A78BFA] text-[#A78BFA]" },
     ],
     keyTopics: ["React Server Components", "Next.js App Router", "TypeScript Generics", "Web Performance Metrics (LCP/INP)"],
     interviewerPersona: "DX & Frontend Infrastructure Principal focusing on rendering efficiency and DX ergonomics.",
@@ -58,9 +58,9 @@ const COMPANY_DNA_REGISTRY: Record<string, CompanyInterviewDna> = {
   stripe: {
     company: "Stripe",
     roundDistribution: [
-      { name: "API Design & Idempotency", pct: 45, focus: "Strict HTTP semantics, idempotency keys, backward compatibility", color: "bg-emerald-500 text-emerald-300" },
-      { name: "Concurrency & Caching (Redis)", pct: 35, focus: "Cache stampede mitigation, rate limiting, connection pooling", color: "bg-teal-500 text-teal-300" },
-      { name: "Production Debugging", pct: 20, focus: "Distributed tracing, timeout budgets, p99 latency optimization", color: "bg-cyan-500 text-cyan-300" },
+      { name: "API Design & Idempotency", pct: 45, focus: "Strict HTTP semantics, idempotency keys, backward compatibility", color: "bg-[#10B981] text-[#10B981]" },
+      { name: "Concurrency & Caching (Redis)", pct: 35, focus: "Cache stampede mitigation, rate limiting, connection pooling", color: "bg-[#F5F5F5] text-[#F5F5F5]" },
+      { name: "Production Debugging", pct: 20, focus: "Distributed tracing, timeout budgets, p99 latency optimization", color: "bg-[#38BDF8] text-[#38BDF8]" },
     ],
     keyTopics: ["API Idempotency", "Redis Caching", "Rate Limiting", "Distributed Transactions"],
     interviewerPersona: "API Infrastructure Specialist demanding rigorous edge-case handling and zero silent failures.",
@@ -69,9 +69,9 @@ const COMPANY_DNA_REGISTRY: Record<string, CompanyInterviewDna> = {
   atlassian: {
     company: "Atlassian",
     roundDistribution: [
-      { name: "Distributed Systems & Kafka", pct: 40, focus: "Consumer groups, partition skew, event-driven CQRS", color: "bg-sky-500 text-sky-300" },
-      { name: "Concurrency & Core Java / TS", pct: 35, focus: "Thread pools, non-blocking I/O, async pipeline processing", color: "bg-blue-500 text-blue-300" },
-      { name: "System Design Trade-offs", pct: 25, focus: "High availability, disaster recovery, sharding strategies", color: "bg-indigo-500 text-indigo-300" },
+      { name: "Distributed Systems & Kafka", pct: 40, focus: "Consumer groups, partition skew, event-driven CQRS", color: "bg-[#38BDF8] text-[#38BDF8]" },
+      { name: "Concurrency & Core Java / TS", pct: 35, focus: "Thread pools, non-blocking I/O, async pipeline processing", color: "bg-[#F5F5F5] text-[#F5F5F5]" },
+      { name: "System Design Trade-offs", pct: 25, focus: "High availability, disaster recovery, sharding strategies", color: "bg-[#A78BFA] text-[#A78BFA]" },
     ],
     keyTopics: ["Kafka Event Streaming", "Distributed Caching", "System Design", "Microservices Resiliency"],
     interviewerPersona: "Enterprise Cloud Reliability Engineer emphasizing team collaboration, code readability, and fault isolation.",
@@ -89,9 +89,9 @@ function getCompanyDna(companyName: string): CompanyInterviewDna {
   return {
     company: companyName,
     roundDistribution: [
-      { name: "Core Architecture & Data Layer", pct: 40, focus: "Database indexing, concurrency, and API contracts", color: "bg-indigo-500 text-indigo-300" },
-      { name: "DSA & Problem Solving", pct: 35, focus: "Optimal time/space complexity, data structure selection", color: "bg-cyan-500 text-cyan-300" },
-      { name: "System Design & Culture", pct: 25, focus: "System scalability, STAR behavioral responses", color: "bg-emerald-500 text-emerald-300" },
+      { name: "Core Architecture & Data Layer", pct: 40, focus: "Database indexing, concurrency, and API contracts", color: "bg-[#F5F5F5] text-[#F5F5F5]" },
+      { name: "DSA & Problem Solving", pct: 35, focus: "Optimal time/space complexity, data structure selection", color: "bg-[#38BDF8] text-[#38BDF8]" },
+      { name: "System Design & Culture", pct: 25, focus: "System scalability, STAR behavioral responses", color: "bg-[#10B981] text-[#10B981]" },
     ],
     keyTopics: ["Database Optimization", "System Design", "Algorithms", "Clean Architecture"],
     interviewerPersona: "Senior Technical Lead evaluating engineering rigor, trade-off clarity, and production readiness.",
@@ -189,20 +189,20 @@ export default function CompanyWarRoomModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A0B0F]/80 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-[#111218] border border-[#22232D] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-fadeIn">
+      <div className="relative w-full max-w-4xl bg-[#0D0D0D] border border-[#292929] rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-[#171820] border-b border-[#22232D]">
+        <div className="flex items-center justify-between px-6 py-4 bg-[#0A0A0A] border-b border-[#1D1D1D]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#111218] border border-[#262733] flex items-center justify-center text-[#B293E2]">
-              <Brain className="w-5 h-5 text-[#B293E2]" />
+            <div className="w-10 h-10 rounded-xl bg-[#121212] border border-[#292929] flex items-center justify-center text-[#A78BFA]">
+              <Brain className="w-5 h-5 text-[#A78BFA]" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-bold text-[#F8F8F9] tracking-tight">
+                <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
                   Interview Prep Kit: {card.company}
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#121212] text-[#F5F5F5] border border-[#292929]">
                   {card.title}
                 </span>
                 {card.matchScore > 0 && (
@@ -211,7 +211,7 @@ export default function CompanyWarRoomModal({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#969085] mt-0.5">
+              <p className="text-xs text-[#A1A1AA] mt-0.5">
                 Company interview rounds, key focus areas, and a tailored study roadmap.
               </p>
             </div>
@@ -220,7 +220,7 @@ export default function CompanyWarRoomModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -229,29 +229,29 @@ export default function CompanyWarRoomModal({
         {/* Modal Scrollable Body: 3 Panels */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1 font-sans">
           {/* ─── PANEL 1: COMPANY INTERVIEW DNA ─── */}
-          <div className="rounded-xl border border-[#22232D] bg-[#171820] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
+          <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
               <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#B293E2]" />
-                <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight">
+                <Target className="w-4 h-4 text-[#A1A1AA]" />
+                <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
                   Interview Rounds &amp; Weightage
                 </h4>
               </div>
-              <span className="text-[10px] font-mono text-[#B293E2] bg-[#1D1D26] border border-[#735BA0]/35 px-2.5 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono text-[#A1A1AA] bg-[#121212] border border-[#292929] px-2.5 py-0.5 rounded-full">
                 Round Breakdown
               </span>
             </div>
 
             {/* Visual Round Weight Breakdown Bars */}
             <div className="space-y-3">
-              <div className="w-full h-3 rounded-full bg-[#0A0B0F] overflow-hidden flex border border-[#262733]">
+              <div className="w-full h-3 rounded-full bg-[#080808] overflow-hidden flex border border-[#1D1D1D]">
                 {dna.roundDistribution.map((r, i) => (
                   <div
                     key={i}
                     style={{ width: `${r.pct}%` }}
                     className={clsx(
-                      "h-full transition-all flex items-center justify-center text-[9px] font-mono font-bold text-[#0A0B0F]",
-                      i === 0 ? "bg-[#B293E2]" : i === 1 ? "bg-[#735BA0]" : "bg-[#4F414D]"
+                      "h-full transition-all flex items-center justify-center text-[9px] font-mono font-bold text-[#000000]",
+                      i === 0 ? "bg-[#F5F5F5]" : i === 1 ? "bg-[#A1A1AA]" : "bg-[#71717A]"
                     )}
                     title={`${r.name}: ${r.pct}%`}
                   />
@@ -262,13 +262,13 @@ export default function CompanyWarRoomModal({
                 {dna.roundDistribution.map((r, i) => (
                   <div
                     key={i}
-                    className="p-3 rounded-xl bg-[#111218] border border-[#22232D] space-y-1"
+                    className="p-3 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] space-y-1"
                   >
                     <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-[#F8F8F9]">{r.name}</span>
-                      <span className="font-mono tabular-nums text-[#B293E2]">{r.pct}%</span>
+                      <span className="text-[#F5F5F5]">{r.name}</span>
+                      <span className="font-mono tabular-nums text-[#F5F5F5]">{r.pct}%</span>
                     </div>
-                    <p className="text-[11px] text-[#969085] leading-relaxed">
+                    <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                       {r.focus}
                     </p>
                   </div>
@@ -277,16 +277,16 @@ export default function CompanyWarRoomModal({
             </div>
 
             {/* Persona & Key Topics Pills */}
-            <div className="pt-2 border-t border-[#22232D] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-              <div className="text-[#F8F8F9]/90">
-                <span className="text-[#969085] font-semibold">Interviewer Persona: </span>
+            <div className="pt-2 border-t border-[#1D1D1D] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="text-[#F5F5F5]/90">
+                <span className="text-[#A1A1AA] font-semibold">Interviewer Persona: </span>
                 <span>{dna.interviewerPersona}</span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {dna.keyTopics.map((k) => (
                   <span
                     key={k}
-                    className="px-2 py-0.5 rounded-md bg-[#111218] border border-[#262733] text-[10px] font-mono text-[#969085]"
+                    className="px-2 py-0.5 rounded-md bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#A1A1AA]"
                   >
                     {k}
                   </span>
@@ -296,11 +296,11 @@ export default function CompanyWarRoomModal({
           </div>
 
           {/* ─── PANEL 2: SKILLS TO STRENGTHEN ─── */}
-          <div className="rounded-xl border border-rose-500/30 bg-[#171820] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
+          <div className="rounded-xl border border-rose-500/30 bg-[#0A0A0A] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-400" />
-                <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight">
+                <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
                   Skills to Strengthen for {card.company}
                 </h4>
               </div>
@@ -345,7 +345,7 @@ export default function CompanyWarRoomModal({
                       </button>
                     </div>
 
-                    <p className="text-xs text-[#969085] leading-relaxed">
+                    <p className="text-xs text-[#A1A1AA] leading-relaxed">
                       This skill is listed on your resume but hasn&apos;t been tested yet in practice sessions. Practice this topic to be confident during technical rounds.
                     </p>
                   </div>
@@ -355,25 +355,25 @@ export default function CompanyWarRoomModal({
           </div>
 
           {/* ─── PANEL 3: TAILORED RESUME & 3-DAY STUDY PLAN ─── */}
-          <div className="rounded-xl border border-[#22232D] bg-[#171820] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
+          <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
               <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#B293E2]" />
-                <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight">
+                <Layers className="w-4 h-4 text-[#A1A1AA]" />
+                <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
                   Tailored Resume &amp; 3-Day Study Plan
                 </h4>
               </div>
-              <span className="text-[10px] font-mono text-[#B293E2] bg-[#1D1D26] border border-[#735BA0]/35 px-2.5 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono text-[#A1A1AA] bg-[#121212] border border-[#292929] px-2.5 py-0.5 rounded-full">
                 Your Review
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Sprint Status Box */}
-              <div className="p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-3">
+              <div className="p-4 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#F8F8F9] flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#B293E2]" />
+                  <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#A1A1AA]" />
                     3-Day Study Plan
                   </span>
                   <span
@@ -381,20 +381,20 @@ export default function CompanyWarRoomModal({
                       "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border",
                       sprintInjected
                         ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                        : "bg-[#171820] text-[#969085] border-[#262733]"
+                        : "bg-[#121212] text-[#A1A1AA] border-[#292929]"
                     )}
                   >
                     {sprintInjected ? "Plan Active" : "Not Added"}
                   </span>
                 </div>
-                <p className="text-xs text-[#969085] leading-relaxed">
+                <p className="text-xs text-[#A1A1AA] leading-relaxed">
                   Adds 3 daily practice tasks to your study plan tailored to {card.company}&apos;s interview rounds.
                 </p>
                 <button
                   type="button"
                   onClick={handleInjectSprint}
                   disabled={sprintInjected || isInjecting}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isInjecting ? (
                     <>
@@ -416,10 +416,10 @@ export default function CompanyWarRoomModal({
               </div>
 
               {/* Resume Fork Status Box */}
-              <div className="p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-3">
+              <div className="p-4 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#F8F8F9] flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-[#B293E2]" />
+                  <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#A1A1AA]" />
                     Tailored Resume Version
                   </span>
                   <span
@@ -428,22 +428,22 @@ export default function CompanyWarRoomModal({
                       matchingApproval
                         ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
                         : diffStaged
-                        ? "bg-[#1D1D26] text-[#B293E2] border-[#735BA0]/35"
-                        : "bg-[#171820] text-[#969085] border-[#262733]"
+                        ? "bg-[#121212] text-[#F5F5F5] border-[#292929]"
+                        : "bg-[#121212] text-[#A1A1AA] border-[#292929]"
                     )}
                   >
                     {matchingApproval ? "Waiting for your review" : diffStaged ? "Review in Progress" : "Current Resume"}
                   </span>
                 </div>
-                <p className="text-xs text-[#969085] leading-relaxed">
+                <p className="text-xs text-[#A1A1AA] leading-relaxed">
                   Suggests bullet rewrites highlighting skills {card.company} looks for.
                 </p>
                 <button
                   type="button"
                   onClick={handleStageResumeFork}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-[#1D1D26] hover:bg-[#262733] text-[#F8F8F9] border border-[#735BA0]/45 font-semibold text-xs transition-colors cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] text-[#F5F5F5] border border-[#292929] font-semibold text-xs transition-colors cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
                   <span>Review Tailored Resume Suggestions</span>
                 </button>
               </div>
@@ -452,14 +452,14 @@ export default function CompanyWarRoomModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#171820] border-t border-[#22232D] flex items-center justify-between gap-3">
-          <div className="text-xs text-[#969085]">
+        <div className="px-6 py-4 bg-[#0A0A0A] border-t border-[#1D1D1D] flex items-center justify-between gap-3">
+          <div className="text-xs text-[#A1A1AA]">
             Your preparation data is saved automatically.
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-[#111218] hover:bg-[#1D1D26] border border-[#262733] text-[#F8F8F9] text-xs font-semibold transition-colors cursor-pointer"
+            className="px-5 py-2 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[#F5F5F5] text-xs font-semibold transition-colors cursor-pointer"
           >
             Close Prep Kit
           </button>

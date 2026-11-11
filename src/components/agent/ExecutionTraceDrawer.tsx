@@ -100,13 +100,13 @@ export function ExecutionTraceDrawer() {
           gap: 6px;
           padding: 14px 16px;
           border-radius: 10px;
-          background: #171820;
-          border: 1px solid #22232d;
+          background: #0a0a0a;
+          border: 1px solid #1d1d1d;
           transition: border-color 0.15s ease, background-color 0.15s ease;
         }
         .activity-item:hover {
-          border-color: #343646;
-          background: #1d1d26;
+          border-color: #292929;
+          background: #121212;
         }
         .activity-header {
           display: flex;
@@ -117,12 +117,12 @@ export function ExecutionTraceDrawer() {
         .activity-time {
           font-size: 11px;
           font-family: var(--font-mono), monospace;
-          color: #969085;
+          color: #71717a;
         }
         .activity-text {
           font-size: 13px;
           font-weight: 500;
-          color: #f8f8f9;
+          color: #f5f5f5;
           line-height: 1.5;
         }
         .activity-status {
@@ -133,19 +133,19 @@ export function ExecutionTraceDrawer() {
           white-space: nowrap;
         }
         .activity-status.completed {
-          background: rgba(52, 211, 153, 0.12);
-          color: #34d399;
-          border: 1px solid rgba(52, 211, 153, 0.25);
+          background: rgba(16, 185, 129, 0.12);
+          color: #10b981;
+          border: 1px solid rgba(16, 185, 129, 0.25);
         }
         .activity-status.failed {
-          background: rgba(226, 114, 133, 0.12);
-          color: #e27285;
-          border: 1px solid rgba(226, 114, 133, 0.25);
+          background: rgba(244, 63, 94, 0.12);
+          color: #f43f5e;
+          border: 1px solid rgba(244, 63, 94, 0.25);
         }
         .activity-status.running {
-          background: rgba(178, 147, 226, 0.14);
-          color: #b293e2;
-          border: 1px solid rgba(178, 147, 226, 0.28);
+          background: rgba(167, 139, 250, 0.12);
+          color: #a78bfa;
+          border: 1px solid rgba(167, 139, 250, 0.28);
         }
       `,
         }}
@@ -157,22 +157,22 @@ export function ExecutionTraceDrawer() {
           {/* Backdrop */}
           <div
             onClick={closeDrawer}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-black/80 transition-opacity"
           />
 
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-8 sm:pl-10">
-            <div className="w-screen max-w-2xl bg-[#111218] border-l border-[#22232D] shadow-2xl flex flex-col h-full text-[#F8F8F9]">
+            <div className="w-screen max-w-2xl bg-[#050505] border-l border-[#1D1D1D] flex flex-col h-full text-[#F5F5F5]">
               {/* ─── DRAWER HEADER ─── */}
-              <div className="p-5 border-b border-[#22232D] bg-[#171820] flex items-center justify-between gap-4">
+              <div className="p-5 border-b border-[#1D1D1D] bg-[#0A0A0A] flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#1D1D26] border border-[#2B2C3A] flex items-center justify-center text-[#B293E2]">
+                  <div className="w-9 h-9 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center text-[#A78BFA]">
                     <Brain className="w-4 h-4" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold text-[#F8F8F9] tracking-tight">
+                    <h2 className="text-sm font-semibold text-[#F5F5F5] tracking-tight">
                       Activity Log
                     </h2>
-                    <p style={{ fontSize: "12px", color: "#969085" }}>
+                    <p style={{ fontSize: "12px", color: "#71717A" }}>
                       What your assistant has done in this session.
                     </p>
                   </div>
@@ -181,7 +181,7 @@ export function ExecutionTraceDrawer() {
                 <button
                   type="button"
                   onClick={closeDrawer}
-                  className="p-2 rounded-lg text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] transition-colors cursor-pointer"
+                  className="p-2 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors cursor-pointer"
                   title="Close Activity Log"
                 >
                   <X className="w-4 h-4" />
@@ -199,12 +199,12 @@ export function ExecutionTraceDrawer() {
                       onChange={(e) => setPromptInput(e.target.value)}
                       placeholder="Ask your assistant: 'Prepare me for a Software Engineer interview'..."
                       disabled={isExecuting}
-                      className="w-full bg-[#0A0B0F] border border-[#262733] focus:border-[#735BA0] rounded-lg px-3.5 py-2.5 text-xs text-[#F8F8F9] placeholder-[#969085]/70 focus:outline-none pr-11 transition-colors font-sans"
+                      className="w-full bg-[#080808] border border-[#1D1D1D] focus:border-[#292929] rounded-lg px-3.5 py-2.5 text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none pr-11 transition-colors font-sans"
                     />
                     <button
                       type="submit"
                       disabled={isExecuting || !promptInput.trim()}
-                      className="absolute right-1.5 top-1.5 p-1.5 rounded-md bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="absolute right-1.5 top-1.5 p-1.5 rounded-md bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                       title="Ask Assistant"
                     >
                       {isExecuting ? (
@@ -217,7 +217,7 @@ export function ExecutionTraceDrawer() {
 
                   {/* Quick Trigger Chips */}
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    <span className="text-[11px] text-[#969085] font-medium uppercase tracking-wider">
+                    <span className="text-[11px] text-[#71717A] font-medium uppercase tracking-wider">
                       Quick Actions:
                     </span>
                     <button
@@ -228,7 +228,7 @@ export function ExecutionTraceDrawer() {
                         )
                       }
                       disabled={isExecuting}
-                      className="px-2.5 py-1 rounded-md bg-[#171820] hover:bg-[#1D1D26] border border-[#282936] text-[11px] text-[#F8F8F9] transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 rounded-md bg-[#0D0D0D] hover:bg-[#121212] border border-[#1D1D1D] hover:border-[#292929] text-[11px] text-[#F5F5F5] transition-colors font-medium flex items-center gap-1 cursor-pointer"
                     >
                       <span>🏢 Software Engineer Prep</span>
                     </button>
@@ -240,9 +240,9 @@ export function ExecutionTraceDrawer() {
                         )
                       }
                       disabled={isExecuting}
-                      className="px-2.5 py-1 rounded-md bg-[#171820] hover:bg-[#1D1D26] border border-[#282936] text-[11px] text-rose-300 transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 rounded-md bg-[#0D0D0D] hover:bg-[#121212] border border-[#1D1D1D] hover:border-[#292929] text-[11px] text-[#F43F5E] transition-colors font-medium flex items-center gap-1 cursor-pointer"
                     >
-                      <ShieldAlert className="w-3 h-3 text-rose-400" />
+                      <ShieldAlert className="w-3 h-3 text-[#F43F5E]" />
                       <span>🔍 Check Skill Accuracy</span>
                     </button>
                     <button
@@ -253,9 +253,9 @@ export function ExecutionTraceDrawer() {
                         )
                       }
                       disabled={isExecuting}
-                      className="px-2.5 py-1 rounded-md bg-[#171820] hover:bg-[#1D1D26] border border-[#282936] text-[11px] text-[#B293E2] transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 rounded-md bg-[#0D0D0D] hover:bg-[#121212] border border-[#1D1D1D] hover:border-[#292929] text-[11px] text-[#F5F5F5] transition-colors font-medium flex items-center gap-1 cursor-pointer"
                     >
-                      <Layers className="w-3 h-3 text-[#B293E2]" />
+                      <Layers className="w-3 h-3 text-[#A78BFA]" />
                       <span>⚡ Skills Across Jobs</span>
                     </button>
                   </div>
@@ -263,25 +263,25 @@ export function ExecutionTraceDrawer() {
 
                 {/* Executing Pulse Indicator */}
                 {isExecuting && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-[#171820] border border-[#735BA0]/40 text-[#B293E2] text-xs">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#B293E2] shrink-0" />
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-[#0D0D0D] border border-[#292929] text-[#F5F5F5] text-xs">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#A78BFA] shrink-0" />
                     <span>Assistant is working on your request...</span>
                   </div>
                 )}
 
                 {/* Activity Feed */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#22232D]">
-                    <h3 className="text-xs font-semibold text-[#F8F8F9] uppercase tracking-wider">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#1D1D1D]">
+                    <h3 className="text-xs font-semibold text-[#F5F5F5] uppercase tracking-wider">
                       Recent Activity
                     </h3>
-                    <span className="text-[11px] font-mono text-[#969085]">
+                    <span className="text-[11px] font-mono text-[#71717A]">
                       {runs.length} Event{runs.length === 1 ? "" : "s"}
                     </span>
                   </div>
 
                   {runs.length === 0 ? (
-                    <p style={{ color: "#969085", fontSize: "13px", padding: "20px 0", textAlign: "center" }}>
+                    <p style={{ color: "#71717A", fontSize: "13px", padding: "20px 0", textAlign: "center" }}>
                       No activity yet. Upload your resume to get started.
                     </p>
                   ) : (
@@ -315,17 +315,17 @@ export function ExecutionTraceDrawer() {
 
                           {/* Technical details collapsed inside <details> */}
                           {run.reasoning_trace && run.reasoning_trace.length > 0 && (
-                            <details className="mt-1 text-xs text-[#969085] group">
-                              <summary className="cursor-pointer text-[#B293E2] hover:text-[#C3A9EB] font-mono text-[11px] select-none py-1">
+                            <details className="mt-1 text-xs text-[#71717A] group">
+                              <summary className="cursor-pointer text-[#A1A1AA] hover:text-[#F5F5F5] font-mono text-[11px] select-none py-1">
                                 Technical details ({run.reasoning_trace.length} steps)
                               </summary>
-                              <div className="mt-2 space-y-1.5 pl-3 border-l border-[#4F414D]">
+                              <div className="mt-2 space-y-1.5 pl-3 border-l border-[#292929]">
                                 {run.reasoning_trace.map((step, idx) => (
                                   <div
                                     key={idx}
-                                    className="p-2.5 rounded-lg bg-[#111218] border border-[#22232D] text-[11px] font-mono text-[#969085]"
+                                    className="p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D] text-[11px] font-mono text-[#71717A]"
                                   >
-                                    <div className="flex items-center justify-between text-[#B293E2] mb-1">
+                                    <div className="flex items-center justify-between text-[#F5F5F5] mb-1">
                                       <span>
                                         Step {step.step_number}: {step.tool_name}
                                       </span>
@@ -333,7 +333,7 @@ export function ExecutionTraceDrawer() {
                                         {step.latency_ms}ms · {step.status}
                                       </span>
                                     </div>
-                                    <p className="text-[#F8F8F9]/85 font-sans text-xs">
+                                    <p className="text-[#A1A1AA] font-sans text-xs">
                                       {step.output_summary}
                                     </p>
                                   </div>

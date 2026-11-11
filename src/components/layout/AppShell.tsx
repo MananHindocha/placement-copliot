@@ -14,12 +14,12 @@ function ShellFrame({ children }: { children: ReactNode }) {
   const { openDrawer, prepSummary } = usePrepDrawer();
 
   return (
-    <div className="h-dvh w-full flex overflow-hidden bg-[#0A0B0F] text-[#F8F8F9] resume-print-ancestor">
+    <div className="h-dvh w-full flex overflow-hidden bg-[#000000] text-[#F5F5F5] resume-print-ancestor">
       {/* Left Navigation Sidebar (fixed full viewport height) */}
       <Sidebar />
 
       {/* Workspace Area */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden bg-[#0A0B0F] resume-print-ancestor">
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden bg-[#000000] resume-print-ancestor">
         <Topbar
           onOpenPrepDrawer={isHomeRoute ? openDrawer : undefined}
           prepSummary={isHomeRoute ? prepSummary : undefined}

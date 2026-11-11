@@ -163,22 +163,22 @@ export default function DsaProblemsetPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[#22232D] gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[#1D1D1D] gap-4">
         <div>
           <Link
             href="/interview"
-            className="inline-flex items-center gap-1.5 text-xs text-[#B293E2] hover:text-[#C3A9EB] transition-colors mb-2 group font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors mb-2 group font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span>Back to Interview Modes</span>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#F8F8F9] flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#F5F5F5] flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-[#121212] text-[#A78BFA] border border-[#292929]">
               <Code2 className="w-6 h-6" />
             </div>
             <span>OA &amp; DSA Problemset</span>
           </h1>
-          <p className="text-xs sm:text-sm text-[#969085] mt-1">
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
             Practice coding problems, sharpen your algorithms, and prepare for technical assessments.
           </p>
         </div>
@@ -200,7 +200,7 @@ export default function DsaProblemsetPage() {
             {hardCount} Hard
           </Badge>
           {solvedCount > 0 && (
-            <div className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 font-mono tabular-nums">
+            <div className="px-2.5 py-1 rounded-full bg-[#10B981]/10 border border-[#10B981]/25 text-[#10B981] text-xs font-semibold flex items-center gap-1.5 font-mono tabular-nums">
               <Check className="w-3.5 h-3.5" />
               <span>{solvedCount} / {totalCount} Solved</span>
             </div>
@@ -209,23 +209,23 @@ export default function DsaProblemsetPage() {
       </div>
 
       {/* ─── SEARCH & FILTERING TOOLBAR ──────────────────────────────────────── */}
-      <Card className="p-4 bg-[#111218] border-[#22232D] rounded-xl space-y-3">
+      <Card className="p-4 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
           {/* Search Bar */}
           <div className="md:col-span-4 relative">
-            <Search className="w-4 h-4 text-[#969085] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#71717A] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, #number, topic, or company..."
-              className="w-full pl-9 pr-8 py-2 bg-[#0A0B0F] border border-[#262733] rounded-lg text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] transition-colors"
+              className="w-full pl-9 pr-8 py-2 bg-[#080808] border border-[#1D1D1D] rounded-lg text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#969085] hover:text-[#F8F8F9] cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#F5F5F5] cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -238,12 +238,12 @@ export default function DsaProblemsetPage() {
             <select
               value={selectedDifficulty}
               onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="w-full py-2 px-3 bg-[#0A0B0F] border border-[#262733] rounded-lg text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer"
+              className="w-full py-2 px-3 bg-[#080808] border border-[#1D1D1D] rounded-lg text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer"
             >
-              <option value="all">All Difficulties</option>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
+              <option value="all" className="bg-[#0D0D0D]">All Difficulties</option>
+              <option value="easy" className="bg-[#0D0D0D]">Easy</option>
+              <option value="medium" className="bg-[#0D0D0D]">Medium</option>
+              <option value="hard" className="bg-[#0D0D0D]">Hard</option>
             </select>
           </div>
 
@@ -252,11 +252,11 @@ export default function DsaProblemsetPage() {
             <select
               value={selectedTopic}
               onChange={(e) => setSelectedTopic(e.target.value)}
-              className="w-full py-2 px-3 bg-[#0A0B0F] border border-[#262733] rounded-lg text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer truncate"
+              className="w-full py-2 px-3 bg-[#080808] border border-[#1D1D1D] rounded-lg text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer truncate"
             >
-              <option value="all">All Topics ({DSA_OA_TOPICS.length})</option>
+              <option value="all" className="bg-[#0D0D0D]">All Topics ({DSA_OA_TOPICS.length})</option>
               {DSA_OA_TOPICS.map((topic) => (
-                <option key={topic} value={topic}>
+                <option key={topic} value={topic} className="bg-[#0D0D0D]">
                   {topic}
                 </option>
               ))}
@@ -268,11 +268,11 @@ export default function DsaProblemsetPage() {
             <select
               value={selectedCompany}
               onChange={(e) => setSelectedCompany(e.target.value)}
-              className="w-full py-2 px-3 bg-[#0A0B0F] border border-[#262733] rounded-lg text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer truncate"
+              className="w-full py-2 px-3 bg-[#080808] border border-[#1D1D1D] rounded-lg text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer truncate"
             >
-              <option value="all">All Companies ({availableCompanies.length})</option>
+              <option value="all" className="bg-[#0D0D0D]">All Companies ({availableCompanies.length})</option>
               {availableCompanies.map((comp) => (
-                <option key={comp} value={comp}>
+                <option key={comp} value={comp} className="bg-[#0D0D0D]">
                   {comp}
                 </option>
               ))}
@@ -281,12 +281,12 @@ export default function DsaProblemsetPage() {
         </div>
 
         {/* Second Row: Status Filter, Sorting, Reset, and Counter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#22232D] text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#1D1D1D] text-xs">
           <div className="flex items-center gap-3 flex-wrap">
             {/* Status Quick Filter */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[#969085] font-medium">Status:</span>
-              <div className="flex items-center bg-[#0A0B0F] border border-[#22232D] rounded-lg p-0.5">
+              <span className="text-[#71717A] font-medium">Status:</span>
+              <div className="flex items-center bg-[#050505] border border-[#1D1D1D] rounded-lg p-0.5">
                 {(["all", "solved", "attempted", "unsolved"] as const).map((st) => (
                   <button
                     key={st}
@@ -295,8 +295,8 @@ export default function DsaProblemsetPage() {
                     className={clsx(
                       "px-2.5 py-0.5 rounded text-[11px] font-medium capitalize transition-colors cursor-pointer",
                       selectedStatus === st
-                        ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50 font-semibold"
-                        : "text-[#969085] hover:text-[#F8F8F9]"
+                        ? "bg-[#121212] text-[#F5F5F5] border border-[#292929] font-semibold"
+                        : "text-[#71717A] hover:text-[#F5F5F5]"
                     )}
                   >
                     {st}
@@ -307,32 +307,32 @@ export default function DsaProblemsetPage() {
 
             {/* Sort Control */}
             <div className="flex items-center gap-1.5">
-              <ArrowUpDown className="w-3.5 h-3.5 text-[#969085]" />
-              <span className="text-[#969085] font-medium">Sort:</span>
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#71717A]" />
+              <span className="text-[#71717A] font-medium">Sort:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="bg-[#0A0B0F] border border-[#262733] rounded-lg px-2 py-1 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] cursor-pointer"
+                className="bg-[#080808] border border-[#1D1D1D] rounded-lg px-2 py-1 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer"
               >
-                <option value="number_asc">Problem # (Ascending)</option>
-                <option value="number_desc">Problem # (Descending)</option>
-                <option value="title_asc">Title (A - Z)</option>
-                <option value="difficulty_asc">Difficulty (Easy → Hard)</option>
-                <option value="difficulty_desc">Difficulty (Hard → Easy)</option>
+                <option value="number_asc" className="bg-[#0D0D0D]">Problem # (Ascending)</option>
+                <option value="number_desc" className="bg-[#0D0D0D]">Problem # (Descending)</option>
+                <option value="title_asc" className="bg-[#0D0D0D]">Title (A - Z)</option>
+                <option value="difficulty_asc" className="bg-[#0D0D0D]">Difficulty (Easy → Hard)</option>
+                <option value="difficulty_desc" className="bg-[#0D0D0D]">Difficulty (Hard → Easy)</option>
               </select>
             </div>
           </div>
 
           <div className="flex items-center gap-3 justify-between sm:justify-end">
-            <span className="text-[#969085] font-medium text-xs tabular-nums">
-              Showing <strong className="text-[#F8F8F9] font-mono">{filteredAndSortedProblems.length}</strong> of {totalCount} problems
+            <span className="text-[#71717A] font-medium text-xs tabular-nums">
+              Showing <strong className="text-[#F5F5F5] font-mono">{filteredAndSortedProblems.length}</strong> of {totalCount} problems
             </span>
 
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-xs text-[#B293E2] hover:text-[#C3A9EB] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                className="text-xs text-[#F5F5F5] hover:text-[#A1A1AA] font-medium flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset Filters</span>
@@ -343,11 +343,11 @@ export default function DsaProblemsetPage() {
       </Card>
 
       {/* ─── LEETCODE-STYLE PROBLEMCARD / TABLE ───────────────────────────────── */}
-      <Card className="overflow-hidden bg-[#111218] border-[#22232D] rounded-xl p-0">
+      <Card className="overflow-hidden bg-[#0D0D0D] border-[#1D1D1D] rounded-xl p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#22232D] bg-[#171820] text-[11px] uppercase tracking-wider text-[#969085] font-semibold select-none">
+              <tr className="border-b border-[#1D1D1D] bg-[#0A0A0A] text-[11px] uppercase tracking-wider text-[#71717A] font-semibold select-none">
                 <th className="py-3 px-4 w-14 text-center">Status</th>
                 <th className="py-3 px-4 min-w-[260px]">Problem</th>
                 <th className="py-3 px-4 w-28">Difficulty</th>
@@ -356,14 +356,14 @@ export default function DsaProblemsetPage() {
                 <th className="py-3 px-4 w-24 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#22232D] text-xs font-sans">
+            <tbody className="divide-y divide-[#171717] text-xs font-sans">
               {filteredAndSortedProblems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#969085]">
+                  <td colSpan={6} className="py-12 text-center text-[#71717A]">
                     <div className="max-w-xs mx-auto space-y-2">
-                      <Filter className="w-8 h-8 text-[#969085]/50 mx-auto" />
-                      <p className="text-sm font-semibold text-[#F8F8F9]">No matching coding problems</p>
-                      <p className="text-xs text-[#969085]">Try adjusting your search terms or filters.</p>
+                      <Filter className="w-8 h-8 text-[#52525B] mx-auto" />
+                      <p className="text-sm font-semibold text-[#F5F5F5]">No matching coding problems</p>
+                      <p className="text-xs text-[#71717A]">Try adjusting your search terms or filters.</p>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -386,8 +386,8 @@ export default function DsaProblemsetPage() {
                       key={p.id}
                       className={clsx(
                         "group transition-colors cursor-pointer",
-                        isEven ? "bg-transparent" : "bg-[#171820]/25",
-                        "hover:bg-[#171820]/80 hover:border-l-2 hover:border-l-[#B293E2]"
+                        isEven ? "bg-transparent" : "bg-[#0A0A0A]/50",
+                        "hover:bg-[#121212] hover:border-l-2 hover:border-l-[#A78BFA]"
                       )}
                     >
                       {/* Status Column */}
@@ -395,15 +395,15 @@ export default function DsaProblemsetPage() {
                         <Link href={`/interview/dsa/${p.number}`} className="inline-flex items-center justify-center">
                           {status === "solved" ? (
                             <span title="Solved">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                              <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
                             </span>
                           ) : status === "attempted" ? (
                             <span title="Attempted">
-                              <AlertCircle className="w-4 h-4 text-amber-400" />
+                              <AlertCircle className="w-4 h-4 text-[#F59E0B]" />
                             </span>
                           ) : (
                             <span title="Unsolved">
-                              <Circle className="w-3.5 h-3.5 text-[#4F414D] group-hover:text-[#969085] transition-colors" />
+                              <Circle className="w-3.5 h-3.5 text-[#3F3F46] group-hover:text-[#71717A] transition-colors" />
                             </span>
                           )}
                         </Link>
@@ -415,10 +415,10 @@ export default function DsaProblemsetPage() {
                           href={`/interview/dsa/${p.number}`}
                           className="flex items-center gap-2 transition-colors"
                         >
-                          <span className="font-mono text-[#969085] font-semibold group-hover:text-[#B293E2] text-xs tabular-nums">
+                          <span className="font-mono text-[#71717A] font-semibold group-hover:text-[#F5F5F5] text-xs tabular-nums">
                             #{p.number}.
                           </span>
-                          <span className="font-semibold text-[#F8F8F9] group-hover:text-[#B293E2] transition-colors">
+                          <span className="font-semibold text-[#F5F5F5] transition-colors">
                             {p.title}
                           </span>
                         </Link>
@@ -445,8 +445,8 @@ export default function DsaProblemsetPage() {
                       {/* Topic Column */}
                       <td className="py-3.5 px-4">
                         <Link href={`/interview/dsa/${p.number}`}>
-                          <span className="text-[#969085] font-mono text-xs flex items-center gap-1.5">
-                            <Tag className="w-3 h-3 text-[#969085]/70 shrink-0" />
+                          <span className="text-[#A1A1AA] font-mono text-xs flex items-center gap-1.5">
+                            <Tag className="w-3 h-3 text-[#71717A] shrink-0" />
                             <span>{p.topic}</span>
                           </span>
                         </Link>
@@ -459,13 +459,13 @@ export default function DsaProblemsetPage() {
                             {p.companyTags.slice(0, 3).map((comp) => (
                               <span
                                 key={comp}
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#171820] text-[#969085] border border-[#262733] group-hover:border-[#735BA0]/35 group-hover:text-[#B293E2] transition-colors"
+                                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#121212] text-[#A1A1AA] border border-[#1D1D1D] group-hover:border-[#292929] group-hover:text-[#F5F5F5] transition-colors"
                               >
                                 {comp}
                               </span>
                             ))}
                             {p.companyTags.length > 3 && (
-                              <span className="text-[10px] text-[#969085] font-mono">
+                              <span className="text-[10px] text-[#71717A] font-mono">
                                 +{p.companyTags.length - 3}
                               </span>
                             )}
@@ -477,7 +477,7 @@ export default function DsaProblemsetPage() {
                       <td className="py-3.5 px-4 text-right">
                         <Link
                           href={`/interview/dsa/${p.number}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#B293E2] group-hover:text-[#C3A9EB] transition-colors"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#F5F5F5] group-hover:text-[#A1A1AA] transition-colors"
                         >
                           <span>Solve</span>
                           <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />

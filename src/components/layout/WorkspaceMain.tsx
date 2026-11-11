@@ -5,7 +5,7 @@ import IntegratedRobotNavigator from "@/components/agent/IntegratedRobotNavigato
 
 export default function WorkspaceMain({ children }: { children: ReactNode }) {
   return (
-    <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden bg-[#0A0B0F] p-4 sm:p-6 space-y-5 @container/main resume-print-ancestor">
+    <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden bg-[#000000] p-4 sm:p-6 space-y-5 @container/main resume-print-ancestor">
       <IntegratedRobotNavigator />
       {children}
     </main>

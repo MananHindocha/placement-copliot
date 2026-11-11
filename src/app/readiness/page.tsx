@@ -64,8 +64,8 @@ const CATEGORY_CONFIG: Record<
   string,
   { icon: React.ElementType; label: string; color: string; badgeVariant: "indigo" | "violet" | "amber" | "emerald" | "rose" }
 > = {
-  resume: { icon: FileText, label: "Resume Polish", color: "text-[#B293E2]", badgeVariant: "indigo" },
-  skills: { icon: Code2, label: "Skills & Tech", color: "text-[#987AC9]", badgeVariant: "violet" },
+  resume: { icon: FileText, label: "Resume Polish", color: "text-[#A1A1AA]", badgeVariant: "indigo" },
+  skills: { icon: Code2, label: "Skills & Tech", color: "text-[#A1A1AA]", badgeVariant: "violet" },
   network: { icon: Users, label: "Networking", color: "text-amber-400", badgeVariant: "amber" },
   networking: { icon: Users, label: "Networking", color: "text-amber-400", badgeVariant: "amber" },
   interview: { icon: MessageSquare, label: "Practice Interview", color: "text-emerald-400", badgeVariant: "emerald" },
@@ -115,19 +115,19 @@ function MilestoneRow({
         "flex items-start gap-4 p-4 rounded-xl border transition-colors group",
         milestone.completed
           ? "bg-emerald-500/5 border-emerald-500/20"
-          : "bg-[#111218] border-[#22232D] hover:border-[#735BA0]/45 hover:bg-[#171820]/70"
+          : "bg-[#0D0D0D] border-[#1D1D1D] hover:border-[#292929] hover:bg-[#121212]"
       )}
     >
       <button
         type="button"
         onClick={() => onToggle(milestone.id)}
         aria-label={milestone.completed ? "Mark milestone incomplete" : "Mark milestone completed"}
-        className="mt-0.5 shrink-0 text-[#969085] hover:text-[#F8F8F9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#B293E2]/40 rounded cursor-pointer"
+        className="mt-0.5 shrink-0 text-[#71717A] hover:text-[#F5F5F5] transition-colors focus:outline-none focus:ring-2 focus:ring-[#F5F5F5]/20 rounded cursor-pointer"
       >
         {milestone.completed ? (
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
         ) : (
-          <Circle className="w-5 h-5 text-[#4F414D] hover:text-[#969085]" />
+          <Circle className="w-5 h-5 text-[#3F3F46] hover:text-[#A1A1AA]" />
         )}
       </button>
       <div className="flex-1 min-w-0">
@@ -135,7 +135,7 @@ function MilestoneRow({
           <p
             className={clsx(
               "text-sm font-semibold",
-              milestone.completed ? "text-[#969085] line-through" : "text-[#F8F8F9]"
+              milestone.completed ? "text-[#71717A] line-through" : "text-[#F5F5F5]"
             )}
           >
             {milestone.title}
@@ -149,18 +149,18 @@ function MilestoneRow({
           </div>
         </div>
         {milestone.description && (
-          <p className="text-xs text-[#969085] leading-relaxed">{milestone.description}</p>
+          <p className="text-xs text-[#A1A1AA] leading-relaxed">{milestone.description}</p>
         )}
         <div className="flex flex-wrap items-center gap-2 mt-2">
           {!editingDate ? (
             <>
               {milestone.dueDate ? (
-                <div className="flex items-center gap-1 text-xs text-[#969085]/80">
+                <div className="flex items-center gap-1 text-xs text-[#71717A]">
                   <Calendar className="w-3 h-3" />
                   <span>Due {milestone.dueDate}</span>
                 </div>
               ) : (
-                <span className="text-xs text-[#969085]/60">No deadline set</span>
+                <span className="text-xs text-[#52525B]">No deadline set</span>
               )}
               {onUpdateDueDate && (
                 <button
@@ -169,7 +169,7 @@ function MilestoneRow({
                     setDraftDate(parseFlexibleDueDate(milestone.dueDate) || "");
                     setEditingDate(true);
                   }}
-                  className="inline-flex items-center gap-1 text-[11px] text-[#B293E2] hover:text-[#C3A9EB] opacity-80 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] text-[#A1A1AA] hover:text-[#F5F5F5] opacity-80 group-hover:opacity-100 transition-opacity cursor-pointer"
                   title="Edit milestone deadline"
                 >
                   <Pencil className="w-3 h-3" />
@@ -184,20 +184,20 @@ function MilestoneRow({
                 value={draftDate}
                 onChange={(e) => setDraftDate(e.target.value)}
                 aria-label="Milestone due date"
-                className="bg-[#0A0B0F] border border-[#262733] rounded-md px-2 py-1 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2]"
+                className="bg-[#080808] border border-[#1D1D1D] rounded-md px-2 py-1 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
               />
               <button
                 type="button"
                 disabled={savingDate}
                 onClick={handleSaveDate}
-                className="px-2 py-1 rounded-md bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                className="px-2 py-1 rounded-md bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] text-[11px] font-semibold cursor-pointer disabled:opacity-50"
               >
                 {savingDate ? "Saving..." : "Save"}
               </button>
               <button
                 type="button"
                 onClick={() => setEditingDate(false)}
-                className="px-2 py-1 rounded-md bg-[#171820] border border-[#262733] text-[#969085] hover:text-[#F8F8F9] text-[11px] cursor-pointer"
+                className="px-2 py-1 rounded-md bg-[#121212] border border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] text-[11px] cursor-pointer"
               >
                 Cancel
               </button>
@@ -209,7 +209,7 @@ function MilestoneRow({
         <button
           type="button"
           onClick={() => onDelete(milestone.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-[#969085] hover:text-rose-400 rounded-lg hover:bg-[#171820] cursor-pointer"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-[#71717A] hover:text-rose-400 rounded-lg hover:bg-[#121212] cursor-pointer"
           title="Delete Goal"
         >
           <Trash2 className="w-4 h-4" />
@@ -436,7 +436,7 @@ export default function ReadinessPage() {
 
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="rounded-xl border border-[#735BA0]/40 bg-[#171820] p-3.5 flex items-center gap-2 text-xs text-[#F8F8F9]">
+        <div className="rounded-xl border border-[#292929] bg-[#0D0D0D] p-3.5 flex items-center gap-2 text-xs text-[#F5F5F5]">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           {toastMessage}
         </div>
@@ -452,19 +452,19 @@ export default function ReadinessPage() {
       )}
 
       {loading && milestones.length === 0 ? (
-        <div className="flex items-center justify-center py-24 text-[#969085] gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-[#B293E2]" />
+        <div className="flex items-center justify-center py-24 text-[#A1A1AA] gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-[#F5F5F5]" />
           <span className="text-sm">Loading readiness telemetry...</span>
         </div>
       ) : (
         <>
           {/* Top Page Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#22232D]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#1D1D1D]">
             <div>
-              <h1 className="text-xl font-bold text-[#F8F8F9] tracking-tight">
+              <h1 className="text-xl font-bold text-[#F5F5F5] tracking-tight">
                 Study Plan
               </h1>
-              <p className="text-xs text-[#969085] mt-1">
+              <p className="text-xs text-[#A1A1AA] mt-1">
                 Your preparation roadmap and daily goals to get interview-ready.
               </p>
             </div>
@@ -475,23 +475,23 @@ export default function ReadinessPage() {
                 runAutonomousBootstrap();
                 loadRecommendations(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#171820] hover:bg-[#1D1D26] border border-[#262733] hover:border-[#735BA0]/50 text-[#F8F8F9] font-semibold text-xs transition-colors cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[#F5F5F5] font-semibold text-xs transition-colors cursor-pointer shrink-0"
             >
               <span>✨ Refresh My Plan</span>
             </button>
           </div>
 
           {/* ─── SECTION 1: SCORE RING & SECTION 2: WHAT THIS SCORE MEANS ─── */}
-          <div className="flex flex-col items-center justify-center p-6 bg-[#111218] rounded-xl border border-[#22232D] text-center space-y-3">
+          <div className="flex flex-col items-center justify-center p-6 bg-[#0D0D0D] rounded-xl border border-[#1D1D1D] text-center space-y-3">
             <div className="relative flex items-center justify-center w-28 h-28 shrink-0">
               <svg className="w-28 h-28 -rotate-90" viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r="34" fill="none" stroke="#22232D" strokeWidth="6" />
+                <circle cx="40" cy="40" r="34" fill="none" stroke="#1D1D1D" strokeWidth="6" />
                 <circle
                   cx="40"
                   cy="40"
                   r="34"
                   fill="none"
-                  stroke="#B293E2"
+                  stroke="#F5F5F5"
                   strokeWidth="6"
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 34}`}
@@ -499,20 +499,20 @@ export default function ReadinessPage() {
                 />
               </svg>
               <div className="absolute text-center">
-                <span className="text-2xl font-black text-[#F8F8F9] tabular-nums">{overallReadiness}%</span>
+                <span className="text-2xl font-black text-[#F5F5F5] tabular-nums">{overallReadiness}%</span>
               </div>
             </div>
 
             <div>
-              <h2 className="text-base font-bold text-[#F8F8F9]">Interview Readiness</h2>
-              <p style={{ textAlign: "center", fontSize: "13px", color: "#969085", marginTop: "4px" }}>
+              <h2 className="text-base font-bold text-[#F5F5F5]">Interview Readiness</h2>
+              <p style={{ textAlign: "center", fontSize: "13px", color: "#A1A1AA", marginTop: "4px" }}>
                 Complete milestones below to improve your score. Each completed task adds to your readiness.
               </p>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-[#969085] font-medium pt-1 flex-wrap justify-center tabular-nums">
-              <span className="text-[#B293E2] font-semibold">{completed} of {total} completed ({overallPct}%)</span>
-              <span className="text-[#4F414D]">•</span>
+            <div className="flex items-center gap-3 text-xs text-[#A1A1AA] font-medium pt-1 flex-wrap justify-center tabular-nums">
+              <span className="text-[#F5F5F5] font-semibold">{completed} of {total} completed ({overallPct}%)</span>
+              <span className="text-[#3F3F46]">•</span>
               <span>7-day streak 🔥</span>
             </div>
           </div>
@@ -521,23 +521,23 @@ export default function ReadinessPage() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-[#F8F8F9] tracking-tight">
+                <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
                   Milestones Checklist
                 </h3>
-                <p className="text-xs text-[#969085]">
+                <p className="text-xs text-[#A1A1AA]">
                   Track and complete your study goals. Check tasks as you finish them.
                 </p>
               </div>
 
               {/* Filter Tabs & Add Goal Action */}
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-[#111218] border border-[#22232D] text-xs">
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-[#050505] border border-[#1D1D1D] text-xs">
                   <button
                     type="button"
                     onClick={() => setFilterTab("all")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer tabular-nums",
-                      filterTab === "all" ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50" : "text-[#969085] hover:text-[#F8F8F9]"
+                      filterTab === "all" ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]" : "text-[#71717A] hover:text-[#F5F5F5]"
                     )}
                   >
                     All ({total})
@@ -547,7 +547,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("pending")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer tabular-nums",
-                      filterTab === "pending" ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50" : "text-[#969085] hover:text-[#F8F8F9]"
+                      filterTab === "pending" ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]" : "text-[#71717A] hover:text-[#F5F5F5]"
                     )}
                   >
                     Pending ({pending.length})
@@ -557,7 +557,7 @@ export default function ReadinessPage() {
                     onClick={() => setFilterTab("completed")}
                     className={clsx(
                       "px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer tabular-nums",
-                      filterTab === "completed" ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50" : "text-[#969085] hover:text-[#F8F8F9]"
+                      filterTab === "completed" ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]" : "text-[#71717A] hover:text-[#F5F5F5]"
                     )}
                   >
                     Completed ({done.length})
@@ -580,18 +580,18 @@ export default function ReadinessPage() {
             {showAddForm && (
               <form
                 onSubmit={handleAddMilestone}
-                className="p-5 rounded-xl bg-[#111218] border border-[#735BA0]/40 space-y-3.5 animate-fadeIn"
+                className="p-5 rounded-xl bg-[#0D0D0D] border border-[#292929] space-y-3.5 animate-fadeIn"
               >
-                <div className="flex items-center justify-between pb-2 border-b border-[#22232D]">
-                  <h4 className="text-xs font-semibold text-[#F8F8F9] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />
+                <div className="flex items-center justify-between pb-2 border-b border-[#1D1D1D]">
+                  <h4 className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
                     Create Custom Preparation Goal
                   </h4>
-                  <span className="text-[10px] text-[#969085]">Manual Entry</span>
+                  <span className="text-[10px] text-[#71717A]">Manual Entry</span>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-medium text-[#F8F8F9] block mb-1">
+                  <label className="text-[11px] font-medium text-[#F5F5F5] block mb-1">
                     Goal Title *
                   </label>
                   <input
@@ -600,20 +600,20 @@ export default function ReadinessPage() {
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="e.g. Master System Design Caching & Redis Partitioning"
-                    className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-2 text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+                    className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2 text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
                     autoFocus
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-medium text-[#F8F8F9] block mb-1">
+                    <label className="text-[11px] font-medium text-[#F5F5F5] block mb-1">
                       Category
                     </label>
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value as any)}
-                      className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg px-2.5 py-1.5 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40"
+                      className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg px-2.5 py-1.5 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
                     >
                       <option value="skills">Skills &amp; Tech</option>
                       <option value="resume">Resume Polish</option>
@@ -624,13 +624,13 @@ export default function ReadinessPage() {
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-medium text-[#F8F8F9] block mb-1">
+                    <label className="text-[11px] font-medium text-[#F5F5F5] block mb-1">
                       Priority
                     </label>
                     <select
                       value={newPriority}
                       onChange={(e) => setNewPriority(e.target.value as any)}
-                      className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg px-2.5 py-1.5 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40"
+                      className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg px-2.5 py-1.5 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
                     >
                       <option value="high">High Priority</option>
                       <option value="medium">Medium Priority</option>
@@ -639,7 +639,7 @@ export default function ReadinessPage() {
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-medium text-[#F8F8F9] block mb-1">
+                    <label className="text-[11px] font-medium text-[#F5F5F5] block mb-1">
                       Target Due Date
                     </label>
                     <input
@@ -647,13 +647,13 @@ export default function ReadinessPage() {
                       value={newDueDate}
                       onChange={(e) => setNewDueDate(e.target.value)}
                       placeholder="e.g. In 7 days, Nov 15"
-                      className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg px-2.5 py-1.5 text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+                      className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg px-2.5 py-1.5 text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-medium text-[#F8F8F9] block mb-1">
+                  <label className="text-[11px] font-medium text-[#F5F5F5] block mb-1">
                     Action Description (Optional)
                   </label>
                   <textarea
@@ -661,11 +661,11 @@ export default function ReadinessPage() {
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
                     placeholder="Add specific target tasks, problem links, or milestones..."
-                    className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-1.5 text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
+                    className="w-full bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-1.5 text-xs text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] transition-colors"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#22232D]">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1D1D1D]">
                   <Button
                     type="button"
                     variant="ghost"
@@ -684,18 +684,18 @@ export default function ReadinessPage() {
             {/* Milestones List */}
             <div className="space-y-2.5">
               {milestones.length === 0 ? (
-                <div className="p-10 rounded-xl border border-[#22232D] bg-[#111218] text-center space-y-2">
-                  <p className="text-sm font-medium text-[#F8F8F9]">
+                <div className="p-10 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] text-center space-y-2">
+                  <p className="text-sm font-medium text-[#F5F5F5]">
                     Upload your resume to get a personalised study plan based on your skill gaps.
                   </p>
                 </div>
               ) : pending.length === 0 && filterTab === "pending" ? (
-                <div className="p-8 rounded-xl border border-emerald-500/25 bg-[#111218] text-center space-y-2">
+                <div className="p-8 rounded-xl border border-emerald-500/25 bg-[#0D0D0D] text-center space-y-2">
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
                   <p className="text-sm font-semibold text-emerald-300">
                     You&apos;ve completed everything on your plan!
                   </p>
-                  <p className="text-xs text-[#969085]">
+                  <p className="text-xs text-[#A1A1AA]">
                     Click &ldquo;✨ Refresh My Plan&rdquo; to get new recommendations.
                   </p>
                 </div>
@@ -720,21 +720,21 @@ export default function ReadinessPage() {
           </div>
 
           {/* ─── SECTION 5: AI SUGGESTIONS (Suggested for You) ─── */}
-          <div className="pt-6 border-t border-[#22232D] space-y-4">
+          <div className="pt-6 border-t border-[#1D1D1D] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="p-1.5 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
+                  <span className="p-1.5 rounded-lg bg-[#121212] text-[#A78BFA] border border-[#292929]">
                     <Sparkles className="w-4 h-4" />
                   </span>
-                  <h3 className="text-base font-bold text-[#F8F8F9] tracking-tight">
+                  <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
                     Suggested for You
                   </h3>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#121212] text-[#F5F5F5] border border-[#292929]">
                     Target: {recTargetRole}
                   </span>
                 </div>
-                <p className="text-xs text-[#969085] mt-0.5">
+                <p className="text-xs text-[#A1A1AA] mt-0.5">
                   Personalized preparation tasks based on your resume gaps and target role.
                 </p>
               </div>
@@ -755,35 +755,35 @@ export default function ReadinessPage() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="p-4 rounded-xl bg-[#111218] border border-[#22232D] animate-pulse space-y-3"
+                    className="p-4 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D] animate-pulse space-y-3"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="w-20 h-4 bg-[#171820] rounded" />
-                      <div className="w-14 h-4 bg-[#171820] rounded" />
+                      <div className="w-20 h-4 bg-[#171717] rounded" />
+                      <div className="w-14 h-4 bg-[#171717] rounded" />
                     </div>
-                    <div className="w-3/4 h-4 bg-[#171820] rounded" />
-                    <div className="w-full h-8 bg-[#171820] rounded" />
-                    <div className="w-24 h-7 bg-[#171820] rounded mt-2" />
+                    <div className="w-3/4 h-4 bg-[#171717] rounded" />
+                    <div className="w-full h-8 bg-[#171717] rounded" />
+                    <div className="w-24 h-7 bg-[#171717] rounded mt-2" />
                   </div>
                 ))}
               </div>
             ) : recStatus === "no_resume" ? (
               /* Case A: No Resume Uploaded */
-              <div className="p-8 rounded-xl border border-[#22232D] bg-[#111218] text-center space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-[#171820] border border-[#262733] text-[#B293E2] flex items-center justify-center mx-auto">
+              <div className="p-8 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-[#121212] border border-[#292929] text-[#A78BFA] flex items-center justify-center mx-auto">
                   <Upload className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-[#F8F8F9]">
+                  <h4 className="text-sm font-bold text-[#F5F5F5]">
                     Unlock Personalized Recommendations
                   </h4>
-                  <p className="text-xs text-[#969085] max-w-md mx-auto leading-relaxed">
+                  <p className="text-xs text-[#A1A1AA] max-w-md mx-auto leading-relaxed">
                     Upload your resume to identify skill gaps, improve your profile, and receive personalized preparation goals tailored to your target role.
                   </p>
                 </div>
                 <Link
                   href="/resume"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs transition-colors mt-1"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs transition-colors mt-1"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Resume</span>
@@ -792,21 +792,21 @@ export default function ReadinessPage() {
               </div>
             ) : recStatus === "needs_analysis" ? (
               /* Case B: Resume Uploaded but Not Analyzed */
-              <div className="p-8 rounded-xl border border-[#22232D] bg-[#111218] text-center space-y-3">
+              <div className="p-8 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] text-center space-y-3">
                 <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
                   <FileText className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-[#F8F8F9]">
+                  <h4 className="text-sm font-bold text-[#F5F5F5]">
                     Resume Analysis Required
                   </h4>
-                  <p className="text-xs text-[#969085] max-w-md mx-auto leading-relaxed">
+                  <p className="text-xs text-[#A1A1AA] max-w-md mx-auto leading-relaxed">
                     Your resume is available, but it needs to be analyzed first to extract verified skill gaps and personalized roadmap goals.
                   </p>
                 </div>
                 <Link
                   href="/resume"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs transition-colors mt-1"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs transition-colors mt-1"
                 >
                   <span>Analyze in My Resume</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -814,16 +814,16 @@ export default function ReadinessPage() {
               </div>
             ) : recStatus === "no_gaps" || recommendations.length === 0 ? (
               /* Case C: Resume Analyzed but No Significant Gaps Found */
-              <div className="p-8 rounded-xl border border-[#22232D] bg-[#111218] text-center space-y-3">
+              <div className="p-8 rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] text-center space-y-3">
                 <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-[#F8F8F9]">
+                  <h4 className="text-sm font-bold text-[#F5F5F5]">
                     No Major Resume Gaps Identified
                   </h4>
-                  <p className="text-xs text-[#969085] max-w-md mx-auto leading-relaxed">
-                    Your current resume strongly demonstrates the foundational competencies for <span className="text-[#F8F8F9] font-medium">{recTargetRole}</span>. You can create custom challenges or add practice interview goals above.
+                  <p className="text-xs text-[#A1A1AA] max-w-md mx-auto leading-relaxed">
+                    Your current resume strongly demonstrates the foundational competencies for <span className="text-[#F5F5F5] font-medium">{recTargetRole}</span>. You can create custom challenges or add practice interview goals above.
                   </p>
                 </div>
               </div>
@@ -843,7 +843,7 @@ export default function ReadinessPage() {
                         "p-5 rounded-xl border flex flex-col justify-between transition-colors space-y-4",
                         isAdded
                           ? "bg-emerald-500/5 border-emerald-500/25"
-                          : "bg-[#111218] border-[#22232D] hover:border-[#735BA0]/50 hover:bg-[#171820]/70"
+                          : "bg-[#0D0D0D] border-[#1D1D1D] hover:border-[#292929] hover:bg-[#121212]"
                       )}
                     >
                       <div className="space-y-3">
@@ -853,7 +853,7 @@ export default function ReadinessPage() {
                             className={clsx(
                               "text-[10px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1",
                               config.color,
-                              "bg-[#171820] border-[#262733]"
+                              "bg-[#121212] border-[#292929]"
                             )}
                           >
                             <Icon className="w-3 h-3" />
@@ -867,7 +867,7 @@ export default function ReadinessPage() {
                                 ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
                                 : PRIORITY_BADGE[rec.priority] === "amber"
                                 ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                                : "text-[#969085] bg-[#171820] border-[#262733]"
+                                : "text-[#A1A1AA] bg-[#121212] border-[#292929]"
                             )}
                           >
                             {rec.priority} Priority
@@ -875,27 +875,27 @@ export default function ReadinessPage() {
                         </div>
 
                         {/* Title */}
-                        <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight leading-snug">
+                        <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight leading-snug">
                           {rec.title}
                         </h4>
 
                         {/* Reason / Why Recommended */}
                         <div className="space-y-1">
-                          <span className="text-[10px] font-semibold text-[#969085] uppercase tracking-wider">
+                          <span className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider">
                             Why Recommended:
                           </span>
-                          <p className="text-xs text-[#969085] leading-relaxed">
+                          <p className="text-xs text-[#A1A1AA] leading-relaxed">
                             {rec.reason}
                           </p>
                         </div>
 
                         {/* Action / Suggested Steps */}
                         {rec.suggestedAction && (
-                          <div className="p-2.5 rounded-lg bg-[#171820] border border-[#22232D] space-y-1">
-                            <span className="text-[10px] font-semibold text-[#B293E2] uppercase tracking-wider block">
+                          <div className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1D1D1D] space-y-1">
+                            <span className="text-[10px] font-semibold text-[#A78BFA] uppercase tracking-wider block">
                               Suggested Action:
                             </span>
-                            <p className="text-xs text-[#969085] leading-relaxed">
+                            <p className="text-xs text-[#A1A1AA] leading-relaxed">
                               {rec.suggestedAction}
                             </p>
                           </div>
@@ -903,14 +903,14 @@ export default function ReadinessPage() {
 
                         {/* Related Finding Tag */}
                         {rec.finding && (
-                          <p className="text-[10px] text-[#969085]/75 italic">
+                          <p className="text-[10px] text-[#71717A] italic">
                             Finding: {rec.finding}
                           </p>
                         )}
                       </div>
 
                       {/* Add Button */}
-                      <div className="pt-2 border-t border-[#22232D]">
+                      <div className="pt-2 border-t border-[#1D1D1D]">
                         {isAdded ? (
                           <button
                             type="button"
@@ -925,7 +925,7 @@ export default function ReadinessPage() {
                             type="button"
                             onClick={() => handleAddRecommendationToPlan(rec)}
                             disabled={isProcessing}
-                            className="w-full py-2 px-3 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            className="w-full py-2 px-3 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           >
                             {isProcessing ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -944,12 +944,12 @@ export default function ReadinessPage() {
           </div>
 
           {/* ─── SECTION 6: DOMAIN BREAKDOWN ─── */}
-          <div className="pt-6 border-t border-[#22232D] space-y-4">
+          <div className="pt-6 border-t border-[#1D1D1D] space-y-4">
             <div>
-              <h3 className="text-base font-bold text-[#F8F8F9] tracking-tight">
+              <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
                 Domain Breakdown
               </h3>
-              <p className="text-xs text-[#969085] mt-0.5">
+              <p className="text-xs text-[#A1A1AA] mt-0.5">
                 Your preparation distribution across key engineering domains.
               </p>
             </div>
@@ -961,14 +961,14 @@ export default function ReadinessPage() {
                   <Card key={domain.label} className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-[#B293E2]" />
-                        <span className="text-xs font-semibold text-[#F8F8F9]">{domain.label}</span>
+                        <Icon className="w-4 h-4 text-[#A1A1AA]" />
+                        <span className="text-xs font-semibold text-[#F5F5F5]">{domain.label}</span>
                       </div>
-                      <span className="text-xs font-bold font-mono text-[#F8F8F9] tabular-nums">{domain.score}%</span>
+                      <span className="text-xs font-bold font-mono text-[#F5F5F5] tabular-nums">{domain.score}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-[#171820] border border-[#262733] overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-[#171717] border border-[#1D1D1D] overflow-hidden">
                       <div
-                        className="h-1.5 rounded-full transition-all duration-700 bg-[#B293E2]"
+                        className="h-1.5 rounded-full transition-all duration-700 bg-[#F5F5F5]"
                         style={{ width: `${domain.score}%` }}
                       />
                     </div>
@@ -979,17 +979,17 @@ export default function ReadinessPage() {
           </div>
 
           {/* ─── SECTION 7: ADVANCED DETAILS (COLLAPSED BY DEFAULT) ─── */}
-          <div className="pt-6 border-t border-[#22232D]">
+          <div className="pt-6 border-t border-[#1D1D1D]">
             <details className="group">
               <summary
                 style={{
                   cursor: "pointer",
                   fontSize: "13px",
-                  color: "#969085",
+                  color: "#71717A",
                   padding: "8px 0",
                   userSelect: "none",
                 }}
-                className="hover:text-[#F8F8F9] transition-colors"
+                className="hover:text-[#F5F5F5] transition-colors"
               >
                 Show advanced skill details
               </summary>

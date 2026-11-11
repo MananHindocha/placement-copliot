@@ -6,15 +6,15 @@ type ButtonSize = "sm" | "md" | "lg";
 
 const variantMap: Record<ButtonVariant, string> = {
   primary:
-    "bg-[#B293E2] text-[#0A0B0F] hover:bg-[#C3A9EB] active:bg-[#9D7DD3] border border-[#B293E2]",
+    "bg-[#F5F5F5] text-[#000000] hover:bg-[#E4E4E7] active:bg-[#D4D4D8] border border-[#F5F5F5]",
   secondary:
-    "bg-[#171820] text-[#F8F8F9] border border-[#282936] hover:bg-[#1D1D26] hover:border-[#383948]",
+    "bg-[#121212] text-[#F5F5F5] border border-[#292929] hover:bg-[#1A1A1A] hover:border-[#3A3A3A]",
   ghost:
-    "text-[#969085] border border-transparent hover:text-[#F8F8F9] hover:bg-[#171820]",
+    "text-[#A1A1AA] border border-transparent hover:text-[#F5F5F5] hover:bg-[#121212]",
   danger:
-    "bg-rose-500/10 text-rose-400 border border-rose-500/25 hover:bg-rose-500/18 hover:border-rose-500/40",
+    "bg-[#F43F5E]/10 text-[#F43F5E] border border-[#F43F5E]/25 hover:bg-[#F43F5E]/20 hover:border-[#F43F5E]/40",
   success:
-    "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/18",
+    "bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25 hover:bg-[#10B981]/20",
 };
 
 const sizeMap: Record<ButtonSize, string> = {

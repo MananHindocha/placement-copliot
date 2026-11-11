@@ -27,29 +27,29 @@ const ICONS: Record<string, LucideIcon> = {
 
 const colorMap: Record<string, { bg: string; icon: string; delta: string }> = {
   indigo: {
-    bg: "bg-[#171820] border-[#262733]",
-    icon: "text-[#B293E2]",
-    delta: "text-[#B293E2]",
+    bg: "bg-[#121212] border-[#292929]",
+    icon: "text-[#F5F5F5]",
+    delta: "text-[#A1A1AA]",
   },
   emerald: {
-    bg: "bg-[#171820] border-[#262733]",
-    icon: "text-emerald-400",
-    delta: "text-emerald-400",
+    bg: "bg-[#121212] border-[#292929]",
+    icon: "text-[#10B981]",
+    delta: "text-[#10B981]",
   },
   amber: {
-    bg: "bg-[#171820] border-[#262733]",
-    icon: "text-amber-400",
-    delta: "text-amber-400",
+    bg: "bg-[#121212] border-[#292929]",
+    icon: "text-[#F59E0B]",
+    delta: "text-[#F59E0B]",
   },
   rose: {
-    bg: "bg-[#171820] border-[#262733]",
-    icon: "text-rose-400",
-    delta: "text-rose-400",
+    bg: "bg-[#121212] border-[#292929]",
+    icon: "text-[#F43F5E]",
+    delta: "text-[#F43F5E]",
   },
   violet: {
-    bg: "bg-[#171820] border-[#262733]",
-    icon: "text-[#B293E2]",
-    delta: "text-[#B293E2]",
+    bg: "bg-[#121212] border-[#292929]",
+    icon: "text-[#A78BFA]",
+    delta: "text-[#A78BFA]",
   },
 };
 
@@ -58,16 +58,16 @@ export default function StatCard({ label, value, delta, deltaPositive, icon, col
   const c = colorMap[color] ?? colorMap.indigo;
 
   return (
-    <div className="bg-[#111218] border border-[#22232D] rounded-xl p-5 hover:border-[#313241] hover:bg-[#14151D] transition-colors duration-150">
+    <div className="bg-[#0D0D0D] border border-[#1D1D1D] rounded-xl p-5 hover:border-[#292929] hover:bg-[#121212] transition-colors duration-150">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-[#969085]">{label}</p>
-          <p className="text-2xl font-semibold text-[#F8F8F9] mt-2 tracking-tight tabular-nums">{value}</p>
+          <p className="text-xs font-medium text-[#A1A1AA]">{label}</p>
+          <p className="text-2xl font-semibold text-[#F5F5F5] mt-2 tracking-tight tabular-nums">{value}</p>
           {delta && (
             <p
               className={clsx(
                 "text-xs mt-2 font-medium",
-                deltaPositive ? "text-emerald-400" : "text-rose-400"
+                deltaPositive ? "text-[#10B981]" : "text-[#F43F5E]"
               )}
             >
               {deltaPositive ? "▲" : "▼"} {delta}

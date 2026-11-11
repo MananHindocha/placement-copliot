@@ -93,16 +93,16 @@ export default function PreparationSidebar({
   const renderPanelContent = (isDrawer: boolean) => (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-[#22232D] shrink-0">
+      <div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-[#1D1D1D] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-[#171820] border border-[#262733] flex items-center justify-center shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-[#B293E2]" />
+          <div className="w-7 h-7 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D] flex items-center justify-center shrink-0">
+            <Calendar className="w-3.5 h-3.5 text-[#A1A1AA]" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-xs font-bold text-[#F8F8F9] leading-tight truncate">
+            <h2 className="text-xs font-bold text-[#F5F5F5] leading-tight truncate">
               Preparation Schedule
             </h2>
-            <p className="text-[10px] text-[#969085] truncate">
+            <p className="text-[10px] text-[#71717A] truncate">
               {mode === "live" ? "Synced workspace" : "Local study workspace"}
             </p>
           </div>
@@ -114,7 +114,7 @@ export default function PreparationSidebar({
             onClick={() => refresh()}
             aria-label="Refresh preparation schedule"
             title="Sync latest schedule & progress"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#969085] hover:text-[#F8F8F9] hover:bg-[#171820] transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors cursor-pointer"
           >
             <RefreshCw className={clsx("w-3.5 h-3.5", loading && "animate-spin")} />
           </button>
@@ -124,7 +124,7 @@ export default function PreparationSidebar({
               type="button"
               onClick={onCloseMobile}
               aria-label="Close preparation panel"
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#969085] hover:text-[#F8F8F9] hover:bg-[#171820] transition-colors cursor-pointer"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -135,22 +135,22 @@ export default function PreparationSidebar({
       {/* Scrollable Inner Content */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3.5 space-y-4">
         {mode === "live" && !isAuthenticated && !loading ? (
-          <div className="rounded-xl border border-[#22232D] bg-[#171820]/70 p-4 text-center space-y-3">
-            <div className="w-9 h-9 rounded-lg bg-[#111218] border border-[#262733] flex items-center justify-center mx-auto text-[#B293E2]">
+          <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-4 text-center space-y-3">
+            <div className="w-9 h-9 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D] flex items-center justify-center mx-auto text-[#A1A1AA]">
               <LogIn className="w-4 h-4" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-[#F8F8F9]">
+              <p className="text-xs font-semibold text-[#F5F5F5]">
                 Sign in to view your schedule
               </p>
-              <p className="text-[11px] text-[#969085] leading-relaxed">
+              <p className="text-[11px] text-[#71717A] leading-relaxed">
                 Your milestones, interview dates, and progress are isolated per account.
               </p>
             </div>
             <Link
               href="/auth/login"
               onClick={isDrawer ? onCloseMobile : undefined}
-              className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] text-xs font-semibold transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] text-xs font-semibold transition-colors"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Sign In</span>
@@ -159,12 +159,12 @@ export default function PreparationSidebar({
         ) : (
           <>
             {error && (
-              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200 flex items-center justify-between gap-2">
+              <div className="rounded-lg border border-[#F43F5E]/30 bg-[#F43F5E]/10 p-2.5 text-[11px] text-[#F43F5E] flex items-center justify-between gap-2">
                 <span className="truncate">{error}</span>
                 <button
                   type="button"
                   onClick={() => refresh()}
-                  className="text-rose-300 underline shrink-0 cursor-pointer"
+                  className="text-[#F5F5F5] underline shrink-0 cursor-pointer"
                 >
                   Retry
                 </button>
@@ -193,7 +193,7 @@ export default function PreparationSidebar({
               onNavigate={isDrawer ? onCloseMobile : undefined}
             />
 
-            <div className="border-t border-[#22232D]" />
+            <div className="border-t border-[#171717]" />
 
             {/* 3. Preparation Progress & Categories */}
             <PreparationProgress
@@ -213,7 +213,7 @@ export default function PreparationSidebar({
       {/* Desktop & Landscape Tablet Fixed RHS Column */}
       <aside
         aria-label="Preparation Calendar and Progress"
-        className="hidden lg:flex lg:w-[272px] xl:w-[304px] 2xl:w-[324px] shrink-0 h-full min-h-0 flex-col bg-[#111218] border-l border-[#22232D] print:hidden"
+        className="hidden lg:flex lg:w-[272px] xl:w-[304px] 2xl:w-[324px] shrink-0 h-full min-h-0 flex-col bg-[#050505] border-l border-[#1D1D1D] print:hidden"
       >
         {renderPanelContent(false)}
       </aside>
@@ -227,10 +227,10 @@ export default function PreparationSidebar({
           aria-label="Preparation Schedule and Progress"
         >
           <div
-            className="fixed inset-0 bg-[#0A0B0F]/75 backdrop-blur-sm animate-fadeIn"
+            className="fixed inset-0 bg-black/80 animate-fadeIn"
             onClick={onCloseMobile}
           />
-          <aside className="relative z-10 w-[min(328px,92vw)] h-full min-h-0 flex flex-col bg-[#111218] border-l border-[#22232D] shadow-2xl">
+          <aside className="relative z-10 w-[min(328px,92vw)] h-full min-h-0 flex flex-col bg-[#050505] border-l border-[#292929]">
             {renderPanelContent(true)}
           </aside>
         </div>
