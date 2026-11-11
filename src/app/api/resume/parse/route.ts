@@ -223,6 +223,16 @@ STRICT RULES:
       supabase
     );
 
+    const resumeWorkspace = {
+      editableResume: parsedResume, // the full ParsedResumeDocument object
+      analysis: {
+        skills: parsedResume.skills || [],
+        score: parsedResume.atsScore || 0,
+        parsedResume: parsedResume,
+      },
+      savedAt: new Date().toISOString(),
+    };
+
     return NextResponse.json({
       success: true,
       isGuest,
@@ -230,6 +240,7 @@ STRICT RULES:
       fileName: uploadedFile.name,
       targetRole,
       parsedResume,
+      resumeWorkspace,
       resumeRecordError: resumeErr ? resumeErr.message : null,
       agentRun,
     });

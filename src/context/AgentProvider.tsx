@@ -386,6 +386,27 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
             bulletImprovements: parsed.bulletImprovements || [],
           };
           window.localStorage.setItem("copilot_real_resume_v1", JSON.stringify(legacyFormat));
+
+          // Also write copilot_latest_resume_analysis so /resume studio works
+          const workspaceToStore = json.resumeWorkspace || {
+            editableResume: parsed,
+            analysis: {
+              skills: (parsed as any).skills || parsed.extractedSkills || [],
+              score: parsed.atsScore || 0,
+              parsedResume: parsed,
+            },
+            savedAt: new Date().toISOString(),
+          };
+
+          try {
+            window.localStorage.setItem(
+              "copilot_latest_resume_analysis",
+              JSON.stringify(workspaceToStore)
+            );
+          } catch (e) {
+            console.error("[AgentProvider] Failed to sync resume workspace:", e);
+          }
+
           window.dispatchEvent(new CustomEvent("copilot-data-updated"));
           window.dispatchEvent(new CustomEvent("agent-state-mutated"));
         }
