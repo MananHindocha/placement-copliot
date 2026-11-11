@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import LiveAgentInterviewRoom from "@/components/interview/LiveAgentInterviewRoom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -109,6 +111,19 @@ const ACCENT_STYLES: Record<
 };
 
 export default function QuestionBankRoleSelectionPage() {
+  const [liveAgentMode, setLiveAgentMode] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<InterviewRoleMeta | null>(null);
+  const [interviewStarted, setInterviewStarted] = useState(false);
+
+  if (interviewStarted && selectedRole) {
+    return (
+      <LiveAgentInterviewRoom
+        targetRole={selectedRole.title || "Full-Stack SDE"}
+        onExit={() => setInterviewStarted(false)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
@@ -128,11 +143,23 @@ export default function QuestionBankRoleSelectionPage() {
             <span>Choose Your Interview Role</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
-            Select your target role to get a personalized interview experience with relevant technical, behavioral, and engineering questions.
+            Select your target role to launch a live multi-turn conversational AI interviewer grounded in your resume and skill evidence matrix.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLiveAgentMode((prev) => !prev)}
+            className={clsx(
+              "px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+              liveAgentMode
+                ? "bg-indigo-600/25 border-indigo-500/50 text-indigo-200 shadow-sm shadow-indigo-500/20"
+                : "bg-white/5 border-white/10 text-slate-300 hover:text-white"
+            )}
+          >
+            {liveAgentMode ? "⚡ Live Conversational AI Interviewer: ON" : "📚 Classic Question Bank Mode"}
+          </button>
           <Badge variant="indigo" size="md">
             QUESTION BANK
           </Badge>
@@ -148,68 +175,109 @@ export default function QuestionBankRoleSelectionPage() {
           const IconComponent = ROLE_ICONS[role.iconName] || Layers;
           const styling = ACCENT_STYLES[role.accent] || ACCENT_STYLES.indigo;
 
+          const cardInner = (
+            <Card
+              className={clsx(
+                "h-full p-5 sm:p-6 bg-[#0B0D18] border border-white/10 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4",
+                styling.borderHover,
+                styling.glowHover,
+                "group-hover:-translate-y-0.5"
+              )}
+            >
+              {/* Top Section: Icon & Category */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div
+                    className={clsx(
+                      "w-12 h-12 rounded-xl border flex items-center justify-center transition-transform group-hover:scale-105",
+                      styling.iconBg,
+                      styling.iconColor
+                    )}
+                  >
+                    <IconComponent className="w-6 h-6" />
+                  </div>
+
+                  <Badge variant={styling.badgeVariant} size="sm">
+                    {role.category}
+                  </Badge>
+                </div>
+
+                {/* Role Title & Description */}
+                <div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
+                    {role.title}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed line-clamp-3">
+                    {role.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom Section: Topic Tags & Explore / Start Indicator */}
+              <div className="pt-3 border-t border-[rgba(100,110,255,0.12)] space-y-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {role.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-white/10 transition-colors"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                {liveAgentMode ? (
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRole(role);
+                        setInterviewStarted(true);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer"
+                    >
+                      ⚡ Start Interview →
+                    </button>
+                    <Link
+                      href={`/interview/question-bank/${role.slug}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition-colors"
+                    >
+                      Static Bank
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between pt-1 text-xs font-semibold text-indigo-400 group-hover:text-indigo-300">
+                    <span>Explore Interview</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
+                  </div>
+                )}
+              </div>
+            </Card>
+          );
+
+          if (liveAgentMode) {
+            return (
+              <div
+                key={role.slug}
+                onClick={() => {
+                  setSelectedRole(role);
+                  setInterviewStarted(true);
+                }}
+                className="block group focus:outline-none"
+              >
+                {cardInner}
+              </div>
+            );
+          }
+
           return (
             <Link
               key={role.slug}
               href={`/interview/question-bank/${role.slug}`}
               className="block group focus:outline-none"
             >
-              <Card
-                className={clsx(
-                  "h-full p-5 sm:p-6 bg-[#0B0D18] border border-white/10 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4",
-                  styling.borderHover,
-                  styling.glowHover,
-                  "group-hover:-translate-y-0.5"
-                )}
-              >
-                {/* Top Section: Icon & Category */}
-                <div className="space-y-3.5">
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={clsx(
-                        "w-12 h-12 rounded-xl border flex items-center justify-center transition-transform group-hover:scale-105",
-                        styling.iconBg,
-                        styling.iconColor
-                      )}
-                    >
-                      <IconComponent className="w-6 h-6" />
-                    </div>
-
-                    <Badge variant={styling.badgeVariant} size="sm">
-                      {role.category}
-                    </Badge>
-                  </div>
-
-                  {/* Role Title & Description */}
-                  <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
-                      {role.title}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed line-clamp-3">
-                      {role.description}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Bottom Section: Topic Tags & Explore Indicator */}
-                <div className="pt-3 border-t border-[rgba(100,110,255,0.12)] space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {role.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-white/10 transition-colors"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 text-xs font-semibold text-indigo-400 group-hover:text-indigo-300">
-                    <span>Explore Interview</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
-                  </div>
-                </div>
-              </Card>
+              {cardInner}
             </Link>
           );
         })}

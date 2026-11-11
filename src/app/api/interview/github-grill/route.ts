@@ -1,687 +1,494 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { GitHubGrillAnalysis, GitHubGrillQuestion } from "@/types";
+import {
+  getOptionalSupabaseClient,
+  readLocalInterviewStore,
+  resolveUserId,
+  extractJsonObject,
+  callInterviewLLM,
+} from "@/lib/interview/server-helpers";
+import {
+  getRoleBaselineQuestions,
+  type RoleInterviewQuestion,
+} from "@/lib/interview/role-baseline-questions";
 
-interface GitHubGrillRequestBody {
-  repoUrl: string;
-  focusNotes?: string;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+interface SkillMatrixRow {
+  skill_name: string;
+  claimed_level?: string;
+  verified_confidence?: string;
+  bluff_risk?: boolean;
 }
 
-interface SourceSnippet {
-  path: string;
-  content: string;
+interface GitTreeItem {
+  type?: string;
+  path?: string;
 }
 
-interface RawGrillQuestion {
+interface GeneratedGrillQuestion {
   id?: string;
-  category?: "Architecture" | "Code Implementation" | "Scalability & Edge Cases" | "Trade-offs & Debugging" | "Security & Deployment";
-  difficulty?: "Medium" | "Hard";
-  question?: string;
-  referencedFiles?: string[];
-  codeExcerpt?: string;
-  keyConcepts?: string[];
-  whatInterviewerLooksFor?: string;
+  level?: number;
+  projectReferenced?: string;
+  category?: "GitHub Deep-Grill" | "Architecture Defense" | "System Trade-offs" | "Failure Recovery";
+  difficulty?: "Easy" | "Medium" | "Hard";
+  question: string;
+  bluffTrap?: string;
+  expectedDeepSignals?: string[];
+  followUpEscalation?: string;
   hint?: string;
+  whyAskThis?: string;
+  sampleAnswer?: string;
 }
 
-interface RepoCacheEntry {
-  timestamp: number;
-  analysis: GitHubGrillAnalysis;
-  source: string;
+interface GrillPlan {
+  projectAudited?: string;
+  detectedArchitectureRisks?: string[];
+  openingInterviewerStatement?: string;
+  questions?: GeneratedGrillQuestion[];
 }
 
-// 15-Minute In-Memory Server Cache to avoid GitHub 60 req/hr unauthenticated rate limit
-const repoGrillCache = new Map<string, RepoCacheEntry>();
-const CACHE_TTL_MS = 15 * 60 * 1000;
-
-function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
-  const cleaned = url.trim().replace(/\/$/, "");
-  // Matches https://github.com/owner/repo or github.com/owner/repo or owner/repo
-  const match = cleaned.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)/i);
-  if (match) {
-    return { owner: match[1], repo: match[2].replace(/\.git$/i, "") };
-  }
-  const shorthandMatch = cleaned.match(/^([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_\.-]+)$/);
-  if (shorthandMatch) {
-    return { owner: shorthandMatch[1], repo: shorthandMatch[2].replace(/\.git$/i, "") };
+function parseGitHubRepo(input?: string): { owner: string; repo: string } | null {
+  if (!input || typeof input !== "string") return null;
+  const cleaned = input.trim().replace(/\.git$/, "").replace(/\/$/, "");
+  const matchUrl = cleaned.match(/github\.com\/([^/]+)\/([^/]+)/i);
+  if (matchUrl) return { owner: matchUrl[1], repo: matchUrl[2] };
+  const parts = cleaned.split("/");
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return { owner: parts[0], repo: parts[1] };
   }
   return null;
 }
 
-function getExcerpt(snippets: SourceSnippet[], filePath: string, fallback: string): string {
-  const match = snippets.find((s) => s.path === filePath) || snippets[0];
-  if (!match || !match.content) return fallback;
-  const lines = match.content.split("\n").filter((l) => l.trim().length > 0);
-  return lines.slice(0, 9).join("\n") || fallback;
-}
+async function fetchLiveGitHubRepoContext(repoInput?: string) {
+  const parsed = parseGitHubRepo(repoInput);
+  if (!parsed) return null;
 
-function generateDeterministicGitHubGrill(
-  owner: string,
-  repo: string,
-  detectedStack: string[],
-  keyFiles: string[],
-  notes: string,
-  sourceSnippets: SourceSnippet[] = []
-): GitHubGrillAnalysis {
-  const stack = detectedStack.length > 0 ? detectedStack : ["TypeScript", "Next.js", "Node.js", "REST APIs"];
-  const files = sourceSnippets.length > 0
-    ? sourceSnippets.map((s) => s.path)
-    : keyFiles.length > 0
-    ? keyFiles
-    : ["src/index.ts", "package.json", "README.md", "src/lib/api.ts"];
-  const f0 = files[0] || "src/index.ts";
-  const f1 = files[1] || files[0] || "src/app/page.tsx";
-  const f2 = files[2] || files[0] || "src/lib/utils.ts";
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "Placement-Copilot-Agent",
+  };
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
 
-  const exc0 = getExcerpt(sourceSnippets, f0, `export async function handleRequest(req: Request) {\n  const session = await auth();\n  if (!session) return new Response("Unauthorized", { status: 401 });\n  const data = await db.query();\n  return Response.json({ success: true, data });\n}`);
-  const exc1 = getExcerpt(sourceSnippets, f1, `export default function DashboardPage({ params }: { params: { id: string } }) {\n  const [state, setState] = useState<Item[]>([]);\n  useEffect(() => {\n    fetchData(params.id).then(setState);\n  }, [params.id]);\n}`);
-  const exc2 = getExcerpt(sourceSnippets, f2, `export const cache = new Map<string, unknown>();\nexport function getCached(key: string) {\n  if (cache.has(key)) return cache.get(key);\n  const fresh = computeExpensive(key);\n  cache.set(key, fresh);\n  return fresh;\n}`);
+  const repoRes = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`, {
+    headers,
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!repoRes.ok) {
+    throw new Error(
+      `GITHUB_API_ERROR: Could not fetch repo ${parsed.owner}/${parsed.repo} (HTTP ${repoRes.status}). Make sure the repository is public.`
+    );
+  }
+  const repoMeta = (await repoRes.json()) as {
+    default_branch?: string;
+    description?: string;
+    language?: string;
+    stargazers_count?: number;
+  };
+  const defaultBranch = repoMeta.default_branch || "main";
 
-  const questions: GitHubGrillQuestion[] = [
-    {
-      id: `gh-grill-${Date.now()}-1`,
-      category: "Architecture",
-      difficulty: "Hard",
-      question: `In ${f0}, how did you separate state management, asynchronous mutations, and data access? If you had to refactor this architecture today, what would you decouple?`,
-      referencedFiles: [f0, f1],
-      codeExcerpt: exc0,
-      keyConcepts: ["Separation of Concerns", "State Decoupling", "Asynchronous Mutations", "Single Point of Failure"],
-      whatInterviewerLooksFor: "Ability to critically evaluate own architectural boundaries, modularity, and separation of concerns.",
-      hint: "Explain data flow boundaries, caching strategies, and how components interact without tight coupling.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-2`,
-      category: "Scalability & Edge Cases",
-      difficulty: "Hard",
-      question: `Looking at ${f0}, what happens if 5,000 users trigger simultaneous operations? Walk me through where the system hits memory or concurrency bottlenecks.`,
-      referencedFiles: [f0],
-      codeExcerpt: exc0,
-      keyConcepts: ["Connection Pool Exhaustion", "Event Loop Blocking", "Rate Limiting", "Backpressure"],
-      whatInterviewerLooksFor: "Understanding memory leaks, connection pool exhaustion, event-loop blocking, and scaling limits.",
-      hint: "Analyze asynchronous queueing, DB connection limits, and horizontal scaling capabilities.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-3`,
-      category: "Code Implementation",
-      difficulty: "Medium",
-      question: `In ${f1}, walk me through your input validation, boundary error handling, and null safety. How do you ensure bad payloads don't crash workers or leak internal stack traces?`,
-      referencedFiles: [f1, f2],
-      codeExcerpt: exc1,
-      keyConcepts: ["Input Validation", "Boundary Error Handling", "Null Safety", "Defense in Depth"],
-      whatInterviewerLooksFor: "Input sanitization (e.g. Zod/Joi), centralized error handlers, and defense against malicious payloads.",
-      hint: "Discuss runtime schema validation, HTTP error code mapping, and masking internal database errors.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-4`,
-      category: "Trade-offs & Debugging",
-      difficulty: "Hard",
-      question: `What was the hardest bug, race condition, or performance bottleneck in ${f0} during development, and how did you isolate and patch it?`,
-      referencedFiles: [f0, f2],
-      codeExcerpt: exc0,
-      keyConcepts: ["Race Condition Isolation", "Root Cause Analysis", "Telemetry Profiling", "Regression Prevention"],
-      whatInterviewerLooksFor: "Systematic root cause analysis, telemetry, reproducing bugs, and adding regression tests.",
-      hint: "Use STAR format: Describe the symptom, profiling tool used, the unexpected race condition, and the permanent patch.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-5`,
-      category: "Security & Deployment",
-      difficulty: "Medium",
-      question: `How are secrets, environment variables, and authentication tokens handled in ${repo} (${f2}) during development vs production CI/CD?`,
-      referencedFiles: [f2, "package.json"],
-      codeExcerpt: exc2,
-      keyConcepts: ["Secret Rotation", "Environment Isolation", "Token Expiry", "Least Privilege"],
-      whatInterviewerLooksFor: "Zero hardcoded secrets, automated secret scanners, and secure token lifecycle management.",
-      hint: "Highlight environment variable validation at startup and secret management in CI pipelines.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-6`,
-      category: "Scalability & Edge Cases",
-      difficulty: "Hard",
-      question: `In ${f2}, if state or cache is stored locally in-memory, what breaks when deploying across 3 distributed serverless containers, and how do you achieve idempotency?`,
-      referencedFiles: [f2],
-      codeExcerpt: exc2,
-      keyConcepts: ["Distributed Caching", "Stateless Architecture", "Idempotency Keys", "Redis Cluster"],
-      whatInterviewerLooksFor: "Understanding distributed state, distributed lock race conditions, and idempotent API design.",
-      hint: "Transition in-memory state to Redis or a shared key-value store with distributed locks.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-7`,
-      category: "Code Implementation",
-      difficulty: "Medium",
-      question: `Examining your component rendering logic in ${f1}, how do you prevent unnecessary re-renders or hydration mismatches between server and client?`,
-      referencedFiles: [f1],
-      codeExcerpt: exc1,
-      keyConcepts: ["Hydration Mismatch", "Render Optimization", "Memoization", "Virtual DOM Diffing"],
-      whatInterviewerLooksFor: "Proficiency in framework internals, DOM diffing, and eliminating redundant cycles.",
-      hint: "Explain hydration lifecycle, useEffect dependencies, and pure component boundaries.",
-    },
-    {
-      id: `gh-grill-${Date.now()}-8`,
-      category: "Architecture",
-      difficulty: "Hard",
-      question: `If ${repo} had to support zero-downtime database schema migrations with backwards compatibility, how would you stage the rollout?`,
-      referencedFiles: [f0, "package.json"],
-      codeExcerpt: exc0,
-      keyConcepts: ["Expand-Contract Migration", "Backwards Compatibility", "Zero Downtime", "Blue-Green Deployment"],
-      whatInterviewerLooksFor: "Knowledge of expand-contract pattern, dual-writing, and safe rollback procedures.",
-      hint: "Discuss adding new nullable columns, dual-writing in code, backfilling records, and safely dropping old columns.",
-    },
-  ];
+  const [treeRes, readmeRes] = await Promise.all([
+    fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/trees/${defaultBranch}?recursive=1`, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    }),
+    fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    }),
+  ]);
+
+  let filePaths: string[] = [];
+  if (treeRes.ok) {
+    const treeJson = (await treeRes.json()) as { tree?: GitTreeItem[] };
+    filePaths = (treeJson.tree || [])
+      .filter((item) => item.type === "blob" && typeof item.path === "string")
+      .map((item) => item.path!)
+      .slice(0, 80);
+  }
+
+  let readmeExcerpt = "";
+  if (readmeRes.ok) {
+    const readmeJson = (await readmeRes.json()) as { content?: string };
+    if (readmeJson.content) {
+      readmeExcerpt = Buffer.from(readmeJson.content, "base64").toString("utf-8").slice(0, 2500);
+    }
+  }
 
   return {
-    repoName: repo,
-    owner,
-    summary: `Full-stack repository ${owner}/${repo} utilizing ${stack.join(", ")}. ${notes ? `Project focus: ${notes}` : ""}`,
-    detectedStack: stack,
-    keyFilesAnalyzed: files,
-    architectureStrengths: [
-      "Modular file organization with clear entrypoint separation",
-      "Modern dependency configuration",
-      "Clean component-based separation of concerns",
-    ],
-    potentialWeaknessesOrRisks: [
-      "Potential memory / concurrency contention under high load",
-      "Requires automated integration test coverage for core edge cases",
-      "Need for distributed tracing and fine-grained latency observability",
-    ],
-    grillQuestions: questions,
+    owner: parsed.owner,
+    repo: parsed.repo,
+    fullName: `${parsed.owner}/${parsed.repo}`,
+    description: repoMeta.description || "",
+    primaryLanguage: repoMeta.language || "Unknown",
+    stars: repoMeta.stargazers_count || 0,
+    filePaths,
+    readmeExcerpt,
   };
 }
 
-async function analyzeWithGroq(
-  owner: string,
-  repo: string,
-  meta: Record<string, unknown>,
-  fileTree: string[],
-  readmeText: string,
-  packageJson: string,
-  commits: string[],
-  notes: string,
-  sourceSnippets: SourceSnippet[] = []
-): Promise<GitHubGrillAnalysis | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.includes("your_groq")) return null;
-
-  const systemPrompt = `You are a Principal Software Engineer and Bar-Raiser conducting a deep, rigorous "Project Grill" technical interview.
-You are given real repository metadata, file paths, README text, dependencies, and actual inspected source code from a candidate's GitHub project (${owner}/${repo}).
-
-Generate a deeply technical, file-specific interrogation analysis that will test if the candidate actually built the project themselves or simply copied a template.
-CITE ACTUAL FILE PATHS AND SPECIFIC FUNCTIONS/PATTERNS FROM THE INSPECTED SOURCE CODE IN THE QUESTIONS!
-
-Return strictly valid JSON matching this schema:
-{
-  "repoName": "${repo}",
-  "owner": "${owner}",
-  "summary": "2-3 sentence overview of the architecture and purpose",
-  "detectedStack": ["Tech1", "Tech2", "Tech3"],
-  "keyFilesAnalyzed": ["file1", "file2", "file3"],
-  "architectureStrengths": ["Strength 1", "Strength 2"],
-  "potentialWeaknessesOrRisks": ["Risk 1", "Risk 2"],
-  "grillQuestions": [
-    {
-      "id": "gh-1",
-      "category": "Architecture",
-      "difficulty": "Hard",
-      "question": "Sharp question referencing actual files and decisions from the repo",
-      "referencedFiles": ["path/to/file.ts"],
-      "codeExcerpt": "5-10 line code snippet from that file under review",
-      "keyConcepts": ["Concept 1", "Concept 2", "Concept 3", "Concept 4"],
-      "whatInterviewerLooksFor": "What signals competence vs superficial knowledge",
-      "hint": "Guidance on trade-offs"
-    }
-  ]
-}`;
-
-  const sourceFilesText = sourceSnippets.length > 0
-    ? `\n\nTop Inspected Source Code Files:\n${sourceSnippets.map((s) => `=== FILE: ${s.path} ===\n${s.content}\n`).join("\n")}`
-    : "";
-
-  const userPrompt = `Repository: ${owner}/${repo}
-Description: ${meta?.description ? String(meta.description) : "No description provided"}
-Primary Language: ${meta?.language ? String(meta.language) : "Unknown"}
-Recent Commits: ${commits.join(" | ") || "None"}
-
-Candidate's Project Focus Notes:
-${notes || "None provided"}
-
-File Tree (Sample):
-${fileTree.slice(0, 50).join("\n")}
-
-Package / Dependency Manifest (Sample):
-${packageJson ? packageJson.slice(0, 1500) : "No package.json"}
-
-README (Excerpt):
-${readmeText ? readmeText.slice(0, 2000) : "No README"}${sourceFilesText}`;
-
-  try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.3,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) return null;
-
-    const parsed = JSON.parse(content);
-    if (!Array.isArray(parsed.grillQuestions) || parsed.grillQuestions.length === 0) return null;
-
-    return {
-      repoName: repo,
-      owner,
-      summary: String(parsed.summary || `Repository ${owner}/${repo}`),
-      detectedStack: Array.isArray(parsed.detectedStack) ? parsed.detectedStack.map(String) : [meta?.language || "TypeScript"],
-      keyFilesAnalyzed: Array.isArray(parsed.keyFilesAnalyzed) ? parsed.keyFilesAnalyzed.map(String) : fileTree.slice(0, 5),
-      architectureStrengths: Array.isArray(parsed.architectureStrengths) ? parsed.architectureStrengths.map(String) : ["Clean code organization"],
-      potentialWeaknessesOrRisks: Array.isArray(parsed.potentialWeaknessesOrRisks) ? parsed.potentialWeaknessesOrRisks.map(String) : ["Scalability bottlenecks"],
-      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => {
-        const primaryFile = Array.isArray(q.referencedFiles) && q.referencedFiles[0] ? q.referencedFiles[0] : "";
-        const fallbackSnippet = primaryFile ? getExcerpt(sourceSnippets, primaryFile, "") : "";
-        return {
-          id: `gh-grill-${Date.now()}-${i + 1}`,
-          category: q.category || "Architecture",
-          difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
-          question: String(q.question || ""),
-          referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
-          codeExcerpt: String(q.codeExcerpt || fallbackSnippet || "").trim() || undefined,
-          keyConcepts: Array.isArray(q.keyConcepts) && q.keyConcepts.length > 0
-            ? q.keyConcepts.map(String)
-            : ["Architecture Trade-offs", "Edge Case Handling", "Concurrency", "Error Handling"],
-          whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
-          hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
-        };
-      }),
-    };
-  } catch {
-    return null;
+function mapGrillCategory(category?: string): GitHubGrillQuestion["category"] {
+  switch (category) {
+    case "GitHub Deep-Grill":
+      return "Code Implementation";
+    case "System Trade-offs":
+      return "Trade-offs & Debugging";
+    case "Failure Recovery":
+      return "Scalability & Edge Cases";
+    case "Architecture Defense":
+    default:
+      return "Architecture";
   }
 }
 
-async function analyzeWithGemini(
-  owner: string,
-  repo: string,
-  meta: Record<string, unknown>,
-  fileTree: string[],
-  readmeText: string,
-  packageJson: string,
-  commits: string[],
-  notes: string,
-  sourceSnippets: SourceSnippet[] = []
-): Promise<GitHubGrillAnalysis | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey || apiKey.includes("your_gemini")) return null;
+function normalizeLevel(rawLevel: unknown, idx: number): 1 | 2 | 3 {
+  if (rawLevel === 1 || rawLevel === 2 || rawLevel === 3) return rawLevel;
+  if (idx < 3) return 1;
+  if (idx < 7) return 2;
+  return 3;
+}
 
-  const sourceFilesText = sourceSnippets.length > 0
-    ? `\n\nTop Inspected Source Code Files:\n${sourceSnippets.map((s) => `=== FILE: ${s.path} ===\n${s.content}\n`).join("\n")}`
-    : "";
+function normalizeDifficulty(level: 1 | 2 | 3): "easy" | "medium" | "hard" {
+  return level === 1 ? "easy" : level === 2 ? "medium" : "hard";
+}
 
-  const prompt = `You are a Principal Software Engineer and Bar-Raiser conducting a deep, rigorous "Project Grill" technical interview on GitHub repository ${owner}/${repo}.
-Review the file tree, dependencies, README, and the actual source code files provided.
-CRITICAL: Ground your questions in the real source code implementation. Cite specific files, functions, error handling logic, and architectural boundaries in your questions.
-
-Metadata:
-Language: ${meta?.language ? String(meta.language) : "Unknown"}
-Description: ${meta?.description ? String(meta.description) : "None"}
-Notes: ${notes}
-
-Key Files:
-${fileTree.slice(0, 40).join("\n")}
-
-Dependencies:
-${packageJson.slice(0, 1000)}
-
-README Excerpt:
-${readmeText.slice(0, 1500)}${sourceFilesText}
-
-Respond strictly in valid JSON:
-{
-  "repoName": "${repo}",
-  "owner": "${owner}",
-  "summary": "string",
-  "detectedStack": ["string"],
-  "keyFilesAnalyzed": ["string"],
-  "architectureStrengths": ["string"],
-  "potentialWeaknessesOrRisks": ["string"],
-  "grillQuestions": [
-    {
-      "id": "gh-1",
-      "category": "Architecture",
-      "difficulty": "Hard",
-      "question": "string citing specific files",
-      "referencedFiles": ["string"],
-      "codeExcerpt": "5-10 line code snippet from that file",
-      "keyConcepts": ["string", "string", "string", "string"],
-      "whatInterviewerLooksFor": "string",
-      "hint": "string"
-    }
-  ]
-}`;
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 2048,
-          },
-        }),
-        signal: AbortSignal.timeout(15000),
-      }
-    );
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed.grillQuestions) || parsed.grillQuestions.length === 0) return null;
-
-    return {
-      repoName: repo,
-      owner,
-      summary: String(parsed.summary || `Repository ${owner}/${repo}`),
-      detectedStack: Array.isArray(parsed.detectedStack) ? parsed.detectedStack.map(String) : [meta?.language || "TypeScript"],
-      keyFilesAnalyzed: Array.isArray(parsed.keyFilesAnalyzed) ? parsed.keyFilesAnalyzed.map(String) : fileTree.slice(0, 5),
-      architectureStrengths: Array.isArray(parsed.architectureStrengths) ? parsed.architectureStrengths.map(String) : ["Clean architecture"],
-      potentialWeaknessesOrRisks: Array.isArray(parsed.potentialWeaknessesOrRisks) ? parsed.potentialWeaknessesOrRisks.map(String) : ["Edge case resilience"],
-      grillQuestions: (parsed.grillQuestions as RawGrillQuestion[]).map((q, i: number) => {
-        const primaryFile = Array.isArray(q.referencedFiles) && q.referencedFiles[0] ? q.referencedFiles[0] : "";
-        const fallbackSnippet = primaryFile ? getExcerpt(sourceSnippets, primaryFile, "") : "";
-        return {
-          id: `gh-grill-${Date.now()}-${i + 1}`,
-          category: q.category || "Architecture",
-          difficulty: ["Medium", "Hard"].includes(q.difficulty || "") ? (q.difficulty as "Medium" | "Hard") : "Hard",
-          question: String(q.question || ""),
-          referencedFiles: Array.isArray(q.referencedFiles) ? q.referencedFiles.map(String) : [],
-          codeExcerpt: String(q.codeExcerpt || fallbackSnippet || "").trim() || undefined,
-          keyConcepts: Array.isArray(q.keyConcepts) && q.keyConcepts.length > 0
-            ? q.keyConcepts.map(String)
-            : ["Architecture Trade-offs", "Edge Case Handling", "Concurrency", "Error Handling"],
-          whatInterviewerLooksFor: String(q.whatInterviewerLooksFor || "Technical depth and ownership."),
-          hint: String(q.hint || "Discuss trade-offs and alternative solutions."),
-        };
-      }),
-    };
-  } catch {
-    return null;
-  }
+function buildCompatibilityAnalysis(params: {
+  targetRole: string;
+  projectAudited: string;
+  owner: string;
+  summary: string;
+  detectedStack: string[];
+  keyFilesAnalyzed: string[];
+  potentialWeaknessesOrRisks: string[];
+  questions: RoleInterviewQuestion[];
+}): GitHubGrillAnalysis {
+  return {
+    repoName: params.projectAudited,
+    owner: params.owner,
+    summary: params.summary,
+    detectedStack: params.detectedStack,
+    keyFilesAnalyzed: params.keyFilesAnalyzed,
+    architectureStrengths: [],
+    potentialWeaknessesOrRisks: params.potentialWeaknessesOrRisks,
+    grillQuestions: params.questions.map((q) => ({
+      id: q.id,
+      category:
+        q.level === 3
+          ? "Scalability & Edge Cases"
+          : q.level === 2
+          ? "Trade-offs & Debugging"
+          : "Architecture",
+      difficulty: q.difficulty === "hard" ? "Hard" : "Medium",
+      question: q.question,
+      referencedFiles: q.referencedFiles || [params.projectAudited],
+      keyConcepts: q.keyConceptsToCover || [],
+      whatInterviewerLooksFor: q.whyAskThis || `Deep ${params.targetRole} architectural ownership`,
+      hint: q.hint,
+    })),
+  };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as GitHubGrillRequestBody;
-
-    if (!body || !body.repoUrl || !body.repoUrl.trim()) {
-      return NextResponse.json(
-        { error: "Please provide a valid GitHub repository URL (e.g., https://github.com/owner/repo or owner/repo)." },
-        { status: 400 }
-      );
-    }
-
-    const parsedRepo = parseGitHubUrl(body.repoUrl);
-    if (!parsedRepo) {
-      return NextResponse.json(
-        { error: "Invalid GitHub URL format. Please use 'owner/repo' or 'https://github.com/owner/repo'." },
-        { status: 400 }
-      );
-    }
-
-    const { owner, repo } = parsedRepo;
-    const notes = (body.focusNotes || "").trim();
-
-    // 0. Check 15-minute in-memory server cache
-    const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${notes.toLowerCase()}`;
-    const cached = repoGrillCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return NextResponse.json({
-        success: true,
-        source: `${cached.source} (cached)`,
-        analysis: cached.analysis,
-      });
-    }
-
-    // 1. Fetch Repository Metadata from GitHub API
-    const headers: Record<string, string> = {
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "PlacementCoPilot-GitHubGrill/1.0",
+    const body = (await req.json().catch(() => ({}))) as {
+      userId?: string;
+      repoUrl?: string;
+      selectedProjectName?: string;
+      targetRole?: string;
+      role?: string;
+      focusMode?: string;
+      focusNotes?: string;
+      currentLevel?: number;
+      resumeContext?: { projects?: unknown[]; skills?: string[] };
+      useAiBaseline?: boolean;
     };
-    if (process.env.GITHUB_TOKEN) {
-      headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
-    }
 
-    let meta: Record<string, unknown> = { name: repo, language: "TypeScript" };
-    let fileTree: string[] = [];
-    let readmeText = "";
-    let packageJson = "";
-    let commits: string[] = [];
+    const targetRole = (body.targetRole || body.role || "Full-Stack SDE").trim();
+    const repoUrl = (body.repoUrl || "").trim();
+    const selectedProjectName = (body.selectedProjectName || "").trim();
+    const focusMode = (body.focusMode || "Architecture Defense").trim();
+    const focusNotes = (body.focusNotes || "").trim();
+    const currentLevel: 1 | 2 | 3 =
+      body.currentLevel === 1 || body.currentLevel === 2 || body.currentLevel === 3
+        ? body.currentLevel
+        : 1;
 
-    try {
-      const metaRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers,
-        signal: AbortSignal.timeout(6000),
-      });
-      if (metaRes.ok) {
-        meta = (await metaRes.json()) as Record<string, unknown>;
-      }
-    } catch {
-      // Ignore network timeout on GitHub API
-    }
+    const { userId, isGuest } = resolveUserId(body.userId);
+    const supabase = getOptionalSupabaseClient();
+    const storageMode: "supabase" | "local_file" = supabase ? "supabase" : "local_file";
 
-    const defaultBranch = typeof meta?.default_branch === "string" ? meta.default_branch : "main";
+    let resumeProjects: unknown[] = Array.isArray(body.resumeContext?.projects)
+      ? body.resumeContext.projects
+      : [];
+    let trackedSkills: SkillMatrixRow[] = [];
 
-    // 2. Fetch Git Tree
-    try {
-      const treeRes = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`,
-        { headers, signal: AbortSignal.timeout(6000) }
-      );
-      if (treeRes.ok) {
-        const treeData = (await treeRes.json()) as { tree?: Array<{ type?: string; path?: string }> };
-        if (Array.isArray(treeData?.tree)) {
-          fileTree = treeData.tree
-            .filter((node) => node.type === "blob" && typeof node.path === "string")
-            .map((node) => node.path as string)
-            .slice(0, 150);
-        }
-      }
-    } catch {
-      // Tree fetch fallback
-    }
-
-    // 3. Fetch README
-    try {
-      const readmeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
-        headers,
-        signal: AbortSignal.timeout(6000),
-      });
-      if (readmeRes.ok) {
-        const readmeData = (await readmeRes.json()) as { content?: string };
-        if (readmeData?.content) {
-          readmeText = Buffer.from(readmeData.content, "base64").toString("utf-8");
-        }
-      }
-    } catch {
-      // README fallback
-    }
-
-    // 4. Fetch package.json if present
-    const hasPackageJson = fileTree.find((f) => f.endsWith("package.json"));
-    if (hasPackageJson) {
+    if (supabase) {
       try {
-        const pkgRes = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${hasPackageJson}`,
-          { headers, signal: AbortSignal.timeout(5000) }
-        );
-        if (pkgRes.ok) {
-          const pkgData = (await pkgRes.json()) as { content?: string };
-          if (pkgData?.content) {
-            packageJson = Buffer.from(pkgData.content, "base64").toString("utf-8");
-          }
+        const [{ data: resumeRow }, { data: matrixRows }] = await Promise.all([
+          supabase
+            .from("resumes")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase.from("skill_evidence_matrix").select("*").eq("user_id", userId),
+        ]);
+
+        const dbProjects = (resumeRow as { parsed_data?: { projects?: unknown[] } } | null)?.parsed_data?.projects;
+        if (Array.isArray(dbProjects) && dbProjects.length > 0) {
+          resumeProjects = dbProjects;
         }
-      } catch {
-        // pkg fallback
+        if (Array.isArray(matrixRows)) {
+          trackedSkills = matrixRows as SkillMatrixRow[];
+        }
+      } catch (dbErr) {
+        console.warn("[github-grill] Supabase query failed cleanly, falling back:", dbErr);
+      }
+    } else {
+      const store = readLocalInterviewStore();
+      trackedSkills = (store.skillsByUser[userId] || []) as SkillMatrixRow[];
+    }
+
+    let githubContext: Awaited<ReturnType<typeof fetchLiveGitHubRepoContext>> = null;
+    if (repoUrl) {
+      try {
+        githubContext = await fetchLiveGitHubRepoContext(repoUrl);
+      } catch (ghErr) {
+        const msg = ghErr instanceof Error ? ghErr.message : "Failed to inspect GitHub repository";
+        return NextResponse.json({ success: false, error: msg }, { status: 400 });
       }
     }
 
-    // 5. Fetch Recent Commits
+    const baselineQuestions = getRoleBaselineQuestions(targetRole, { mode: "grill" });
+    const hasCustomContext =
+      Boolean(githubContext) || resumeProjects.length > 0 || Boolean(body.useAiBaseline);
+
+    // Zero-crash baseline path when running Demo Mode without GitHub repo or Supabase resume
+    if (!hasCustomContext) {
+      const projectAudited = selectedProjectName || `${targetRole} Baseline Defense`;
+      const detectedRisks = [
+        `Calibrating ${targetRole} architecture fundamentals before live repository cross-examination`,
+        "Validating production trade-offs, state boundaries, and failure recovery under load",
+      ];
+      const openingStatement = `Starting Level ${currentLevel} Deep-Grill calibration for ${targetRole}. Defend your architectural choices concisely with concrete failure modes and complexity bounds.`;
+
+      const analysis = buildCompatibilityAnalysis({
+        targetRole,
+        projectAudited,
+        owner: "candidate",
+        summary: openingStatement,
+        detectedStack: [targetRole],
+        keyFilesAnalyzed: [],
+        potentialWeaknessesOrRisks: detectedRisks,
+        questions: baselineQuestions,
+      });
+
+      return NextResponse.json({
+        success: true,
+        isGuest,
+        userId,
+        storageMode,
+        llmProvider: "baseline",
+        targetRole,
+        githubInspected: false,
+        githubRepoSummary: null,
+        resumeProjectsLoadedCount: 0,
+        projectAudited,
+        detectedArchitectureRisks: detectedRisks,
+        openingInterviewerStatement: openingStatement,
+        questions: baselineQuestions,
+        analysis,
+      });
+    }
+
+    // Custom Repo / Resume Deep-Grill LLM Synthesis (with active Gemini + Groq fallback + baseline padding)
+    const effectiveFocus = focusNotes ? `${focusMode} (${focusNotes})` : focusMode;
+    const grillPrompt = `You are a Principal Staff Engineer conducting a "${effectiveFocus}" Resume & Codebase Deep-Grill for a candidate targeting "${targetRole}" starting around Level ${currentLevel}/3.
+
+CANDIDATE'S RESUME PROJECTS:
+${resumeProjects.length > 0 ? JSON.stringify(resumeProjects, null, 2) : "No explicit resume JSON passed; use the live GitHub repository and role context."}
+
+CANDIDATE'S SKILL EVIDENCE MATRIX:
+${trackedSkills.map((s) => `${s.skill_name} [Claimed:${s.claimed_level}, Verified:${s.verified_confidence}, BluffRisk:${s.bluff_risk}]`).join(", ") || "None"}
+
+LIVE GITHUB REPOSITORY INSPECTION:
+${githubContext ? JSON.stringify(githubContext, null, 2) : "No GitHub repository attached."}
+
+SELECTED PROJECT FOCUS: ${selectedProjectName || githubContext?.fullName || `${targetRole} Architecture`}
+
+Generate a progressive 10-question Deep-Grill Interview Plan ordered from:
+- Level 1 (Foundational / Code Implementation, 3 questions)
+- Level 2 (Production Systems & Trade-offs, 4 questions)
+- Level 3 (Staff Bar-Raiser Failure Recovery & Scaling, 3 questions)
+
+Cite exact repository file paths or resume project bullets wherever available. Return ONLY valid JSON matching:
+{
+  "projectAudited": "string",
+  "detectedArchitectureRisks": ["string", "string"],
+  "openingInterviewerStatement": "string",
+  "questions": [
+    {
+      "id": "string",
+      "level": 1 | 2 | 3,
+      "projectReferenced": "string",
+      "category": "GitHub Deep-Grill" | "Architecture Defense" | "System Trade-offs" | "Failure Recovery",
+      "difficulty": "Easy" | "Medium" | "Hard",
+      "question": "string",
+      "bluffTrap": "string",
+      "expectedDeepSignals": ["string", "string", "string"],
+      "followUpEscalation": "string",
+      "hint": "string",
+      "sampleAnswer": "string"
+    }
+  ]
+}`;
+
     try {
-      const commitRes = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/commits?per_page=5`,
-        { headers, signal: AbortSignal.timeout(5000) }
-      );
-      if (commitRes.ok) {
-        const commitData = (await commitRes.json()) as Array<{ commit?: { message?: string } }>;
-        if (Array.isArray(commitData)) {
-          commits = commitData
-            .map((c) => c?.commit?.message?.split("\n")[0] || "")
-            .filter(Boolean);
-        }
+      const llmResult = await callInterviewLLM({
+        userPrompt: grillPrompt,
+        temperature: 0.25,
+        timeoutMs: 14000,
+      });
+
+      const parsed = JSON.parse(extractJsonObject(llmResult.text)) as GrillPlan;
+      const rawQuestions = Array.isArray(parsed.questions) ? parsed.questions.filter((q) => q && q.question) : [];
+
+      const mappedQuestions: RoleInterviewQuestion[] = rawQuestions.slice(0, 10).map((q, idx) => {
+        const level = normalizeLevel(q.level, idx);
+        const concepts = Array.isArray(q.expectedDeepSignals) && q.expectedDeepSignals.length > 0
+          ? q.expectedDeepSignals
+          : ["Architecture Ownership", "Trade-off Rationale", "Failure Handling"];
+
+        return {
+          id: q.id || `grill-${Date.now()}-${idx + 1}`,
+          role: targetRole,
+          category: "resume-grill",
+          difficulty: normalizeDifficulty(level),
+          level,
+          isAiEscalated: false,
+          question: q.question,
+          hint: q.hint || `${q.bluffTrap ? `Watch out for: ${q.bluffTrap} · ` : ""}${q.followUpEscalation || ""}`.trim(),
+          whyAskThis: q.whyAskThis || q.bluffTrap || `Cross-examining ${mapGrillCategory(q.category)}`,
+          sampleAnswer:
+            q.sampleAnswer ||
+            `Strong defense citing concrete architecture trade-offs, observability, and scaling limits for ${parsed.projectAudited || targetRole}.`,
+          keyConceptsToCover: concepts,
+          referencedFiles:
+            githubContext?.filePaths.slice(0, 3) || (q.projectReferenced ? [q.projectReferenced] : undefined),
+          followUps: q.followUpEscalation ? [q.followUpEscalation] : [],
+        };
+      });
+
+      // Guarantee at least 10 progressive questions by filling remaining slots from baseline if needed
+      const finalQuestions: RoleInterviewQuestion[] = [...mappedQuestions];
+      if (finalQuestions.length < 10) {
+        const needed = 10 - finalQuestions.length;
+        const tailPad = baselineQuestions.slice(baselineQuestions.length - needed);
+        finalQuestions.push(...tailPad);
       }
-    } catch {
-      // commits fallback
-    }
 
-    // 6. Inspect Top 3 Actual Source Code Files (Routes, Models, Services, User-Specified Modules)
-    const EXCLUDED_EXTENSIONS = [".md", ".json", ".lock", ".svg", ".png", ".jpg", ".jpeg", ".ico", ".css", ".scss", ".d.ts", ".map", ".html", ".txt"];
-    const EXCLUDED_DIRS = ["node_modules", ".git", ".next", "dist", "build", ".husky", "coverage"];
+      const projectAudited =
+        githubContext?.repo || parsed.projectAudited || selectedProjectName || `${targetRole} Project`;
+      const detectedRisks = parsed.detectedArchitectureRisks || [
+        "Distributed state consistency and concurrency bottlenecks under 10x traffic",
+      ];
+      const openingStatement =
+        parsed.openingInterviewerStatement ||
+        githubContext?.description ||
+        `Cross-examining your ${projectAudited} implementation for ${targetRole}.`;
 
-    const candidateFiles = fileTree.filter((path) => {
-      const lower = path.toLowerCase();
-      if (EXCLUDED_DIRS.some((dir) => lower.includes(dir))) return false;
-      if (EXCLUDED_EXTENSIONS.some((ext) => lower.endsWith(ext))) return false;
-      return /\.(ts|tsx|js|jsx|py|go|rs|java|cpp|c|rb|php|sql|prisma)$/i.test(path);
-    });
+      const analysis = buildCompatibilityAnalysis({
+        targetRole,
+        projectAudited,
+        owner: githubContext?.owner || "candidate",
+        summary: openingStatement,
+        detectedStack: githubContext?.primaryLanguage ? [githubContext.primaryLanguage] : [targetRole],
+        keyFilesAnalyzed: githubContext?.filePaths.slice(0, 10) || [],
+        potentialWeaknessesOrRisks: detectedRisks,
+        questions: finalQuestions,
+      });
 
-    const scoredFiles = candidateFiles.map((path) => {
-      let score = 0;
-      const lower = path.toLowerCase();
-      if (notes) {
-        const noteWords = notes.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-        for (const word of noteWords) {
-          if (lower.includes(word)) score += 10;
-        }
-      }
-      if (lower.includes("route.") || lower.includes("api/") || lower.includes("server.") || lower.includes("main.") || lower.includes("app.")) score += 8;
-      if (lower.includes("model") || lower.includes("schema") || lower.includes("entity") || lower.includes("db/")) score += 6;
-      if (lower.includes("service") || lower.includes("controller") || lower.includes("lib/")) score += 5;
-      if (lower.includes("page.") || lower.includes("component")) score += 3;
-      return { path, score };
-    });
-
-    scoredFiles.sort((a, b) => b.score - a.score);
-    const topFilesToFetch = scoredFiles.slice(0, 3).map((f) => f.path);
-
-    const sourceSnippets: SourceSnippet[] = [];
-    await Promise.all(
-      topFilesToFetch.map(async (filePath) => {
-        try {
-          const rawRes = await fetch(
-            `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filePath}`,
-            { headers, signal: AbortSignal.timeout(5000) }
-          );
-          if (rawRes.ok) {
-            const text = await rawRes.text();
-            sourceSnippets.push({
-              path: filePath,
-              content: text.slice(0, 2000),
-            });
-          }
-        } catch {
-          // ignore single file fetch timeout
-        }
-      })
-    );
-
-    // Extract tech stack clues from files
-    const detectedStack: string[] = [];
-    if (fileTree.some((f) => f.endsWith(".tsx") || f.endsWith(".jsx"))) detectedStack.push("React");
-    if (fileTree.some((f) => f.includes("next.config") || f.includes("app/"))) detectedStack.push("Next.js");
-    if (fileTree.some((f) => f.endsWith(".ts"))) detectedStack.push("TypeScript");
-    if (fileTree.some((f) => f.endsWith(".py"))) detectedStack.push("Python");
-    if (fileTree.some((f) => f.endsWith(".go"))) detectedStack.push("Go");
-    if (fileTree.some((f) => f.includes("docker") || f.includes("Dockerfile"))) detectedStack.push("Docker");
-    if (detectedStack.length === 0 && meta?.language) detectedStack.push(String(meta.language));
-
-    // AI Analysis via Groq
-    const groqAnalysis = await analyzeWithGroq(
-      owner,
-      repo,
-      meta,
-      fileTree,
-      readmeText,
-      packageJson,
-      commits,
-      notes,
-      sourceSnippets
-    );
-    if (groqAnalysis) {
-      repoGrillCache.set(cacheKey, { timestamp: Date.now(), analysis: groqAnalysis, source: "groq-llama-3.3-70b" });
       return NextResponse.json({
         success: true,
-        source: "groq-llama-3.3-70b",
-        analysis: groqAnalysis,
+        isGuest,
+        userId,
+        storageMode,
+        llmProvider: llmResult.provider,
+        targetRole,
+        githubInspected: Boolean(githubContext),
+        githubRepoSummary: githubContext
+          ? {
+              fullName: githubContext.fullName,
+              primaryLanguage: githubContext.primaryLanguage,
+              filesCount: githubContext.filePaths.length,
+            }
+          : null,
+        resumeProjectsLoadedCount: resumeProjects.length,
+        projectAudited,
+        detectedArchitectureRisks: detectedRisks,
+        openingInterviewerStatement: openingStatement,
+        questions: finalQuestions,
+        analysis,
       });
-    }
+    } catch (llmErr) {
+      console.warn("[github-grill] LLM call failed, falling back to role baseline:", llmErr);
 
-    // AI Analysis via Gemini
-    const geminiAnalysis = await analyzeWithGemini(
-      owner,
-      repo,
-      meta,
-      fileTree,
-      readmeText,
-      packageJson,
-      commits,
-      notes,
-      sourceSnippets
-    );
-    if (geminiAnalysis) {
-      repoGrillCache.set(cacheKey, { timestamp: Date.now(), analysis: geminiAnalysis, source: "gemini-2.0-flash" });
+      const projectAudited =
+        githubContext?.repo || selectedProjectName || `${targetRole} Baseline Defense`;
+      const detectedRisks = [
+        "AI deep-grill generator was rate-limited; loaded verified progressive role calibration pack.",
+        githubContext
+          ? `Inspecting repository ${githubContext.fullName} (${githubContext.primaryLanguage})`
+          : `Calibrating ${targetRole} architecture & scaling readiness`,
+      ];
+      const openingStatement = `Loaded 10 progressive ${targetRole} Deep-Grill questions while fallback calibration is active.`;
+
+      const analysis = buildCompatibilityAnalysis({
+        targetRole,
+        projectAudited,
+        owner: githubContext?.owner || "candidate",
+        summary: openingStatement,
+        detectedStack: githubContext?.primaryLanguage ? [githubContext.primaryLanguage] : [targetRole],
+        keyFilesAnalyzed: githubContext?.filePaths.slice(0, 10) || [],
+        potentialWeaknessesOrRisks: detectedRisks,
+        questions: baselineQuestions,
+      });
+
       return NextResponse.json({
         success: true,
-        source: "gemini-2.0-flash",
-        analysis: geminiAnalysis,
+        isGuest,
+        userId,
+        storageMode,
+        llmProvider: "baseline_fallback",
+        targetRole,
+        githubInspected: Boolean(githubContext),
+        githubRepoSummary: githubContext
+          ? {
+              fullName: githubContext.fullName,
+              primaryLanguage: githubContext.primaryLanguage,
+              filesCount: githubContext.filePaths.length,
+            }
+          : null,
+        resumeProjectsLoadedCount: resumeProjects.length,
+        projectAudited,
+        detectedArchitectureRisks: detectedRisks,
+        openingInterviewerStatement: openingStatement,
+        questions: baselineQuestions,
+        analysis,
       });
     }
-
-    // Deterministic Fallback
-    const fallbackAnalysis = generateDeterministicGitHubGrill(
-      owner,
-      repo,
-      detectedStack,
-      fileTree.slice(0, 10),
-      notes,
-      sourceSnippets
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unexpected server error";
+    return NextResponse.json(
+      {
+        success: false,
+        error: `GITHUB_GRILL_EXCEPTION: ${message}`,
+      },
+      { status: 500 }
     );
-    repoGrillCache.set(cacheKey, { timestamp: Date.now(), analysis: fallbackAnalysis, source: "heuristic" });
-    return NextResponse.json({
-      success: true,
-      source: "heuristic",
-      analysis: fallbackAnalysis,
-    });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "GitHub analysis failed";
-    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

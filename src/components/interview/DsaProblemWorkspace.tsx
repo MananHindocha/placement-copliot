@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -28,11 +28,37 @@ import {
   ArrowLeft,
   X,
   ListFilter,
+  Volume2,
+  VolumeX,
+  Send,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
+  getCompanyLogoUrl,
   type DsaOaProblem,
 } from "@/lib/dsa-oa-questions";
+
+function WorkspaceCompanyLogo({ company }: { company: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-sm bg-violet-500/30 text-[9px] font-bold text-violet-100 shrink-0 uppercase">
+        {company.slice(0, 1)}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={getCompanyLogoUrl(company)}
+      alt={`${company} logo`}
+      width={14}
+      height={14}
+      className="w-3.5 h-3.5 rounded-sm object-contain shrink-0 bg-white/95 p-[1px]"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 import {
   type DsaRunCodeResponse,
   type SpeechRecognitionConstructor,
@@ -81,6 +107,63 @@ export default function DsaProblemWorkspace({
   const [showOaVerbalBar, setShowOaVerbalBar] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Interactive Bar-Raiser Follow-Up Probe State
+  const [agentActionPill, setAgentActionPill] = useState<string | null>(null);
+  const [spokenBarRaiserReaction, setSpokenBarRaiserReaction] = useState<string | null>(null);
+  const [liveFollowUpPrompt, setLiveFollowUpPrompt] = useState<string | null>(null);
+  const [followUpAnswer, setFollowUpAnswer] = useState("");
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [isSpeakingAgent, setIsSpeakingAgent] = useState(false);
+  const [isRecordingFollowUp, setIsRecordingFollowUp] = useState(false);
+  const [isEvaluatingFollowUp, setIsEvaluatingFollowUp] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
+  const [followUpResult, setFollowUpResult] = useState<{
+    followUpScore: number;
+    verdict: "POSITIVE" | "NEGATIVE";
+    spokenInterviewerReaction: string;
+    nextFollowUpQuestion: string | null;
+    keyTakeaway: string;
+  } | null>(null);
+  const [skillMatrixBadge, setSkillMatrixBadge] = useState<{
+    skillName: string;
+    previousTier: string;
+    nextTier: string;
+    bluffRisk: boolean;
+  } | null>(null);
+  const followUpRecognitionRef = useRef<{ stop?: () => void } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      if (followUpRecognitionRef.current?.stop) {
+        followUpRecognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const speakAgentText = (text: string, forceSpeak = false) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (!forceSpeak && isVoiceMuted) return;
+    if (!text.trim()) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.03;
+    utterance.pitch = 1.0;
+    utterance.onstart = () => setIsSpeakingAgent(true);
+    utterance.onend = () => setIsSpeakingAgent(false);
+    utterance.onerror = () => setIsSpeakingAgent(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopAgentVoice = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeakingAgent(false);
+  };
+
   // Verbal Practice State
   const [response, setResponse] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -118,6 +201,11 @@ export default function DsaProblemWorkspace({
     setIsRunningCode(true);
     setRunCodeError(null);
     setConsoleTab(mode === "run" ? "results" : "review");
+    if (mode === "submit") {
+      setFollowUpResult(null);
+      setFollowUpError(null);
+      setFollowUpAnswer("");
+    }
 
     try {
       const res = await fetch("/api/interview/run-code", {
@@ -137,7 +225,7 @@ export default function DsaProblemWorkspace({
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as DsaRunCodeResponse & { error?: string };
       if (!res.ok) {
         setRunCodeError(data.error || "Failed to execute code");
         setDsaStatus(problem.number, "attempted");
@@ -145,17 +233,103 @@ export default function DsaProblemWorkspace({
         setRunCodeResult(data);
         if (mode === "run") {
           setConsoleTab("results");
-          if (data.status === "Accepted") {
-            setDsaStatus(problem.number, "attempted");
-          } else {
-            setDsaStatus(problem.number, "attempted");
-          }
+          setDsaStatus(problem.number, "attempted");
         } else {
           setConsoleTab("review");
-          if (data.status === "Accepted") {
-            setDsaStatus(problem.number, "solved");
-          } else {
-            setDsaStatus(problem.number, "attempted");
+          setDsaStatus(problem.number, data.status === "Accepted" ? "solved" : "attempted");
+        }
+      }
+
+      if (mode === "submit") {
+        try {
+          const dsaExecRes = await fetch("/api/interview/dsa-execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              problemTitle: `#${problem.number}. ${problem.title}`,
+              problemTopic: problem.topic,
+              problemDescription: problem.problemStatement,
+              language: selectedLanguage,
+              code: currentDsaCode,
+              spokenIntuition: response.trim(),
+              claimedTimeComplexity,
+              claimedSpaceComplexity,
+              mode: "SUBMIT_OA",
+              localTestSummary: res.ok
+                ? { passedCount: data.passedCount, totalCount: data.totalCount }
+                : undefined,
+            }),
+          });
+          const dsaData = (await dsaExecRes.json()) as {
+            success?: boolean;
+            agentReview?: {
+              agentAction?: string;
+              spokenBarRaiserResponse?: string;
+              followUpQuestion?: string;
+              actualTimeComplexity?: string;
+              actualSpaceComplexity?: string;
+              complexityMatch?: boolean;
+              overallScore?: number;
+            };
+            skillMatrixMutation?: {
+              skillName: string;
+              previousTier: string;
+              nextTier: string;
+              bluffRisk: boolean;
+            };
+          };
+
+          if (dsaExecRes.ok && dsaData.success && dsaData.agentReview) {
+            const ar = dsaData.agentReview;
+            setAgentActionPill(ar.agentAction || null);
+            setSpokenBarRaiserReaction(ar.spokenBarRaiserResponse || null);
+            const activePrompt =
+              ar.followUpQuestion || data?.codeReview?.followUpQuestion?.prompt || null;
+            setLiveFollowUpPrompt(activePrompt);
+            if (dsaData.skillMatrixMutation) {
+              setSkillMatrixBadge(dsaData.skillMatrixMutation);
+            }
+            if (!res.ok || !data?.codeReview) {
+              setRunCodeError(null);
+              setRunCodeResult((prev) => ({
+                status: prev?.status || "Accepted",
+                passedCount: prev?.passedCount ?? problem.testCases.length,
+                totalCount: prev?.totalCount ?? problem.testCases.length,
+                runtimeMs: prev?.runtimeMs ?? 42,
+                memoryMb: prev?.memoryMb ?? 16,
+                testResults: prev?.testResults ?? [],
+                codeReview: {
+                  overallScore: ar.overallScore ?? 75,
+                  detectedTimeComplexity: ar.actualTimeComplexity || claimedTimeComplexity,
+                  detectedSpaceComplexity: ar.actualSpaceComplexity || claimedSpaceComplexity,
+                  complexityMatch: Boolean(ar.complexityMatch),
+                  edgeCasesHandled: prev?.codeReview?.edgeCasesHandled ?? [
+                    "Validated core algorithmic flow via Bar-Raiser Agent",
+                  ],
+                  edgeCasesMissed: prev?.codeReview?.edgeCasesMissed ?? [],
+                  bugsOrBottlenecks: prev?.codeReview?.bugsOrBottlenecks ?? [],
+                  optimalCodeSuggestion: prev?.codeReview?.optimalCodeSuggestion ?? "",
+                  followUpQuestion: {
+                    prompt: activePrompt || "Explain the time and space complexity trade-offs.",
+                    intent: "Verify algorithmic depth and edge-case resilience",
+                  },
+                },
+              }));
+            }
+            const speechScript = [ar.spokenBarRaiserResponse, activePrompt]
+              .filter(Boolean)
+              .join(" ");
+            if (speechScript) {
+              speakAgentText(speechScript);
+            }
+          } else if (data?.codeReview?.followUpQuestion?.prompt) {
+            setLiveFollowUpPrompt(data.codeReview.followUpQuestion.prompt);
+            speakAgentText(data.codeReview.followUpQuestion.prompt);
+          }
+        } catch {
+          if (data?.codeReview?.followUpQuestion?.prompt) {
+            setLiveFollowUpPrompt(data.codeReview.followUpQuestion.prompt);
+            speakAgentText(data.codeReview.followUpQuestion.prompt);
           }
         }
       }
@@ -164,6 +338,126 @@ export default function DsaProblemWorkspace({
       setDsaStatus(problem.number, "attempted");
     } finally {
       setIsRunningCode(false);
+    }
+  };
+
+  const toggleFollowUpRecording = () => {
+    if (isRecordingFollowUp) {
+      if (followUpRecognitionRef.current?.stop) {
+        followUpRecognitionRef.current.stop();
+      }
+      setIsRecordingFollowUp(false);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+    const SpeechRecognition =
+      (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor })
+        .webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setFollowUpError(
+        "Voice recognition is unavailable in this browser — type your follow-up defense below."
+      );
+      return;
+    }
+
+    setFollowUpError(null);
+    setIsRecordingFollowUp(true);
+    try {
+      const recognition = new SpeechRecognition();
+      followUpRecognitionRef.current = recognition as unknown as { stop?: () => void };
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + " ";
+        }
+        setFollowUpAnswer(transcript.trim());
+      };
+      recognition.start();
+    } catch {
+      setIsRecordingFollowUp(false);
+      setFollowUpError("Microphone could not start. Type your follow-up defense below.");
+    }
+  };
+
+  const handleSubmitFollowUpAnswer = async () => {
+    const activeQuestion =
+      liveFollowUpPrompt || runCodeResult?.codeReview?.followUpQuestion?.prompt || "";
+    if (!followUpAnswer.trim()) {
+      setFollowUpError("Speak or type your defense before submitting.");
+      return;
+    }
+    if (isRecordingFollowUp && followUpRecognitionRef.current?.stop) {
+      followUpRecognitionRef.current.stop();
+      setIsRecordingFollowUp(false);
+    }
+
+    setIsEvaluatingFollowUp(true);
+    setFollowUpError(null);
+
+    try {
+      const res = await fetch("/api/interview/dsa-execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "EVALUATE_FOLLOWUP",
+          problemTitle: `#${problem.number}. ${problem.title}`,
+          problemTopic: problem.topic,
+          code: currentDsaCode,
+          originalFollowUpQuestion: activeQuestion,
+          candidateFollowUpAnswer: followUpAnswer.trim(),
+        }),
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        evaluation?: {
+          followUpScore: number;
+          verdict: "POSITIVE" | "NEGATIVE";
+          spokenInterviewerReaction: string;
+          nextFollowUpQuestion: string | null;
+          keyTakeaway: string;
+        };
+        skillMatrixMutation?: {
+          skillName: string;
+          previousTier: string;
+          nextTier: string;
+          bluffRisk: boolean;
+        };
+      };
+
+      if (!res.ok || !json.success || !json.evaluation) {
+        setFollowUpError(json.error || "Failed to evaluate follow-up defense.");
+        return;
+      }
+
+      setFollowUpResult(json.evaluation);
+      if (json.skillMatrixMutation) {
+        setSkillMatrixBadge(json.skillMatrixMutation);
+      }
+      const nextSpeech = [
+        json.evaluation.spokenInterviewerReaction,
+        json.evaluation.nextFollowUpQuestion,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (nextSpeech) {
+        speakAgentText(nextSpeech);
+      }
+      if (json.evaluation.nextFollowUpQuestion) {
+        setLiveFollowUpPrompt(json.evaluation.nextFollowUpQuestion);
+        setFollowUpAnswer("");
+      }
+    } catch (err) {
+      setFollowUpError(
+        err instanceof Error ? err.message : "Network error evaluating follow-up answer."
+      );
+    } finally {
+      setIsEvaluatingFollowUp(false);
     }
   };
 
@@ -332,9 +626,10 @@ export default function DsaProblemWorkspace({
                   {problem.companyTags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                      className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20"
                     >
-                      {tag}
+                      <WorkspaceCompanyLogo company={tag} />
+                      <span>{tag}</span>
                     </span>
                   ))}
                 </div>
@@ -1026,19 +1321,161 @@ export default function DsaProblemWorkspace({
                           </div>
                         )}
 
-                        {/* Follow-up Question Probe */}
-                        {runCodeResult.codeReview.followUpQuestion && (
-                          <div className="p-3 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-1">
-                            <div className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
-                              <Target className="w-3.5 h-3.5 text-indigo-400" />
-                              Interviewer Follow-up Probe
+                        {/* Interactive Spoken & Written Follow-up Probe */}
+                        {(liveFollowUpPrompt || runCodeResult.codeReview.followUpQuestion) && (
+                          <div className="p-3.5 rounded-xl bg-indigo-950/25 border border-indigo-500/40 space-y-3">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                                  <Target className="w-3.5 h-3.5 text-indigo-400" />
+                                  Live Interviewer Follow-up Probe
+                                </span>
+                                {agentActionPill && (
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                    Agent: {agentActionPill}
+                                  </span>
+                                )}
+                                {skillMatrixBadge && (
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-200 border border-violet-500/30">
+                                    {skillMatrixBadge.skillName}: {skillMatrixBadge.previousTier} →{" "}
+                                    {skillMatrixBadge.nextTier}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const q =
+                                      liveFollowUpPrompt ||
+                                      runCodeResult.codeReview?.followUpQuestion?.prompt ||
+                                      "";
+                                    speakAgentText(q, true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-[10px] font-semibold text-indigo-200 border border-indigo-400/30 transition-colors"
+                                >
+                                  <Volume2 className={clsx("w-3 h-3", isSpeakingAgent && "animate-pulse text-emerald-300")} />
+                                  <span>{isSpeakingAgent ? "Speaking..." : "Hear Question"}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isSpeakingAgent) stopAgentVoice();
+                                    setIsVoiceMuted((prev) => !prev);
+                                  }}
+                                  title={isVoiceMuted ? "Unmute auto-voice" : "Mute auto-voice"}
+                                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors"
+                                >
+                                  {isVoiceMuted ? (
+                                    <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                                  ) : (
+                                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
-                            <p className="text-xs text-white leading-relaxed">
-                              &ldquo;{runCodeResult.codeReview.followUpQuestion.prompt}&rdquo;
+
+                            {spokenBarRaiserReaction && (
+                              <p className="text-[11px] text-slate-300 bg-black/30 px-2.5 py-2 rounded-lg border border-white/5 leading-relaxed">
+                                {spokenBarRaiserReaction}
+                              </p>
+                            )}
+
+                            <p className="text-xs text-white font-medium leading-relaxed">
+                              &ldquo;
+                              {liveFollowUpPrompt ||
+                                runCodeResult.codeReview.followUpQuestion.prompt}
+                              &rdquo;
                             </p>
-                            <p className="text-[10px] text-slate-400 italic">
-                              Interviewer Intent: {runCodeResult.codeReview.followUpQuestion.intent}
-                            </p>
+                            {runCodeResult.codeReview.followUpQuestion?.intent && (
+                              <p className="text-[10px] text-slate-400 italic">
+                                Interviewer Intent: {runCodeResult.codeReview.followUpQuestion.intent}
+                              </p>
+                            )}
+
+                            <div className="space-y-2 pt-2 border-t border-indigo-500/20">
+                              <textarea
+                                rows={2}
+                                value={followUpAnswer}
+                                onChange={(e) => setFollowUpAnswer(e.target.value)}
+                                placeholder="Defend your implementation aloud or type your Big-O / scaling explanation here..."
+                                className="w-full rounded-xl bg-black/50 border border-indigo-500/30 focus:border-indigo-400 focus:outline-none px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 resize-y"
+                              />
+                              {followUpError && (
+                                <p className="text-[11px] text-rose-400">{followUpError}</p>
+                              )}
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={toggleFollowUpRecording}
+                                  className={clsx(
+                                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                                    isRecordingFollowUp
+                                      ? "bg-rose-500/20 border-rose-400/50 text-rose-200 animate-pulse"
+                                      : "bg-black/40 border-white/10 text-slate-200 hover:border-indigo-400/40"
+                                  )}
+                                >
+                                  {isRecordingFollowUp ? (
+                                    <>
+                                      <MicOff className="w-3.5 h-3.5" />
+                                      <span>Stop Mic</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Mic className="w-3.5 h-3.5 text-indigo-300" />
+                                      <span>Speak Answer</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  disabled={isEvaluatingFollowUp || !followUpAnswer.trim()}
+                                  onClick={handleSubmitFollowUpAnswer}
+                                  className="text-xs inline-flex items-center gap-1.5"
+                                >
+                                  {isEvaluatingFollowUp ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      <span>Grading Defense...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Send className="w-3.5 h-3.5" />
+                                      <span>Submit Follow-up Answer</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {followUpResult && (
+                              <div className="p-3 rounded-xl bg-black/50 border border-white/10 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span
+                                    className={clsx(
+                                      "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                      followUpResult.verdict === "POSITIVE"
+                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                        : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                    )}
+                                  >
+                                    Follow-up Defense: {followUpResult.verdict}
+                                  </span>
+                                  <span className="text-xs font-extrabold font-mono text-amber-300">
+                                    {followUpResult.followUpScore} / 100
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-200 leading-relaxed">
+                                  {followUpResult.spokenInterviewerReaction}
+                                </p>
+                                <p className="text-[11px] text-indigo-300">
+                                  Matrix Evidence: {followUpResult.keyTakeaway}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

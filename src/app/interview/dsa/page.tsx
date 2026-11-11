@@ -22,10 +22,130 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
+  CORE_MAJOR_COMPANIES,
   DSA_OA_PROBLEMS,
   DSA_OA_TOPICS,
+  getCompanyLogoUrl,
 } from "@/lib/dsa-oa-questions";
 import { getDsaStatuses, type DsaProblemStatus } from "@/lib/dsa-storage";
+
+function CompanyLogoImg({ company, size = 14 }: { company: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span
+        style={{ width: size, height: size }}
+        className="inline-flex items-center justify-center rounded-sm bg-violet-500/20 text-[9px] font-bold text-violet-200 shrink-0 uppercase"
+      >
+        {company.slice(0, 1)}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={getCompanyLogoUrl(company)}
+      alt={`${company} logo`}
+      width={size}
+      height={size}
+      style={{ width: size, height: size }}
+      className="rounded-sm object-contain shrink-0 bg-white/95 p-[1px]"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function CompanyLogoDropdown({
+  value,
+  onChange,
+  companies,
+  companyCounts,
+}: {
+  value: string;
+  onChange: (company: string) => void;
+  companies: string[];
+  companyCounts: Record<string, number>;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-full py-2 px-3 bg-black/40 border border-white/10 hover:border-violet-500/40 rounded-xl text-xs text-slate-200 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-2 truncate">
+          {value === "all" ? (
+            <span>All Companies ({companies.length})</span>
+          ) : (
+            <>
+              <CompanyLogoImg company={value} size={15} />
+              <span className="truncate font-medium">{value}</span>
+              <span className="text-[10px] text-slate-400 font-mono">({companyCounts[value] || 0})</span>
+            </>
+          )}
+        </span>
+        <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Close company menu"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-30 cursor-default"
+          />
+          <div className="absolute right-0 mt-1.5 w-full min-w-[230px] max-h-72 overflow-y-auto z-40 rounded-xl bg-[#0e1122] border border-white/15 shadow-2xl p-1.5 space-y-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("all");
+                setOpen(false);
+              }}
+              className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors ${
+                value === "all"
+                  ? "bg-violet-500/20 text-violet-200 font-semibold"
+                  : "text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              <span>All Companies ({companies.length})</span>
+            </button>
+            {companies.map((comp) => (
+              <button
+                key={comp}
+                type="button"
+                onClick={() => {
+                  onChange(comp);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors ${
+                  value === comp
+                    ? "bg-violet-500/20 text-violet-200 font-semibold"
+                    : "text-slate-300 hover:bg-white/5"
+                }`}
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <CompanyLogoImg company={comp} size={15} />
+                  <span className="truncate">{comp}</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                  {companyCounts[comp] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 type SortOption = "number_asc" | "number_desc" | "title_asc" | "difficulty_asc" | "difficulty_desc";
 
@@ -263,21 +383,55 @@ export default function DsaProblemsetPage() {
             </select>
           </div>
 
-          {/* Company Dropdown */}
+          {/* Company Dropdown with Brand Logos */}
           <div className="md:col-span-3">
-            <select
+            <CompanyLogoDropdown
               value={selectedCompany}
-              onChange={(e) => setSelectedCompany(e.target.value)}
-              className="w-full py-2 px-3 bg-black/40 border border-white/10 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-violet-500 cursor-pointer truncate"
-            >
-              <option value="all">All Companies ({availableCompanies.length})</option>
-              {availableCompanies.map((comp) => (
-                <option key={comp} value={comp}>
-                  {comp}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedCompany}
+              companies={availableCompanies}
+              companyCounts={DSA_OA_PROBLEMS.reduce<Record<string, number>>((acc, item) => {
+                for (const tag of item.companyTags) {
+                  acc[tag] = (acc[tag] || 0) + 1;
+                }
+                return acc;
+              }, {})}
+            />
           </div>
+        </div>
+
+        {/* Company Quick-Filter Strip with Brand Logos */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1">
+          <button
+            type="button"
+            onClick={() => setSelectedCompany("all")}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border whitespace-nowrap transition-colors shrink-0 ${
+              selectedCompany === "all"
+                ? "bg-violet-500/20 border-violet-400/50 text-violet-200"
+                : "bg-black/30 border-white/10 text-slate-400 hover:text-white hover:border-white/20"
+            }`}
+          >
+            All ({DSA_OA_PROBLEMS.length})
+          </button>
+          {CORE_MAJOR_COMPANIES.filter((c) => availableCompanies.includes(c)).map((comp) => {
+            const count = DSA_OA_PROBLEMS.filter((p) => p.companyTags.includes(comp)).length;
+            const active = selectedCompany === comp;
+            return (
+              <button
+                key={comp}
+                type="button"
+                onClick={() => setSelectedCompany(active ? "all" : comp)}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border whitespace-nowrap flex items-center gap-1.5 transition-colors shrink-0 ${
+                  active
+                    ? "bg-violet-500/20 border-violet-400/50 text-violet-100"
+                    : "bg-black/30 border-white/10 text-slate-300 hover:text-white hover:border-violet-400/30"
+                }`}
+              >
+                <CompanyLogoImg company={comp} size={14} />
+                <span>{comp}</span>
+                <span className="text-[10px] font-mono text-slate-400">({count})</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Second Row: Status Filter, Sorting, Reset, and Counter */}
@@ -456,14 +610,20 @@ export default function DsaProblemsetPage() {
                       <td className="py-3.5 px-4">
                         <Link href={`/interview/dsa/${p.number}`}>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {p.companyTags.slice(0, 3).map((comp) => (
-                              <span
-                                key={comp}
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-violet-500/20 group-hover:bg-violet-500/10 transition-colors"
-                              >
-                                {comp}
-                              </span>
-                            ))}
+                            {[...p.companyTags]
+                              .sort((a, b) =>
+                                a === selectedCompany ? -1 : b === selectedCompany ? 1 : 0
+                              )
+                              .slice(0, 3)
+                              .map((comp) => (
+                                <span
+                                  key={comp}
+                                  className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-violet-500/20 group-hover:bg-violet-500/10 transition-colors"
+                                >
+                                  <CompanyLogoImg company={comp} size={13} />
+                                  <span>{comp}</span>
+                                </span>
+                              ))}
                             {p.companyTags.length > 3 && (
                               <span className="text-[10px] text-slate-500 font-mono">
                                 +{p.companyTags.length - 3}

@@ -236,6 +236,8 @@ export type InterviewQuestion = {
   role?: string;
   category: InterviewCategory;
   difficulty: "easy" | "medium" | "hard";
+  level?: 1 | 2 | 3;
+  isAiEscalated?: boolean;
   question: string;
   hint: string;
   whyAskThis?: string;
@@ -317,6 +319,19 @@ export interface InterviewEvaluationResponse {
   coveredConcepts?: string[];
   missedConcepts?: string[];
   codeReviewCritique?: string;
+  adaptiveDecision?: "LEVEL_UP_HARDER_QUESTION" | "PROBE_CURRENT_LEVEL" | "CALIBRATE_FOUNDATION";
+  nextLevel?: 1 | 2 | 3;
+  adaptiveNextQuestion?: {
+    id: string;
+    role: string;
+    category: InterviewCategory;
+    difficulty: "easy" | "medium" | "hard";
+    level: 1 | 2 | 3;
+    question: string;
+    hint: string;
+    keyConceptsToCover: string[];
+    isAiEscalated: boolean;
+  };
 }
 
 export interface InterviewTelemetry {
@@ -337,6 +352,7 @@ export interface InterviewEvaluationRequest {
   userTranscript: string;
   durationSeconds: number;
   telemetry: InterviewTelemetry;
+  currentLevel?: 1 | 2 | 3;
   resumeContext?: string;
   githubRepoContext?: string;
   customJdContext?: string;
