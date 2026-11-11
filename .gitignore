@@ -60,3 +60,7 @@ Thumbs.db
 *AUDIT_REPORT.md
 AGENT_AUDIT_REPORT.md
 
+# Local interview demo store
+.interview-persistent-store.json
+.agent-interview-store.json
+

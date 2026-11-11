@@ -6,15 +6,15 @@ type ButtonSize = "sm" | "md" | "lg";
 
 const variantMap: Record<ButtonVariant, string> = {
   primary:
-    "bg-[#1B1FB8] text-[#F5F6FF] hover:bg-[#292EDB] active:bg-[#14178F] shadow-lg shadow-[rgba(27,31,184,0.30)] border border-[rgba(100,110,255,0.3)]",
+    "bg-[#F5F5F5] text-[#000000] hover:bg-[#E4E4E7] active:bg-[#D4D4D8] border border-[#F5F5F5]",
   secondary:
-    "bg-[#080A14] text-[#F5F6FF] border border-[rgba(100,110,255,0.18)] hover:bg-[#151A35] hover:border-[rgba(100,110,255,0.38)]",
+    "bg-[#121212] text-[#F5F5F5] border border-[#292929] hover:bg-[#1A1A1A] hover:border-[#3A3A3A]",
   ghost:
-    "text-[#A2A7C0] hover:text-[#F5F6FF] hover:bg-[#151A35]/60 hover:border-[rgba(100,110,255,0.15)]",
+    "text-[#A1A1AA] border border-transparent hover:text-[#F5F5F5] hover:bg-[#121212]",
   danger:
-    "bg-rose-500/10 text-rose-400 border border-rose-500/25 hover:bg-rose-500/20 hover:border-rose-500/40",
+    "bg-[#F43F5E]/10 text-[#F43F5E] border border-[#F43F5E]/25 hover:bg-[#F43F5E]/20 hover:border-[#F43F5E]/40",
   success:
-    "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/20",
+    "bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25 hover:bg-[#10B981]/20",
 };
 
 const sizeMap: Record<ButtonSize, string> = {
@@ -46,7 +46,7 @@ export default function Button({
     <button
       type={type}
       className={clsx(
-        "inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none cursor-pointer",
+        "inline-flex items-center justify-center rounded-lg font-medium transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none cursor-pointer",
         variantMap[variant],
         sizeMap[size],
         className

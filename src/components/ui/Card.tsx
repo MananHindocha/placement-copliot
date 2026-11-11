@@ -26,12 +26,12 @@ export default function Card({
   return (
     <div
       className={clsx(
-        "rounded-2xl border transition-all duration-200",
+        "rounded-xl border transition-colors duration-150",
         glass
-          ? "bg-[#101326]/80 border-[rgba(100,110,255,0.16)] backdrop-blur-md"
-          : "bg-[#0B0D18] border-[rgba(100,110,255,0.12)]",
+          ? "bg-[#0A0A0A] border-[#292929]"
+          : "bg-[#0D0D0D] border-[#1D1D1D]",
         hover &&
-          "hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/50 hover:shadow-xl hover:shadow-[rgba(27,31,184,0.12)] cursor-pointer",
+          "hover:border-[#292929] hover:bg-[#121212] cursor-pointer",
         paddingMap[padding],
         className
       )}

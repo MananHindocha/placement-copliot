@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  GEMINI_CANDIDATE_MODELS,
+  isUsableKey,
+  sanitizeEnvKey,
+} from "@/lib/interview/server-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const GROQ_WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"];
+
+function buildTranscriptPayload(text: string, durationSeconds: number, source: string) {
+  const cleanedText = text.trim();
+  const duration = durationSeconds > 0 ? durationSeconds : 1;
+  const words = cleanedText ? cleanedText.split(/\s+/).filter(Boolean).length : 0;
+  const wordsPerMinute = duration > 0 ? Math.round((words / duration) * 60) : 0;
+
+  return {
+    ok: true,
+    text: cleanedText,
+    transcript: cleanedText,
+    duration: Math.round(duration * 10) / 10,
+    wordsPerMinute,
+    source,
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,29 +38,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rawGroqKey = process.env.GROQ_API_KEY ?? "";
-    const groqKey = rawGroqKey.trim().replace(/^["']|["']$/g, "").trim();
-
-    if (!groqKey || groqKey.startsWith("your_") || groqKey.startsWith("demo_")) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Groq API key not configured for Whisper transcription.",
-          text: "",
-          duration: 0,
-          wordsPerMinute: 0,
-          source: "unconfigured",
-        },
-        { status: 200 }
-      );
-    }
-
-    const fileType = audioFile.type || "audio/webm";
-    const extension = fileType.includes("mp4")
+    const rawMime = audioFile.type || "audio/webm";
+    const baseMime = rawMime.split(";")[0]?.trim() || "audio/webm";
+    const extension = baseMime.includes("mp4")
       ? "mp4"
-      : fileType.includes("wav")
+      : baseMime.includes("wav")
       ? "wav"
-      : fileType.includes("ogg")
+      : baseMime.includes("ogg")
       ? "ogg"
       : "webm";
     const fileName = `recording.${extension}`;
@@ -46,63 +53,139 @@ export async function POST(req: NextRequest) {
     const role = String(formData.get("role") || "").trim();
     const keyConcepts = String(formData.get("keyConcepts") || "").trim();
 
-    // Prepare native File instance for standard fetch FormData
     const arrayBuffer = await audioFile.arrayBuffer();
-    const file = new File([arrayBuffer], fileName, { type: fileType });
-
-    // Technical Jargon Vocabulary Prompt (prevents phonetic STT misspellings like 'use action state' or 'post gres')
     const technicalGlossary = `Technical terms: Next.js, React 19, useActionState, useOptimistic, Server Components, TypeScript, Node.js, FastAPI, PostgreSQL, Supabase, Redis, Kafka, Docker, Kubernetes, REST API, GraphQL, WebSockets, JWT, OAuth, idempotency, p95 latency, Big-O, O(n log n), microservices, CI/CD. Role: ${role || "Software Engineer"}.${keyConcepts ? ` Key Concepts: ${keyConcepts}.` : ""} Context: ${questionContext.slice(0, 300)}`;
 
-    const groqForm = new FormData();
-    groqForm.append("file", file);
-    groqForm.append("model", "whisper-large-v3-turbo");
-    groqForm.append("language", "en");
-    groqForm.append("response_format", "json");
-    groqForm.append("temperature", "0");
-    groqForm.append("prompt", technicalGlossary);
+    const groqKey = sanitizeEnvKey(process.env.GROQ_API_KEY);
+    const geminiKey = sanitizeEnvKey(
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY
+    );
+    const errors: string[] = [];
 
-    const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${groqKey}`,
-      },
-      body: groqForm,
-      signal: AbortSignal.timeout(15000),
-    });
+    // 1. Try active Groq Whisper models (turbo first, then large-v3)
+    if (isUsableKey(groqKey, "your_")) {
+      for (const whisperModel of GROQ_WHISPER_MODELS) {
+        try {
+          const file = new File([arrayBuffer], fileName, { type: baseMime });
+          const groqForm = new FormData();
+          groqForm.append("file", file);
+          groqForm.append("model", whisperModel);
+          groqForm.append("language", "en");
+          groqForm.append("response_format", "verbose_json");
+          groqForm.append("temperature", "0");
+          groqForm.append("prompt", technicalGlossary);
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.warn("[Groq Whisper API Notice]:", res.status, errText);
+          const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${groqKey}` },
+            body: groqForm,
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (res.ok) {
+            const data = (await res.json()) as { text?: string; duration?: number };
+            const text = String(data?.text || "").trim();
+            return NextResponse.json(
+              buildTranscriptPayload(text, Number(data?.duration) || 1, `groq-${whisperModel}`)
+            );
+          }
+
+          errors.push(`groq/${whisperModel}: HTTP ${res.status}`);
+        } catch (err) {
+          errors.push(
+            `groq/${whisperModel}: ${err instanceof Error ? err.message : "network error"}`
+          );
+        }
+      }
+    }
+
+    // 2. Fallback to active Gemini multimodal audio transcription
+    if (isUsableKey(geminiKey, "placeholder-")) {
+      const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+      for (const model of GEMINI_CANDIDATE_MODELS) {
+        try {
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(15000),
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: "user",
+                    parts: [
+                      {
+                        text: `Transcribe the spoken engineering interview audio verbatim in plain text. Preserve technical terms accurately (${technicalGlossary}). Return ONLY the spoken transcript with no commentary.`,
+                      },
+                      {
+                        inlineData: {
+                          mimeType: baseMime,
+                          data: audioBase64,
+                        },
+                      },
+                    ],
+                  },
+                ],
+                generationConfig: { temperature: 0 },
+              }),
+            }
+          );
+
+          if (geminiRes.ok) {
+            const json = (await geminiRes.json()) as {
+              candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+            };
+            const transcriptText = String(
+              json.candidates?.[0]?.content?.parts?.[0]?.text || ""
+            ).trim();
+            if (transcriptText) {
+              return NextResponse.json(
+                buildTranscriptPayload(transcriptText, 1, `gemini-${model}`)
+              );
+            }
+          } else {
+            errors.push(`gemini/${model}: HTTP ${geminiRes.status}`);
+          }
+        } catch (err) {
+          errors.push(`gemini/${model}: ${err instanceof Error ? err.message : "network error"}`);
+        }
+      }
+    }
+
+    if (errors.length === 0) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Whisper transcription failed with status ${res.status}`,
+          error:
+            "Neither GROQ_API_KEY nor GEMINI_API_KEY is configured for audio transcription.",
           text: "",
+          transcript: "",
           duration: 0,
           wordsPerMinute: 0,
+          source: "unconfigured",
         },
         { status: 200 }
       );
     }
 
-    const data = (await res.json()) as { text?: string; duration?: number };
-    const text = String(data?.text || "").trim();
-    const duration = typeof data?.duration === "number" && data.duration > 0 ? data.duration : 1;
-    const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
-    const wordsPerMinute = duration > 0 ? Math.round((words / duration) * 60) : 0;
-
-    return NextResponse.json({
-      ok: true,
-      text,
-      duration: Math.round(duration * 10) / 10,
-      wordsPerMinute,
-      source: "groq-whisper",
-    });
+    console.warn("[Audio Transcription Notice]:", errors.join(" | "));
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Transcription failed: ${errors.join(" | ").slice(0, 220)}`,
+        text: "",
+        transcript: "",
+        duration: 0,
+        wordsPerMinute: 0,
+      },
+      { status: 200 }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal transcription error";
     console.error("[Transcription Error]:", message);
     return NextResponse.json(
-      { ok: false, error: message, text: "", duration: 0, wordsPerMinute: 0 },
+      { ok: false, error: message, text: "", transcript: "", duration: 0, wordsPerMinute: 0 },
       { status: 200 }
     );
   }

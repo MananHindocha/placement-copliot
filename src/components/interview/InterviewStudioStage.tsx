@@ -17,6 +17,7 @@ import {
   EXPANDED_CATEGORIES,
   getRoleInterviewQuestions,
 } from "@/lib/interview-questions";
+import { getBaselineAsStudioQuestions } from "@/lib/interview/role-baseline-questions";
 import type {
   InterviewQuestion,
   InterviewSession,
@@ -58,6 +59,8 @@ import {
   BrainCircuit,
   Flame,
   ShieldAlert,
+  Zap,
+  Rocket,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
@@ -117,13 +120,45 @@ export default function InterviewStudioStage({
   onQuestionsChange,
 }: InterviewStudioStageProps) {
   // ─── Core Data State ────────────────────────────────────────────────────────
+  const buildRoleQuestionPool = useCallback(
+    (roleTitle: string, targetMode: "bank" | "grill" | "custom"): StudioQuestion[] => {
+      if (targetMode === "grill") {
+        return getBaselineAsStudioQuestions(roleTitle, "grill");
+      }
+      if (targetMode === "custom") {
+        return [];
+      }
+      const baseline = getBaselineAsStudioQuestions(roleTitle, "bank");
+      const curated = getRoleInterviewQuestions(roleTitle, "all");
+      const seenIds = new Set(baseline.map((q) => q.id));
+      return [...baseline, ...curated.filter((q) => !seenIds.has(q.id))];
+    },
+    []
+  );
+
   const [questions, setQuestions] = useState<StudioQuestion[]>(() => {
     if (initialQuestions && initialQuestions.length > 0) return initialQuestions;
-    return getRoleInterviewQuestions(initialRole, initialCategory);
+    if (mode === "grill") return getBaselineAsStudioQuestions(initialRole, "grill");
+    if (mode === "custom") return [];
+    const baseline = getBaselineAsStudioQuestions(initialRole, "bank");
+    const curated = getRoleInterviewQuestions(initialRole, "all");
+    const seenIds = new Set(baseline.map((q) => q.id));
+    return [...baseline, ...curated.filter((q) => !seenIds.has(q.id))];
   });
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ─── Adaptive Difficulty State ──────────────────────────────────────────────
+  const [candidateLevel, setCandidateLevel] = useState<1 | 2 | 3>(1);
+  const [levelUpBanner, setLevelUpBanner] = useState<{
+    decision: "LEVEL_UP_HARDER_QUESTION" | "PROBE_CURRENT_LEVEL" | "CALIBRATE_FOUNDATION";
+    score: number;
+    previousLevel: 1 | 2 | 3;
+    nextLevel: 1 | 2 | 3;
+    reaction?: string;
+    hasNextQuestion: boolean;
+  } | null>(null);
 
   // ─── Studio Configuration State ─────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"practice" | "history">("practice");
@@ -201,15 +236,18 @@ export default function InterviewStudioStage({
   const lastSpokenTimestampRef = useRef<number>(0);
   const evaluationRef = useRef<HTMLDivElement | null>(null);
 
-  // Synchronize when external questions change
-  useEffect(() => {
+  // Synchronize when external questions change without cascading effects
+  const [prevInitialQuestions, setPrevInitialQuestions] = useState(initialQuestions);
+  if (initialQuestions !== prevInitialQuestions) {
+    setPrevInitialQuestions(initialQuestions);
     if (initialQuestions && initialQuestions.length > 0) {
       setQuestions(initialQuestions);
       setCurrentIdx(0);
       setEvalResult(null);
+      setLevelUpBanner(null);
       setResponse("");
     }
-  }, [initialQuestions]);
+  }
 
   // Load past sessions
   useEffect(() => {
@@ -254,17 +292,18 @@ export default function InterviewStudioStage({
   const availableQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (mode === "grill") {
-        return q.category === "resume-grill" || q.isCustom;
+        return q.category === "resume-grill" || q.isCustom || q.isAiEscalated || q.level !== undefined;
       }
       if (mode === "custom") {
         return true;
       }
       const roleMatches =
-        q.isCustom || !q.role || q.role.toLowerCase() === selectedRole.toLowerCase();
+        q.isCustom || q.isAiEscalated || !q.role || q.role.toLowerCase() === selectedRole.toLowerCase();
       if (!roleMatches) return false;
 
       if (filterCategory === "all") {
-        return q.isCustom || q.category !== "resume-grill";
+        // Default Bank stage loads progressive 10-question role calibration (Level 1 -> 3) + dynamically escalated questions
+        return (q.level !== undefined || q.isCustom || q.isAiEscalated) && q.category !== "resume-grill";
       }
       return q.category === filterCategory;
     });
@@ -419,12 +458,12 @@ export default function InterviewStudioStage({
     const drawVirtualFrame = () => {
       frame++;
       const grad = ctx.createLinearGradient(0, 0, 640, 480);
-      grad.addColorStop(0, "#0B0D18");
-      grad.addColorStop(1, "#0B0D18");
+      grad.addColorStop(0, "#0A0A0A");
+      grad.addColorStop(1, "#000000");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 640, 480);
 
-      ctx.strokeStyle = "rgba(99, 102, 241, 0.08)";
+      ctx.strokeStyle = "rgba(178, 147, 226, 0.08)";
       ctx.lineWidth = 1;
       for (let x = 0; x < 640; x += 40) {
         ctx.beginPath();
@@ -443,11 +482,11 @@ export default function InterviewStudioStage({
       const headX = 320 + Math.sin(frame * 0.02) * 5;
       const headY = 210 + breathe;
 
-      ctx.fillStyle = "#1e293b";
+      ctx.fillStyle = "#171717";
       ctx.beginPath();
       ctx.ellipse(headX, headY, 65, 80, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "rgba(99, 102, 241, 0.3)";
+      ctx.strokeStyle = "rgba(178, 147, 226, 0.35)";
       ctx.lineWidth = 2;
       ctx.stroke();
 
@@ -715,6 +754,7 @@ export default function InterviewStudioStage({
     const totalFillers = Object.values(fillerCounts).reduce((a, b) => a + b, 0);
 
     try {
+      setLevelUpBanner(null);
       const evaluation = await evaluateInterviewAnswer({
         questionId: activeQuestion.id,
         questionText: activeQuestion.question,
@@ -722,6 +762,7 @@ export default function InterviewStudioStage({
         role: selectedRole,
         userTranscript: textToEvaluate,
         durationSeconds: Math.max(10, durationSeconds),
+        currentLevel: candidateLevel,
         codeSnippet: codeSnippet.trim() || undefined,
         keyConceptsToCover: activeExpectedConcepts.length > 0 ? activeExpectedConcepts : undefined,
         telemetry: {
@@ -743,6 +784,57 @@ export default function InterviewStudioStage({
       });
 
       setEvalResult(evaluation);
+
+      const previousLevel = candidateLevel;
+      const resolvedNextLevel: 1 | 2 | 3 = evaluation.nextLevel || previousLevel;
+      setCandidateLevel(resolvedNextLevel);
+
+      let insertedAdaptive = false;
+      if (evaluation.adaptiveNextQuestion?.question) {
+        const adaptiveQ: StudioQuestion = {
+          id: evaluation.adaptiveNextQuestion.id || `ai-escalated-${Date.now()}`,
+          role: selectedRole,
+          category:
+            mode === "grill"
+              ? "resume-grill"
+              : evaluation.adaptiveNextQuestion.category || activeQuestion.category,
+          difficulty: evaluation.adaptiveNextQuestion.difficulty || "hard",
+          level: resolvedNextLevel,
+          isAiEscalated: true,
+          question: evaluation.adaptiveNextQuestion.question,
+          hint: evaluation.adaptiveNextQuestion.hint,
+          keyConceptsToCover:
+            evaluation.adaptiveNextQuestion.keyConceptsToCover &&
+            evaluation.adaptiveNextQuestion.keyConceptsToCover.length > 0
+              ? evaluation.adaptiveNextQuestion.keyConceptsToCover
+              : activeExpectedConcepts.slice(0, 3),
+          isCustom: true,
+        };
+
+        setQuestions((prev) => {
+          const activePos = prev.findIndex((item) => item.id === activeQuestion.id);
+          if (activePos === -1) return [adaptiveQ, ...prev];
+          const nextArr = [...prev];
+          nextArr.splice(activePos + 1, 0, adaptiveQ);
+          return nextArr;
+        });
+        insertedAdaptive = true;
+      }
+
+      setLevelUpBanner({
+        decision:
+          evaluation.adaptiveDecision ||
+          (evaluation.overallScore >= 75
+            ? "LEVEL_UP_HARDER_QUESTION"
+            : evaluation.overallScore >= 50
+            ? "PROBE_CURRENT_LEVEL"
+            : "CALIBRATE_FOUNDATION"),
+        score: evaluation.overallScore,
+        previousLevel,
+        nextLevel: resolvedNextLevel,
+        reaction: evaluation.interviewerReaction,
+        hasNextQuestion: insertedAdaptive,
+      });
 
       // Record Turn
       const newTurn: InterviewTurn = {
@@ -771,18 +863,39 @@ export default function InterviewStudioStage({
         evaluationRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 150);
 
-      if (ttsEnabled && evaluation.followUpQuestion?.prompt) {
-        setTimeout(() => {
-          speakText(
-            `Evaluation complete. Score: ${evaluation.overallScore} out of 100. Follow-up: ${evaluation.followUpQuestion.prompt}`
-          );
-        }, 1000);
+      if (ttsEnabled) {
+        const spokenReaction = evaluation.interviewerReaction
+          ? `${evaluation.interviewerReaction} `
+          : `Evaluation complete. Score: ${evaluation.overallScore} out of 100. `;
+        const spokenEscalation =
+          evaluation.overallScore >= 75 && evaluation.adaptiveNextQuestion?.question
+            ? `Level up to Level ${resolvedNextLevel}. Escalated question ready.`
+            : evaluation.followUpQuestion?.prompt
+            ? `Follow-up: ${evaluation.followUpQuestion.prompt}`
+            : "";
+        if (spokenReaction || spokenEscalation) {
+          setTimeout(() => {
+            speakText(`${spokenReaction}${spokenEscalation}`);
+          }, 900);
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate evaluation feedback.");
     } finally {
       setIsEvaluating(false);
     }
+  };
+
+  const handleProceedToAdaptiveQuestion = () => {
+    setCurrentIdx((i) => Math.min(Math.max(0, availableQuestions.length - 1), i + 1));
+    setCurrentTurnOrder((prev) => prev + 1);
+    setResponse("");
+    setCodeSnippet("");
+    setEvalResult(null);
+    setLevelUpBanner(null);
+    setDurationSeconds(0);
+    setFillerCounts({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleChainFollowUpTurn = () => {
@@ -792,6 +905,8 @@ export default function InterviewStudioStage({
       role: selectedRole,
       category: activeQuestion.category,
       difficulty: "hard",
+      level: candidateLevel,
+      isAiEscalated: true,
       question: evalResult.followUpQuestion.prompt,
       hint: `Interviewer Intent: ${evalResult.followUpQuestion.intent}`,
       keyConceptsToCover: evalResult.followUpQuestion.keyConcepts || activeExpectedConcepts.slice(0, 3),
@@ -804,6 +919,7 @@ export default function InterviewStudioStage({
     setResponse("");
     setCodeSnippet("");
     setEvalResult(null);
+    setLevelUpBanner(null);
     setDurationSeconds(0);
     setFillerCounts({});
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -874,27 +990,27 @@ export default function InterviewStudioStage({
   const activeStartCardTitle = startCardTitle || (isGrillMode ? "Ready for Your Technical Grill?" : "Ready to Begin Your Interview?");
   const activeStartCardDesc = startCardDescription || (isGrillMode ? "Your AI interviewer is ready to challenge your engineering decisions, architecture, and implementation choices." : "Your AI interviewer is ready. Make sure your camera and microphone are available before starting.");
   const activeStartCardIndicators = startCardIndicators || (isGrillMode ? [
-    { label: "AI Technical Interviewer", dotColor: "bg-amber-400" },
-    { label: "Repository-Aware Questions", dotColor: "bg-emerald-400" },
-    { label: "Voice & Video Analysis", dotColor: "bg-indigo-400" },
-    { label: "Architecture Trade-offs", dotColor: "bg-violet-400" },
+    { label: "AI Technical Interviewer", dotColor: "bg-[#F59E0B]" },
+    { label: "Repository-Aware Questions", dotColor: "bg-[#10B981]" },
+    { label: "Voice & Video Analysis", dotColor: "bg-[#A78BFA]" },
+    { label: "Architecture Trade-offs", dotColor: "bg-[#38BDF8]" },
   ] : [
-    { label: "AI Interviewer (TTS)", dotColor: "bg-emerald-400" },
-    { label: "Voice & WPM Telemetry", dotColor: "bg-indigo-400" },
-    { label: "STAR AI Evaluation", dotColor: "bg-violet-400" },
-    { label: "Visual Telemetry", dotColor: "bg-amber-400" },
+    { label: "AI Interviewer (TTS)", dotColor: "bg-[#10B981]" },
+    { label: "Voice & WPM Telemetry", dotColor: "bg-[#A78BFA]" },
+    { label: "STAR AI Evaluation", dotColor: "bg-[#38BDF8]" },
+    { label: "Visual Telemetry", dotColor: "bg-[#F59E0B]" },
   ]);
 
   return (
     <div className="max-w-7xl mx-auto pb-16 relative">
       {/* ─── HEADER BAR (Unblurred so navigation & history are always accessible) ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4 mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#1D1D1D] gap-4 mb-5">
         <div>
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2 group font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors mb-2 group font-medium"
           >
-            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span>
               {backHref.includes("customize")
                 ? "Back to Configuration"
@@ -903,53 +1019,53 @@ export default function InterviewStudioStage({
                 : "Back to Interview Modes"}
             </span>
           </Link>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-[#F5F5F5] flex items-center gap-2.5">
             <div className={clsx(
-              "p-1.5 rounded-xl border",
-              isGrillMode ? "bg-amber-500/15 text-amber-400 border-amber-500/25" : "bg-indigo-500/15 text-indigo-400 border-indigo-500/25"
+              "p-1.5 rounded-lg border",
+              isGrillMode ? "bg-[#121212] text-[#F59E0B] border-[#292929]" : "bg-[#121212] text-[#A78BFA] border-[#292929]"
             )}>
-              {isGrillMode ? <Flame className="w-6 h-6 text-amber-400" /> : <Brain className="w-6 h-6 text-indigo-400" />}
+              {isGrillMode ? <Flame className="w-6 h-6 text-[#F59E0B]" /> : <Brain className="w-6 h-6 text-[#A78BFA]" />}
             </div>
             <span>{pageTitle}</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">{pageSubtitle}</p>
+          <p className="text-xs text-[#A1A1AA] mt-1">{pageSubtitle}</p>
         </div>
 
         {/* View Switcher: Studio vs Session History */}
-        <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-[rgba(100,110,255,0.12)] self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 bg-[#0A0A0A] p-1 rounded-xl border border-[#1D1D1D] self-start sm:self-auto flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab("practice")}
             className={clsx(
-              "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all",
+              "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer",
               activeTab === "practice"
-                ? "bg-[#1B1FB8] text-white shadow-md shadow-indigo-600/30"
-                : "text-slate-400 hover:text-white"
+                ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                : "text-[#71717A] hover:text-[#F5F5F5]"
             )}
           >
-            <Mic className="w-3.5 h-3.5" />
+            <Mic className="w-3.5 h-3.5 text-[#A78BFA]" />
             AI Studio Stage
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("history")}
             className={clsx(
-              "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all",
+              "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer tabular-nums",
               activeTab === "history"
-                ? "bg-[#1B1FB8] text-white shadow-md shadow-indigo-600/30"
-                : "text-slate-400 hover:text-white"
+                ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                : "text-[#71717A] hover:text-[#F5F5F5]"
             )}
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5 text-[#A1A1AA]" />
             Session History ({sessions.length})
           </button>
           <button
             type="button"
             onClick={() => setShowScorecardModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#121212] hover:bg-[#1A1A1A] text-[#F59E0B] border border-[#F59E0B]/25 transition-colors cursor-pointer tabular-nums"
             title="View Round Scorecard and Hiring Verdict"
           >
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <Trophy className="w-3.5 h-3.5 text-[#F59E0B]" />
             <span>Scorecard ({allRoundTurns.length})</span>
           </button>
         </div>
@@ -957,11 +1073,11 @@ export default function InterviewStudioStage({
 
       {error && <ErrorBanner message={error} onRetry={() => setError(null)} />}
       {saveSuccessMsg && (
-        <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs flex items-center justify-between">
+        <div className="mb-4 p-3 bg-[#10B981]/10 border border-[#10B981]/25 rounded-xl text-[#10B981] text-xs flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {saveSuccessMsg}
+            <CheckCircle2 className="w-4 h-4 text-[#10B981]" /> {saveSuccessMsg}
           </span>
-          <button type="button" onClick={() => setSaveSuccessMsg(null)} className="text-emerald-400 hover:text-white">
+          <button type="button" onClick={() => setSaveSuccessMsg(null)} className="text-[#10B981] hover:text-[#F5F5F5] cursor-pointer">
             ✕
           </button>
         </div>
@@ -972,17 +1088,17 @@ export default function InterviewStudioStage({
 
       {/* Adaptive Targeting Alert if candidate has unverified bluff risks */}
       {bluffRiskCount > 0 && digitalTwin?.skills && digitalTwin.skills.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-between gap-3 text-xs text-rose-300">
+        <div className="mb-4 p-3 rounded-xl bg-[#F43F5E]/10 border border-[#F43F5E]/25 flex items-center justify-between gap-3 text-xs text-[#F43F5E]">
           <div className="flex items-center gap-2.5">
-            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+            <ShieldAlert className="w-4 h-4 text-[#F43F5E] shrink-0" />
             <div>
-              <span className="font-bold text-white">Targeted Practice Active: </span>
+              <span className="font-bold text-[#F5F5F5]">Targeted Practice Active: </span>
               <span>
                 {bluffRiskCount} skill{bluffRiskCount > 1 ? "s on your resume need" : " on your resume needs"} more practice. The interviewer will include questions to help you strengthen these topics.
               </span>
             </div>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-200 border border-rose-500/30 shrink-0">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#F43F5E]/15 text-[#F43F5E] border border-[#F43F5E]/25 shrink-0">
             Focused Practice
           </span>
         </div>
@@ -997,7 +1113,7 @@ export default function InterviewStudioStage({
           )}
         >
           {/* ─── STUDIO CONTROLS BAR ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-3 rounded-2xl bg-black/40 border border-[rgba(100,110,255,0.12)]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-3 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D]">
         <div className="flex items-center gap-2 flex-wrap">
           {badgeLabel && (
             <Badge variant={badgeVariant} size="md">
@@ -1007,23 +1123,25 @@ export default function InterviewStudioStage({
 
           {showRoleSelector ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-400 font-medium">Role:</span>
+              <span className="text-[11px] text-[#71717A] font-medium">Role:</span>
               <select
                 value={selectedRole}
                 onChange={(e) => {
                   const newRole = e.target.value;
                   setSelectedRole(newRole);
                   setCurrentIdx(0);
+                  setCandidateLevel(1);
                   setEvalResult(null);
+                  setLevelUpBanner(null);
                   setResponse("");
-                  const newQuestions = getRoleInterviewQuestions(newRole, filterCategory);
+                  const newQuestions = buildRoleQuestionPool(newRole, mode);
                   setQuestions(newQuestions);
                   onQuestionsChange?.(newQuestions);
                 }}
-                className="text-xs bg-[#101326] border border-white/10 rounded-xl px-3 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-1.5 text-[#F5F5F5] focus:outline-none focus:border-[#292929] cursor-pointer"
               >
                 {INTERVIEW_ROLES.map((r) => (
-                  <option key={r} value={r} className="bg-[#101326] text-slate-200">
+                  <option key={r} value={r} className="bg-[#0D0D0D] text-[#F5F5F5]">
                     {r}
                   </option>
                 ))}
@@ -1031,12 +1149,33 @@ export default function InterviewStudioStage({
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-400 font-medium">Role:</span>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-mono">
+              <span className="text-[11px] text-[#71717A] font-medium">Role:</span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#121212] text-[#F5F5F5] border border-[#292929] font-mono">
                 {selectedRole}
               </span>
             </div>
           )}
+
+          {/* Adaptive Agent Mastery Level Badge */}
+          <span
+            className={clsx(
+              "text-[11px] font-semibold px-2.5 py-1 rounded-lg border font-mono flex items-center gap-1.5",
+              candidateLevel === 3
+                ? "bg-amber-500/15 text-amber-300 border-amber-500/35 shadow-sm shadow-amber-500/10"
+                : candidateLevel === 2
+                ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/35"
+                : "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+            )}
+            title="Adaptive Agent scales difficulty automatically from your live evaluation scores"
+          >
+            <Zap className="w-3 h-3 shrink-0" />
+            Adaptive Agent Level {candidateLevel} / 3 ·{" "}
+            {candidateLevel === 3
+              ? "Staff Bar-Raiser"
+              : candidateLevel === 2
+              ? "Production SDE"
+              : "Foundational"}
+          </span>
         </div>
 
         {/* Right: TTS Toggle */}
@@ -1050,20 +1189,20 @@ export default function InterviewStudioStage({
             }}
             title={ttsEnabled ? "Mute AI Voice Interviewer" : "Enable AI Voice Interviewer"}
             className={clsx(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer",
               ttsEnabled
-                ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
-                : "bg-white/5 text-slate-400 border-white/10"
+                ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
+                : "bg-[#121212] text-[#A1A1AA] border-[#292929] hover:text-[#F5F5F5]"
             )}
           >
             {ttsEnabled ? (
               <>
-                <Volume2 className={clsx("w-3.5 h-3.5 text-emerald-400", isSpeakingTTS && "animate-pulse")} />
+                <Volume2 className={clsx("w-3.5 h-3.5 text-[#10B981]", isSpeakingTTS && "animate-pulse")} />
                 <span>Interviewer Voice ON</span>
               </>
             ) : (
               <>
-                <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+                <VolumeX className="w-3.5 h-3.5 text-[#71717A]" />
                 <span>Voice Muted</span>
               </>
             )}
@@ -1072,8 +1211,8 @@ export default function InterviewStudioStage({
       </div>
 
       {loading && questions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-28 text-slate-500 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+        <div className="flex flex-col items-center justify-center py-28 text-[#71717A] gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#A78BFA]" />
           <p className="text-sm font-medium">Initializing Multi-Modal AI Interview Studio...</p>
         </div>
       ) : activeTab === "history" ? (
@@ -1081,30 +1220,30 @@ export default function InterviewStudioStage({
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <Card className="text-center p-4">
-              <MessageSquare className="w-5 h-5 mx-auto mb-2 text-indigo-400" />
-              <p className="text-2xl font-bold text-white">{sessions.length}</p>
-              <p className="text-xs text-slate-400">Total Sessions</p>
+              <MessageSquare className="w-5 h-5 mx-auto mb-2 text-[#A78BFA]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">{sessions.length}</p>
+              <p className="text-xs text-[#71717A]">Total Sessions</p>
             </Card>
             <Card className="text-center p-4">
-              <Star className="w-5 h-5 mx-auto mb-2 text-amber-400" />
-              <p className="text-2xl font-bold text-white">
+              <Star className="w-5 h-5 mx-auto mb-2 text-[#F59E0B]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">
                 {sessions.length
                   ? `${Math.round(sessions.reduce((s, i) => s + i.score, 0) / sessions.length)}%`
                   : "N/A"}
               </p>
-              <p className="text-xs text-slate-400">Average Composite Score</p>
+              <p className="text-xs text-[#71717A]">Average Composite Score</p>
             </Card>
             <Card className="text-center p-4">
-              <TrendingUp className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
-              <p className="text-2xl font-bold text-white">
+              <TrendingUp className="w-5 h-5 mx-auto mb-2 text-[#10B981]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">
                 {sessions.reduce((s, i) => s + (i.questionsAnswered || 1), 0)}
               </p>
-              <p className="text-xs text-slate-400">Questions Answered</p>
+              <p className="text-xs text-[#71717A]">Questions Answered</p>
             </Card>
             <Card className="text-center p-4">
-              <Activity className="w-5 h-5 mx-auto mb-2 text-violet-400" />
-              <p className="text-2xl font-bold text-white">128 WPM</p>
-              <p className="text-xs text-slate-400">Average Speaking Pacing</p>
+              <Activity className="w-5 h-5 mx-auto mb-2 text-[#38BDF8]" />
+              <p className="text-2xl font-bold text-[#F5F5F5] tabular-nums">128 WPM</p>
+              <p className="text-xs text-[#71717A]">Average Speaking Pacing</p>
             </Card>
           </div>
 
@@ -1115,7 +1254,7 @@ export default function InterviewStudioStage({
                   <div className="flex items-center gap-4">
                     <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
                       <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
-                        <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
+                        <circle cx="28" cy="28" r="22" fill="none" stroke="#1D1D1D" strokeWidth="5" />
                         <circle
                           cx="28"
                           cy="28"
@@ -1128,26 +1267,26 @@ export default function InterviewStudioStage({
                           strokeDashoffset={`${2 * Math.PI * 22 * (1 - session.score / 100)}`}
                         />
                       </svg>
-                      <span className="absolute text-sm font-bold text-white">{session.score}</span>
+                      <span className="absolute text-sm font-bold text-[#F5F5F5] tabular-nums">{session.score}</span>
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-semibold text-white">{session.role}</h4>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                      <h4 className="text-sm font-semibold text-[#F5F5F5]">{session.role}</h4>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-[#71717A] flex-wrap">
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-500" /> {session.date}
+                          <Clock className="w-3 h-3 text-[#71717A]" /> {session.date}
+                        </span>
+                        <span className="flex items-center gap-1 tabular-nums">
+                          <Brain className="w-3 h-3 text-[#71717A]" /> {session.questionsAnswered} Turns
                         </span>
                         <span className="flex items-center gap-1">
-                          <Brain className="w-3 h-3 text-slate-500" /> {session.questionsAnswered} Turns
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Activity className="w-3 h-3 text-slate-500" /> {session.duration}
+                          <Activity className="w-3 h-3 text-[#71717A]" /> {session.duration}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-300 bg-white/4 px-3 py-2 rounded-xl border border-[rgba(100,110,255,0.12)] max-w-md">
+                  <div className="text-xs text-[#A1A1AA] bg-[#0A0A0A] px-3 py-2 rounded-lg border border-[#1D1D1D] max-w-md">
                     💬 {session.feedback}
                   </div>
                 </div>
@@ -1155,7 +1294,7 @@ export default function InterviewStudioStage({
             ))}
 
             {sessions.length === 0 && (
-              <div className="p-12 text-center text-slate-400 border border-dashed border-white/10 rounded-2xl">
+              <div className="p-12 text-center text-[#71717A] border border-dashed border-[#292929] rounded-xl">
                 No past sessions recorded yet. Start practicing in the AI Studio Stage above!
               </div>
             )}
@@ -1175,13 +1314,14 @@ export default function InterviewStudioStage({
                     setFilterCategory(cat.id);
                     setCurrentIdx(0);
                     setEvalResult(null);
+                    setLevelUpBanner(null);
                     setResponse("");
                   }}
                   className={clsx(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border",
                     filterCategory === cat.id
-                      ? "bg-[#1B1FB8] text-white shadow-sm"
-                      : "bg-white/5 text-slate-400 hover:text-white border border-[rgba(100,110,255,0.12)]"
+                      ? "bg-[#121212] text-[#F5F5F5] border-[#292929]"
+                      : "bg-[#0D0D0D] text-[#71717A] hover:text-[#F5F5F5] border-[#1D1D1D]"
                   )}
                 >
                   {cat.label}
@@ -1194,7 +1334,7 @@ export default function InterviewStudioStage({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ─── LEFT PANEL: Live Webcam HUD & Acoustic Waveform (5 cols) ─── */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 shadow-2xl backdrop-blur-md">
+              <div className="relative rounded-xl overflow-hidden bg-[#0D0D0D] border border-[#1D1D1D]">
                 {/* Video Feed Box */}
                 <div className="relative aspect-video w-full bg-[#050505] flex items-center justify-center overflow-hidden">
                   <video
@@ -1210,10 +1350,10 @@ export default function InterviewStudioStage({
 
                   {(!cameraActive || cameraPermissionDenied) && (
                     <div className="flex flex-col items-center justify-center p-5 text-center max-w-sm mx-auto">
-                      <div className="p-2.5 rounded-full bg-rose-500/10 border border-rose-500/20 mb-2">
-                        <VideoOff className="w-8 h-8 text-rose-400" />
+                      <div className="p-2.5 rounded-full bg-[#F43F5E]/10 border border-[#F43F5E]/20 mb-2">
+                        <VideoOff className="w-8 h-8 text-[#F43F5E]" />
                       </div>
-                      <p className="text-xs font-semibold text-white">
+                      <p className="text-xs font-semibold text-[#F5F5F5]">
                         {cameraPermissionDenied
                           ? cameraErrorInfo?.type === "in_use"
                             ? "Webcam In Use By Another App"
@@ -1222,7 +1362,7 @@ export default function InterviewStudioStage({
                             : "Camera Permission Denied"
                           : "Camera Turned Off"}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                      <p className="text-[11px] text-[#71717A] mt-1 leading-snug">
                         {cameraPermissionDenied
                           ? cameraErrorInfo?.message || "Please allow camera access in your browser address bar."
                           : "Audio-Only practice mode is active. Turn on camera or use Virtual Avatar mode."}
@@ -1233,12 +1373,12 @@ export default function InterviewStudioStage({
                           type="button"
                           onClick={startCamera}
                           disabled={isRequestingCamera}
-                          className="px-3 py-1.5 text-[11px] font-medium bg-[#1B1FB8] hover:bg-[#292EDB] border border-indigo-500/40 text-white rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+                          className="px-3 py-1.5 text-[11px] font-semibold bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
                           {isRequestingCamera ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <Video className="w-3.5 h-3.5 text-emerald-300" />
+                            <Video className="w-3.5 h-3.5" />
                           )}
                           <span>{cameraPermissionDenied ? "Retry Real Camera" : "Turn On Camera"}</span>
                         </button>
@@ -1246,9 +1386,9 @@ export default function InterviewStudioStage({
                         <button
                           type="button"
                           onClick={startVirtualCamera}
-                          className="px-3 py-1.5 text-[11px] font-medium bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded-lg transition-all flex items-center gap-1.5"
+                          className="px-3 py-1.5 text-[11px] font-medium bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[#F5F5F5] rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                          <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
                           <span>⚡ Virtual AI Avatar Mode</span>
                         </button>
                       </div>
@@ -1258,21 +1398,21 @@ export default function InterviewStudioStage({
                   {/* Top HUD Telemetry Bar */}
                   {cameraActive && (
                     <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between text-[11px] font-mono pointer-events-none">
-                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-slate-300">
+                      <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
                         <span
                           className={clsx(
                             "w-2 h-2 rounded-full",
                             reticleColor === "green"
-                              ? "bg-emerald-400 animate-pulse"
+                              ? "bg-[#10B981] animate-pulse"
                               : reticleColor === "amber"
-                              ? "bg-amber-400"
-                              : "bg-rose-400 animate-ping"
+                              ? "bg-[#F59E0B]"
+                              : "bg-[#F43F5E] animate-ping"
                           )}
                         />
                         <span>Eye Contact: {liveEyeContact >= 0 ? `${liveEyeContact}%` : "Scanning..."}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-slate-300">
+                      <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
                         <span>Posture: {livePosture}</span>
                       </div>
                     </div>
@@ -1283,7 +1423,7 @@ export default function InterviewStudioStage({
                     <button
                       type="button"
                       onClick={stopCamera}
-                      className="absolute bottom-2.5 right-2.5 p-1.5 rounded-lg bg-black/60 text-slate-400 hover:text-white border border-white/10 text-xs"
+                      className="absolute bottom-2.5 right-2.5 p-1.5 rounded-lg bg-[#050505]/90 text-[#A1A1AA] hover:text-[#F5F5F5] border border-[#292929] text-xs cursor-pointer"
                       title="Turn off camera"
                     >
                       <VideoOff className="w-4 h-4" />
@@ -1292,27 +1432,27 @@ export default function InterviewStudioStage({
                 </div>
 
                 {/* Acoustic Canvas Waveform Bar */}
-                <div className="p-3 bg-black/80 border-t border-[rgba(100,110,255,0.12)] flex items-center justify-between gap-3">
+                <div className="p-3 bg-[#080808] border-t border-[#1D1D1D] flex items-center justify-between gap-3">
                   <div className="flex-1">
                     <canvas ref={audioCanvasRef} width={280} height={36} className="w-full h-9 rounded" />
                   </div>
-                  <div className="text-[11px] font-mono text-slate-400 shrink-0">
+                  <div className="text-[11px] font-mono text-[#71717A] shrink-0 tabular-nums">
                     {micActiveLevel > 0 ? `${micActiveLevel}% input` : "Mic idle"}
                   </div>
                 </div>
               </div>
 
               {/* Speech Controls & Real-Time Verbal Telemetry */}
-              <Card className="p-4 bg-gradient-to-br from-[#0B0D18] to-[#080A14] border-white/10 shadow-xl space-y-3">
-                <div className="flex items-center justify-between">
+              <Card className="p-4 bg-[#0D0D0D] border-[#1D1D1D] space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     {!isRecording ? (
                       <Button
                         variant="primary"
                         size="sm"
                         onClick={startRecording}
-                        icon={<Mic className="w-4 h-4 text-emerald-300" />}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/20"
+                        icon={<Mic className="w-4 h-4" />}
+                        className="bg-[#10B981] hover:bg-emerald-500 text-black font-semibold text-xs"
                       >
                         Start Speaking
                       </Button>
@@ -1322,29 +1462,29 @@ export default function InterviewStudioStage({
                         size="sm"
                         onClick={stopRecording}
                         icon={<MicOff className="w-4 h-4" />}
-                        className="animate-pulse font-semibold text-xs"
+                        className="font-semibold text-xs"
                       >
                         Stop Recording
                       </Button>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
+                  <div className="flex items-center gap-3 text-xs font-mono text-[#71717A] tabular-nums">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-500" /> {durationSeconds}s
+                      <Clock className="w-3.5 h-3.5 text-[#71717A]" /> {durationSeconds}s
                     </span>
                     <span>•</span>
-                    <span className="text-indigo-300 font-semibold">{liveWpm} WPM</span>
+                    <span className="text-[#F5F5F5] font-semibold">{liveWpm} WPM</span>
                     <span>•</span>
-                    <span className={totalFillersSpoken > 2 ? "text-rose-400" : "text-emerald-400"}>
+                    <span className={totalFillersSpoken > 2 ? "text-[#F43F5E]" : "text-[#10B981]"}>
                       {totalFillersSpoken} fillers
                     </span>
                   </div>
                 </div>
 
                 {isTranscribingWithWhisper && (
-                  <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                  <div className="p-2 rounded-lg bg-[#0A0A0A] border border-[#292929] text-xs text-[#A1A1AA] flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A78BFA]" />
                     <span>Transcribing with Neural Whisper Model...</span>
                   </div>
                 )}
@@ -1352,13 +1492,13 @@ export default function InterviewStudioStage({
 
               {/* Expected Rubric Concepts */}
               {activeExpectedConcepts.length > 0 && (
-                <Card className="p-4 bg-[#080A14] border-[rgba(100,110,255,0.12)] space-y-2">
+                <Card className="p-4 bg-[#0D0D0D] border-[#1D1D1D] space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-[#A78BFA]" />
                       Key Expected Concepts
                     </span>
-                    <span className="text-[11px] text-emerald-400 font-medium">
+                    <span className="text-[11px] text-[#10B981] font-medium tabular-nums">
                       {coveredConceptsCount} of {activeExpectedConcepts.length} addressed
                     </span>
                   </div>
@@ -1369,16 +1509,16 @@ export default function InterviewStudioStage({
                         <span
                           key={idx}
                           className={clsx(
-                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all",
+                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors",
                             covered
-                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                              : "bg-black/30 text-slate-400 border-white/5"
+                              ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25"
+                              : "bg-[#121212] text-[#A1A1AA] border-[#1D1D1D]"
                           )}
                         >
                           {covered ? (
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <CheckCircle2 className="w-3 h-3 text-[#10B981]" />
                           ) : (
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3F3F46]" />
                           )}
                           <span>{concept}</span>
                         </span>
@@ -1392,15 +1532,24 @@ export default function InterviewStudioStage({
             {/* ─── RIGHT PANEL: Active Question Flashcard & Response Workspace (7 cols) ─── */}
             <div className="lg:col-span-7 space-y-5">
               {/* Question Flashcard */}
-              <Card className="p-5 md:p-6 bg-gradient-to-br from-[#0B0D18] to-[#080A14] border-white/10 shadow-2xl rounded-2xl space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[rgba(100,110,255,0.12)]">
-                  <div className="flex items-center gap-2">
+              <Card className="p-5 md:p-6 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#1D1D1D]">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant={CATEGORY_CONFIG[activeQuestion?.category || "technical"]?.variant || "indigo"} size="sm">
                       {CATEGORY_CONFIG[activeQuestion?.category || "technical"]?.label || activeQuestion?.category}
                     </Badge>
                     <span className={clsx("text-xs font-semibold capitalize", DIFFICULTY_COLOR[activeQuestion?.difficulty || "medium"])}>
                       {activeQuestion?.difficulty}
                     </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#A1A1AA] border border-[#1D1D1D]">
+                      Level {activeQuestion?.level || candidateLevel}/3
+                    </span>
+                    {activeQuestion?.isAiEscalated && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-indigo-500/20 text-amber-300 border border-amber-400/40 flex items-center gap-1 shadow-sm shadow-amber-500/10">
+                        <Rocket className="w-3 h-3 text-amber-400" />
+                        Live API Escalated Question
+                      </span>
+                    )}
                   </div>
 
                   {/* Navigation */}
@@ -1410,42 +1559,44 @@ export default function InterviewStudioStage({
                       onClick={() => {
                         setCurrentIdx((i) => Math.max(0, i - 1));
                         setEvalResult(null);
+                        setLevelUpBanner(null);
                         setResponse("");
                       }}
                       disabled={currentIdx === 0}
-                      className="p-1 rounded bg-white/5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg bg-[#121212] border border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="font-mono text-slate-400">
-                      {currentIdx + 1} / {availableQuestions.length}
+                    <span className="font-mono tabular-nums text-[#A1A1AA]">
+                      {availableQuestions.length > 0 ? currentIdx + 1 : 0} / {availableQuestions.length}
                     </span>
                     <button
                       type="button"
                       onClick={() => {
                         setCurrentIdx((i) => Math.min(availableQuestions.length - 1, i + 1));
                         setEvalResult(null);
+                        setLevelUpBanner(null);
                         setResponse("");
                       }}
                       disabled={currentIdx >= availableQuestions.length - 1}
-                      className="p-1 rounded bg-white/5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg bg-[#121212] border border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1A1A1A] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                <h2 className="text-base sm:text-lg font-bold text-white leading-relaxed">
+                <h2 className="text-base sm:text-lg font-semibold text-[#F5F5F5] leading-relaxed">
                   &ldquo;{activeQuestion?.question}&rdquo;
                 </h2>
 
                 {/* Collapsible Hint & Sample Answer Buttons */}
-                <div className="flex items-center gap-3 pt-1">
+                <div className="flex items-center gap-4 pt-1">
                   {activeQuestion?.hint && (
                     <button
                       type="button"
                       onClick={() => setShowHint(!showHint)}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+                      className="text-xs text-[#A1A1AA] hover:text-[#F5F5F5] font-medium flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <Lightbulb className="w-3.5 h-3.5" />
                       {showHint ? "Hide Hint" : "Interviewer Hint"}
@@ -1456,7 +1607,7 @@ export default function InterviewStudioStage({
                     <button
                       type="button"
                       onClick={() => setShowSample(!showSample)}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       {showSample ? "Hide Sample Answer" : "Sample STAR Answer"}
@@ -1465,14 +1616,14 @@ export default function InterviewStudioStage({
                 </div>
 
                 {showHint && activeQuestion?.hint && (
-                  <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/30 text-xs text-indigo-200 leading-relaxed font-sans animate-fadeIn">
-                    <strong className="text-indigo-400 block mb-1">Interviewer Expectations:</strong>
+                  <div className="p-3.5 rounded-xl bg-[#0A0A0A] border border-[#292929] text-xs text-[#F5F5F5]/90 leading-relaxed font-sans animate-fadeIn">
+                    <strong className="text-[#A78BFA] block mb-1">Interviewer Expectations:</strong>
                     {activeQuestion.hint}
                   </div>
                 )}
 
                 {showSample && activeQuestion?.sampleAnswer && (
-                  <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-xs text-emerald-200 leading-relaxed font-sans animate-fadeIn">
+                  <div className="p-3.5 rounded-xl bg-emerald-500/8 border border-emerald-500/25 text-xs text-emerald-200 leading-relaxed font-sans animate-fadeIn">
                     <strong className="text-emerald-400 block mb-1">STAR Model Response:</strong>
                     {activeQuestion.sampleAnswer}
                   </div>
@@ -1480,17 +1631,17 @@ export default function InterviewStudioStage({
               </Card>
 
               {/* Response Workspace */}
-              <Card className="p-5 bg-gradient-to-br from-[#0B0D18] to-[#080A14] border-white/10 shadow-2xl rounded-2xl space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[rgba(100,110,255,0.12)]">
+              <Card className="p-5 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setNonDsaWorkspaceTab("verbal")}
                       className={clsx(
-                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
                         nonDsaWorkspaceTab === "verbal"
-                          ? "bg-[#1B1FB8] text-white"
-                          : "text-slate-400 hover:text-white"
+                          ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                          : "text-[#71717A] hover:text-[#F5F5F5] border border-transparent"
                       )}
                     >
                       Verbal Response
@@ -1499,10 +1650,10 @@ export default function InterviewStudioStage({
                       type="button"
                       onClick={() => setNonDsaWorkspaceTab("ide")}
                       className={clsx(
-                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1",
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer",
                         nonDsaWorkspaceTab === "ide"
-                          ? "bg-[#1B1FB8] text-white"
-                          : "text-slate-400 hover:text-white"
+                          ? "bg-[#121212] text-[#F5F5F5] border border-[#292929]"
+                          : "text-[#71717A] hover:text-[#F5F5F5] border border-transparent"
                       )}
                     >
                       <Code2 className="w-3.5 h-3.5" />
@@ -1510,7 +1661,7 @@ export default function InterviewStudioStage({
                     </button>
                   </div>
 
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] tabular-nums text-[#71717A]">
                     {response.trim().split(/\s+/).filter(Boolean).length} words
                   </span>
                 </div>
@@ -1524,7 +1675,7 @@ export default function InterviewStudioStage({
                       countFillers(e.target.value);
                     }}
                     placeholder="Speak your answer out loud (or type here). The live transcript will transcribe here..."
-                    className="w-full p-3.5 text-xs bg-black/40 border border-white/10 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
+                    className="w-full p-3.5 text-xs bg-[#080808] border border-[#1D1D1D] rounded-xl text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929] leading-relaxed font-sans"
                   />
                 ) : (
                   <div className="space-y-2">
@@ -1532,7 +1683,7 @@ export default function InterviewStudioStage({
                       <select
                         value={scratchpadLang}
                         onChange={(e) => setScratchpadLang(e.target.value)}
-                        className="text-xs bg-[#101326] border border-white/10 rounded px-2 py-1 text-slate-300"
+                        className="text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-2.5 py-1.5 text-[#F5F5F5] focus:outline-none focus:border-[#292929]"
                       >
                         {CODE_LANGUAGES.map((lang) => (
                           <option key={lang.id} value={lang.id}>
@@ -1547,14 +1698,14 @@ export default function InterviewStudioStage({
                       onChange={(e) => setCodeSnippet(e.target.value)}
                       onKeyDown={(e) => handleEditorKeyDown(e, codeSnippet, setCodeSnippet)}
                       placeholder="// Type architecture notes, pseudo-code, or SQL queries here..."
-                      className="w-full p-3.5 text-xs bg-black/60 border border-white/10 rounded-xl text-emerald-300 font-mono focus:outline-none focus:border-indigo-500 leading-relaxed"
+                      className="w-full p-3.5 text-xs bg-[#080808] border border-[#1D1D1D] rounded-xl text-emerald-300 font-mono placeholder-[#52525B] focus:outline-none focus:border-[#292929] leading-relaxed"
                       spellCheck={false}
                     />
                   </div>
                 )}
 
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-[#71717A]">
                     Evaluated against Amazon / Google Bar-Raiser rubric.
                   </span>
                   <Button
@@ -1562,8 +1713,8 @@ export default function InterviewStudioStage({
                     size="sm"
                     onClick={handleSubmitEvaluation}
                     disabled={isEvaluating || (!response.trim() && !codeSnippet.trim())}
-                    icon={isEvaluating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
-                    className="bg-[#1B1FB8] hover:bg-[#292EDB] text-white font-semibold text-xs shadow-md shadow-indigo-600/30"
+                    icon={isEvaluating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    className="font-semibold text-xs cursor-pointer"
                   >
                     {isEvaluating ? "Evaluating Response..." : "Submit for Bar-Raiser AI Evaluation"}
                   </Button>
@@ -1573,21 +1724,21 @@ export default function InterviewStudioStage({
               {/* ─── DETAILED EVALUATION & SCORECARD RESULT ─── */}
               {evalResult && (
                 <div ref={evaluationRef} className="space-y-5 animate-fadeIn">
-                  <Card className="p-6 bg-gradient-to-br from-[#0B0D18] to-[#080A14] border-indigo-500/40 shadow-2xl rounded-2xl space-y-5">
+                  <Card className="p-6 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-5">
                     {/* Overall Score Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#1D1D1D] gap-4">
                       <div>
                         <div className="flex items-center gap-2">
                           <Award className="w-5 h-5 text-amber-400" />
-                          <h3 className="text-lg font-bold text-white">Bar-Raiser Evaluation Scorecard</h3>
+                          <h3 className="text-lg font-bold text-[#F5F5F5]">Bar-Raiser Evaluation Scorecard</h3>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1">{evalResult.deliveryCritique.pacingAdvice}</p>
+                        <p className="text-xs text-[#A1A1AA] mt-1">{evalResult.deliveryCritique.pacingAdvice}</p>
                       </div>
 
                       <div className="text-center sm:text-right shrink-0">
-                        <span className="text-3xl font-extrabold text-white">
+                        <span className="text-3xl font-extrabold tabular-nums text-[#F5F5F5]">
                           {evalResult.overallScore}
-                          <span className="text-sm font-normal text-slate-400">/100</span>
+                          <span className="text-sm font-normal text-[#71717A]">/100</span>
                         </span>
                         <span className="text-xs text-emerald-400 block font-semibold">
                           {evalResult.overallScore >= 85
@@ -1598,6 +1749,42 @@ export default function InterviewStudioStage({
                         </span>
                       </div>
                     </div>
+
+                    {/* LangGraph.js StateGraph Execution Trace */}
+                    {(evalResult.langGraphTrace?.length || evalResult.engine) && (
+                      <div className="px-3.5 py-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <BrainCircuit className="w-3.5 h-3.5 text-[#A78BFA]" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA]">
+                              LangGraph.js Execution Trace
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-[#71717A]">
+                            {evalResult.engine && <span>{evalResult.engine}</span>}
+                            {evalResult.storageMode && (
+                              <span className="px-1.5 py-0.5 rounded bg-[#121212] border border-[#292929] text-[#A1A1AA]">
+                                {evalResult.storageMode === "supabase" ? "Supabase Sync" : "Local Store"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {evalResult.langGraphTrace && evalResult.langGraphTrace.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {evalResult.langGraphTrace.map((node, idx) => (
+                              <span key={`${node}-${idx}`} className="inline-flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#F5F5F5]">
+                                  {node}
+                                </span>
+                                {idx < evalResult.langGraphTrace!.length - 1 && (
+                                  <span className="text-[10px] text-[#52525B] font-mono">→</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* STAR Breakdown Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
@@ -1610,14 +1797,14 @@ export default function InterviewStudioStage({
                           result: "Result",
                         };
                         return (
-                          <div key={step} className="p-3 rounded-xl bg-black/40 border border-[rgba(100,110,255,0.12)] space-y-1">
+                          <div key={step} className="p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-1">
                             <div className="flex items-center justify-between font-bold">
-                              <span className="text-white capitalize">{titles[step]}</span>
-                              <span className={data.present ? "text-emerald-400" : "text-rose-400"}>
+                              <span className="text-[#F5F5F5] capitalize">{titles[step]}</span>
+                              <span className={clsx("tabular-nums", data.present ? "text-emerald-400" : "text-rose-400")}>
                                 {data.score}%
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-400 leading-snug">{data.feedback}</p>
+                            <p className="text-[11px] text-[#A1A1AA] leading-snug">{data.feedback}</p>
                           </div>
                         );
                       })}
@@ -1625,25 +1812,25 @@ export default function InterviewStudioStage({
 
                     {/* Side-by-Side: Spoken vs Rewritten 95/100 Ideal Answer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-xl bg-rose-950/10 border border-rose-500/20 space-y-2">
+                      <div className="p-4 rounded-xl bg-rose-500/8 border border-rose-500/25 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-rose-300">
                           <span>Your Transcript</span>
-                          <span className="text-slate-500 text-[10px]">
+                          <span className="text-[#71717A] text-[10px] tabular-nums">
                             {response.trim().split(/\s+/).filter(Boolean).length} words
                           </span>
                         </div>
-                        <p className="text-xs text-slate-300 leading-relaxed font-sans max-h-48 overflow-y-auto">
+                        <p className="text-xs text-[#F5F5F5]/90 leading-relaxed font-sans max-h-48 overflow-y-auto">
                           {response}
                         </p>
                       </div>
 
-                      <div className="p-4 rounded-xl bg-emerald-950/10 border border-emerald-500/25 space-y-2">
+                      <div className="p-4 rounded-xl bg-emerald-500/8 border border-emerald-500/25 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-emerald-300">
                           <span>95/100 Polished Model Answer</span>
                           <button
                             type="button"
                             onClick={handleCopyModelAnswer}
-                            className="text-[10px] text-emerald-400 hover:text-white flex items-center gap-1 font-normal"
+                            className="text-[10px] text-emerald-400 hover:text-[#F5F5F5] flex items-center gap-1 font-normal cursor-pointer transition-colors"
                           >
                             {copiedAnswer ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             <span>{copiedAnswer ? "Copied" : "Copy"}</span>
@@ -1655,17 +1842,82 @@ export default function InterviewStudioStage({
                       </div>
                     </div>
 
+                    {/* Adaptive Difficulty Level-Up & Dynamic Escalation Card */}
+                    {levelUpBanner && evalResult.adaptiveNextQuestion && (
+                      <div
+                        className={clsx(
+                          "p-4 rounded-xl border flex flex-col sm:flex-row items-start justify-between gap-4 animate-fadeIn",
+                          levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION"
+                            ? "bg-gradient-to-r from-amber-950/50 via-orange-950/35 to-indigo-950/50 border-amber-400/50 shadow-lg shadow-amber-500/10"
+                            : "bg-gradient-to-r from-indigo-950/50 to-slate-950/60 border-indigo-400/35"
+                        )}
+                      >
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={clsx(
+                                "text-[11px] uppercase font-extrabold tracking-wider flex items-center gap-1",
+                                levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION"
+                                  ? "text-amber-300"
+                                  : "text-indigo-300"
+                              )}
+                            >
+                              {levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION" ? (
+                                <>
+                                  <Rocket className="w-3.5 h-3.5 text-amber-400" />
+                                  🔥 LEVEL UP (Score: {levelUpBanner.score}/100)! Promoted to Level {levelUpBanner.nextLevel}/3 Bar-Raiser Question
+                                </>
+                              ) : levelUpBanner.decision === "PROBE_CURRENT_LEVEL" ? (
+                                <>
+                                  <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                                  🎯 Adaptive Calibration (Score: {levelUpBanner.score}/100) — Level {levelUpBanner.nextLevel}/3 Targeted Probe Injected
+                                </>
+                              ) : (
+                                <>
+                                  <Target className="w-3.5 h-3.5 text-emerald-400" />
+                                  🛠️ Foundation Stepped to Level {levelUpBanner.nextLevel}/3 (Score: {levelUpBanner.score}/100)
+                                </>
+                              )}
+                            </span>
+                          </div>
+                          {levelUpBanner.reaction && (
+                            <p className="text-xs text-slate-300 italic">
+                              Interviewer: &ldquo;{levelUpBanner.reaction}&rdquo;
+                            </p>
+                          )}
+                          <p className="text-xs font-medium text-white/90 bg-black/35 px-3 py-2 rounded-lg border border-white/10">
+                            Next Escalated Question: &ldquo;{evalResult.adaptiveNextQuestion.question}&rdquo;
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-center sm:self-start">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleProceedToAdaptiveQuestion}
+                            className={clsx(
+                              "text-xs font-bold shadow-lg",
+                              levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION"
+                                ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/25"
+                                : "bg-[#1B1FB8] hover:bg-[#292EDB] text-white"
+                            )}
+                          >
+                            Proceed to Escalated Level Question →
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Dynamic Follow-Up Turn Chain */}
                     {evalResult.followUpQuestion && (
-                      <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/50 to-purple-950/40 border border-indigo-500/30 flex flex-col sm:flex-row items-start justify-between gap-4">
+                      <div className="p-4 rounded-xl bg-[#0A0A0A] border border-[#292929] flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="space-y-1 flex-1">
-                          <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">
+                          <span className="text-[10px] uppercase font-bold text-[#A78BFA] tracking-wider">
                             Follow-Up Probe
                           </span>
-                          <p className="text-sm font-semibold text-white">
+                          <p className="text-sm font-semibold text-[#F5F5F5]">
                             &ldquo;{evalResult.followUpQuestion.prompt}&rdquo;
                           </p>
-                          <p className="text-[11px] text-slate-400 italic">
+                          <p className="text-[11px] text-[#A1A1AA] italic">
                             Interviewer Intent: {evalResult.followUpQuestion.intent}
                           </p>
                         </div>
@@ -1674,7 +1926,7 @@ export default function InterviewStudioStage({
                             variant="primary"
                             size="sm"
                             onClick={handleChainFollowUpTurn}
-                            className="text-xs font-semibold bg-[#1B1FB8] hover:bg-[#292EDB]"
+                            className="text-xs font-semibold cursor-pointer"
                           >
                             Answer Follow-Up →
                           </Button>
@@ -1682,7 +1934,7 @@ export default function InterviewStudioStage({
                             variant="secondary"
                             size="sm"
                             onClick={handleSaveSession}
-                            className="text-xs"
+                            className="text-xs cursor-pointer"
                           >
                             Save Session
                           </Button>
@@ -1699,56 +1951,56 @@ export default function InterviewStudioStage({
 
       {/* ─── ROUND SCORECARD MODAL ────────────────────────────────────────── */}
       {showScorecardModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-gradient-to-br from-[#0B0D18] to-[#080A14] border border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-5">
-            <div className="flex items-start justify-between pb-3 border-b border-[rgba(100,110,255,0.12)]">
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-2xl bg-[#0D0D0D] border border-[#292929] rounded-2xl p-6 space-y-5">
+            <div className="flex items-start justify-between pb-3 border-b border-[#1D1D1D]">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-white">Round Composite Scorecard</h3>
+                <h3 className="text-base font-bold text-[#F5F5F5]">Round Composite Scorecard</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowScorecardModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-[rgba(100,110,255,0.12)] flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] flex items-center justify-between">
               <div>
-                <span className="text-xs text-slate-400 block font-medium">Composite Round Verdict</span>
+                <span className="text-xs text-[#A1A1AA] block font-medium">Composite Round Verdict</span>
                 <span className="text-lg font-bold text-emerald-400">
                   {scorecardAvgScore >= 85 ? "Strong Hire (Offer Recommended)" : scorecardAvgScore >= 70 ? "Hire" : "Needs Further Preparation"}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-extrabold text-white">{scorecardAvgScore}</span>
-                <span className="text-xs text-slate-500"> / 100</span>
+                <span className="text-2xl font-extrabold tabular-nums text-[#F5F5F5]">{scorecardAvgScore}</span>
+                <span className="text-xs text-[#71717A]"> / 100</span>
               </div>
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {allRoundTurns.map((turn, i) => (
-                <div key={turn.id} className="p-3 rounded-lg bg-white/2 border border-white/5 flex items-center justify-between text-xs">
+                <div key={turn.id} className="p-3 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-semibold text-white">Q{i + 1}: {turn.questionText}</span>
-                    <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-md">{turn.aiFeedback}</p>
+                    <span className="font-semibold text-[#F5F5F5]">Q{i + 1}: {turn.questionText}</span>
+                    <p className="text-[11px] text-[#A1A1AA] mt-0.5 truncate max-w-md">{turn.aiFeedback}</p>
                   </div>
-                  <span className="font-mono font-bold text-indigo-300 ml-2">{turn.score}%</span>
+                  <span className="font-mono tabular-nums font-bold text-[#F5F5F5] ml-2">{turn.score}%</span>
                 </div>
               ))}
               {allRoundTurns.length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-4">No completed turns yet this session.</p>
+                <p className="text-xs text-[#71717A] text-center py-4">No completed turns yet this session.</p>
               )}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[rgba(100,110,255,0.12)]">
+            <div className="flex justify-end pt-2 border-t border-[#1D1D1D]">
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => setShowScorecardModal(false)}
-                className="text-xs"
+                className="text-xs cursor-pointer"
               >
                 Close Scorecard
               </Button>
@@ -1760,32 +2012,22 @@ export default function InterviewStudioStage({
 
       {/* ─── PRE-INTERVIEW START OVERLAY ─────────────────────────────────────── */}
       {isPreStart && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 min-h-[480px] bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 min-h-[480px] bg-black/80 animate-in fade-in duration-200">
           <Card className={clsx(
-            "max-w-lg w-full bg-[#101326]/95 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6 relative overflow-hidden backdrop-blur-xl border",
-            isGrillMode ? "border-amber-500/35" : "border-indigo-500/35"
+            "max-w-lg w-full bg-[#0D0D0D] rounded-2xl p-6 sm:p-8 text-center space-y-6 relative overflow-hidden border",
+            isGrillMode ? "border-amber-500/35" : "border-[#1D1D1D]"
           )}>
-            {/* Ambient background glows */}
-            <div className={clsx(
-              "absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none",
-              isGrillMode ? "bg-amber-500/15" : "bg-indigo-500/15"
-            )} />
-            <div className={clsx(
-              "absolute -bottom-24 -left-24 w-48 h-48 rounded-full blur-3xl pointer-events-none",
-              isGrillMode ? "bg-orange-500/15" : "bg-violet-500/15"
-            )} />
-
             {/* Large BrainCircuit / Flame Icon */}
             <div className={clsx(
-              "relative mx-auto w-20 h-20 rounded-2xl border flex items-center justify-center shadow-xl",
+              "relative mx-auto w-16 h-16 rounded-2xl border flex items-center justify-center bg-[#121212]",
               isGrillMode
-                ? "bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border-amber-500/35 text-amber-400 shadow-amber-500/10"
-                : "bg-gradient-to-tr from-indigo-500/20 to-violet-500/20 border-indigo-500/35 text-indigo-400 shadow-indigo-500/10"
+                ? "border-amber-500/35 text-amber-400"
+                : "border-[#292929] text-[#A78BFA]"
             )}>
               {isGrillMode ? (
-                <Flame className="w-10 h-10 animate-pulse text-amber-400" />
+                <Flame className="w-8 h-8 text-amber-400" />
               ) : (
-                <BrainCircuit className="w-10 h-10 animate-pulse text-indigo-400" />
+                <BrainCircuit className="w-8 h-8 text-[#A78BFA]" />
               )}
             </div>
 
@@ -1794,16 +2036,16 @@ export default function InterviewStudioStage({
               <div className={clsx(
                 "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase font-mono border",
                 isGrillMode
-                  ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                  : "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                  ? "bg-amber-500/12 border-amber-500/30 text-amber-300"
+                  : "bg-[#121212] border-[#292929] text-[#F5F5F5]"
               )}>
-                {isGrillMode ? <Flame className="w-3.5 h-3.5 text-amber-400" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-400" />}
+                {isGrillMode ? <Flame className="w-3.5 h-3.5 text-amber-400" /> : <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />}
                 <span>{selectedRole} Interview</span>
               </div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">
+              <h2 className="text-2xl font-bold text-[#F5F5F5] tracking-tight">
                 {activeStartCardTitle}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#A1A1AA] max-w-sm mx-auto leading-relaxed">
                 {activeStartCardDesc}
               </p>
             </div>
@@ -1811,9 +2053,9 @@ export default function InterviewStudioStage({
             {/* Feature Indicators */}
             <div className="grid grid-cols-2 gap-2 text-left">
               {activeStartCardIndicators.map((ind, i) => (
-                <div key={i} className="p-2.5 rounded-xl bg-white/5 border border-[rgba(100,110,255,0.12)] flex items-center gap-2">
+                <div key={i} className="p-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] flex items-center gap-2">
                   <div className={clsx("w-2 h-2 rounded-full shrink-0", ind.dotColor)} />
-                  <span className="text-[11px] text-slate-300 font-medium">{ind.label}</span>
+                  <span className="text-[11px] text-[#F5F5F5]/90 font-medium">{ind.label}</span>
                 </div>
               ))}
             </div>
@@ -1825,16 +2067,11 @@ export default function InterviewStudioStage({
                 size="lg"
                 onClick={handleStartInterview}
                 icon={<ArrowRight className="w-4 h-4" />}
-                className={clsx(
-                  "w-full py-3.5 text-white font-bold text-sm shadow-xl rounded-xl justify-center group",
-                  isGrillMode
-                    ? "bg-gradient-to-r from-amber-600 via-orange-500 to-indigo-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30"
-                    : "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-indigo-600/30"
-                )}
+                className="w-full py-3.5 font-semibold text-sm rounded-xl justify-center cursor-pointer"
               >
                 <span>Start Interview</span>
               </Button>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#71717A]">
                 Camera and microphone access may be requested after starting.
               </p>
             </div>
