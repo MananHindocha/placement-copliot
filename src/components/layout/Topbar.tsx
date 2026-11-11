@@ -115,7 +115,15 @@ interface SystemStatusData {
   };
 }
 
-export default function Topbar() {
+export interface TopbarProps {
+  onOpenPrepDrawer?: () => void;
+  prepSummary?: {
+    pct: number;
+    todayCount: number;
+  };
+}
+
+export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   let page = PAGE_TITLES[pathname];
@@ -278,41 +286,41 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="flex items-center justify-between px-6 py-4 border-b border-[rgba(100,110,255,0.12)] bg-[#080A14]/90 backdrop-blur-md sticky top-0 z-40">
+      <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b border-[#1D1D1D] bg-[#050505] sticky top-0 z-40">
         {/* Page title */}
-        <div>
-          <h1 className="text-lg font-semibold text-[#F5F6FF] leading-tight">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-semibold text-[#F5F5F5] leading-tight truncate">
             {page.title}
           </h1>
-          <p className="text-xs text-[#A2A7C0]">{page.subtitle}</p>
+          <p className="text-xs text-[#71717A] truncate">{page.subtitle}</p>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           {/* Interactive Mode & System Status Pill */}
           <button
             type="button"
             onClick={handleOpenStatusModal}
             className={clsx(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer group shadow-sm",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer group",
               mode === "demo"
-                ? "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/40"
-                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/40"
+                ? "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/15 hover:border-amber-500/35"
+                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/35"
             )}
             title="Click to view System & API Connection Status"
           >
             {mode === "demo" ? (
               <>
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>Demo Mode</span>
               </>
             ) : (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>Live Mode</span>
               </>
             )}
-            <span className="text-[10px] text-[#737A99] group-hover:text-[#A2A7C0] ml-0.5">
+            <span className="text-[10px] text-[#71717A] group-hover:text-[#A1A1AA] ml-0.5 hidden sm:inline">
               • Status
             </span>
           </button>
@@ -321,12 +329,33 @@ export default function Topbar() {
           <button
             type="button"
             onClick={() => setShowSearchModal(true)}
-            className="hidden md:flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-xs bg-[#050505] hover:bg-[#101326] border border-[rgba(100,110,255,0.16)] rounded-xl text-[#A2A7C0] hover:text-[#F5F6FF] transition-all shadow-sm"
+            className="hidden md:flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-xs bg-[#0D0D0D] hover:bg-[#121212] border border-[#1D1D1D] hover:border-[#292929] rounded-lg text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors cursor-pointer"
           >
-            <Search className="w-3.5 h-3.5 text-[#777CFF]" />
-            <span className="text-[11px] text-[#A2A7C0]">Search co-pilot...</span>
-            <kbd className="text-[10px] bg-[#101326] border border-[rgba(100,110,255,0.20)] px-1.5 py-0.5 rounded text-[#A2A7C0] font-mono">⌘K</kbd>
+            <Search className="w-3.5 h-3.5 text-[#A1A1AA]" />
+            <span className="text-[11px] text-[#71717A]">Search co-pilot...</span>
+            <kbd className="text-[10px] bg-[#121212] border border-[#292929] px-1.5 py-0.5 rounded text-[#A1A1AA] font-mono">⌘K</kbd>
           </button>
+
+          {/* Compact Mobile / Portrait-Tablet Preparation Drawer Trigger */}
+          {onOpenPrepDrawer && (
+            <button
+              type="button"
+              onClick={onOpenPrepDrawer}
+              aria-label="Open preparation calendar and progress"
+              className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D] hover:border-[#292929] hover:bg-[#121212] text-xs font-medium text-[#F5F5F5] transition-colors cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#A78BFA]" />
+              <span className="hidden sm:inline">Prep</span>
+              {prepSummary && (
+                <span className="font-mono text-[11px] font-semibold text-[#F5F5F5] tabular-nums">
+                  {prepSummary.pct}%
+                </span>
+              )}
+              {prepSummary && prepSummary.todayCount > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+              )}
+            </button>
+          )}
 
           {/* Notifications Trigger & Popover */}
           <div className="relative">
@@ -337,26 +366,26 @@ export default function Topbar() {
                 if (!showNotifications) setUnreadCount(0);
               }}
               aria-label="Notifications"
-              className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-[#050505] border border-[rgba(100,110,255,0.16)] text-[#A2A7C0] hover:text-[#F5F6FF] hover:bg-[#101326] transition-all focus:outline-none"
+              className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors focus:outline-none cursor-pointer"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[#454BFF] rounded-full animate-pulse shadow-sm shadow-[#454BFF]" />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#F5F5F5] rounded-full" />
               )}
             </button>
 
             {/* Notification Popover Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-[#101326] border border-[rgba(100,110,255,0.22)] shadow-2xl p-4 z-50 animate-fadeIn space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-white/8">
-                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Bell className="w-3.5 h-3.5 text-[#777CFF]" />
+              <div className="absolute right-0 mt-2 w-80 rounded-xl bg-[#0D0D0D] border border-[#292929] p-4 z-50 animate-fadeIn space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#1D1D1D]">
+                  <h4 className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                    <Bell className="w-3.5 h-3.5 text-[#A1A1AA]" />
                     Notifications &amp; Reminders
                   </h4>
                   <button
                     type="button"
                     onClick={() => setShowNotifications(false)}
-                    className="text-slate-400 hover:text-white text-xs"
+                    className="text-[#71717A] hover:text-[#F5F5F5] text-xs cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -374,15 +403,15 @@ export default function Topbar() {
                           setShowNotifications(false);
                           router.push("/tracker");
                         }}
-                        className="p-2.5 rounded-xl bg-[#080A14] border border-[rgba(100,110,255,0.18)] hover:bg-[#151A35] cursor-pointer transition-all space-y-1"
+                        className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1D1D1D] hover:border-[#292929] hover:bg-[#121212] cursor-pointer transition-colors space-y-1"
                       >
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-300">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-[#F5F5F5]">
                           <span>{app.company}</span>
                           <span className="text-[10px] text-amber-300 font-normal">
                             {app.nextStepDate || "Interview"}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-300">
+                        <p className="text-[10px] text-[#71717A]">
                           {app.nextStep || `${app.title} - Round scheduled.`}
                         </p>
                       </div>
@@ -399,13 +428,13 @@ export default function Topbar() {
                           setShowNotifications(false);
                           router.push("/readiness");
                         }}
-                        className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15 cursor-pointer transition-all space-y-1"
+                        className="p-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 cursor-pointer transition-colors space-y-1"
                       >
                         <div className="flex items-center justify-between text-[11px] font-semibold text-amber-300">
                           <span>Goal Reminder</span>
                           <span className="text-[10px] text-rose-400">High Priority</span>
                         </div>
-                        <p className="text-[10px] text-slate-300 leading-snug">{m.title}</p>
+                        <p className="text-[10px] text-[#A1A1AA] leading-snug">{m.title}</p>
                       </div>
                     ))}
 
@@ -416,27 +445,27 @@ export default function Topbar() {
                         setShowNotifications(false);
                         router.push("/resume");
                       }}
-                      className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/15 cursor-pointer transition-all space-y-1"
+                      className="p-2.5 rounded-lg bg-emerald-500/8 border border-emerald-500/20 hover:bg-emerald-500/12 cursor-pointer transition-colors space-y-1"
                     >
                       <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
                         <span>Resume Diagnostic</span>
                         <span className="text-[10px] text-emerald-400">{latestResume.matchScore}% Match</span>
                       </div>
-                      <p className="text-[10px] text-slate-300">
+                      <p className="text-[10px] text-[#71717A]">
                         ATS Score: {latestResume.atsScore}%. Ready for application tailoring.
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-white/6 text-center">
+                <div className="pt-2 border-t border-[#1D1D1D] text-center">
                   <button
                     type="button"
                     onClick={() => {
                       setUnreadCount(0);
                       setShowNotifications(false);
                     }}
-                    className="text-[11px] text-slate-400 hover:text-white"
+                    className="text-[11px] text-[#71717A] hover:text-[#F5F5F5] cursor-pointer transition-colors"
                   >
                     Clear reminders
                   </button>
@@ -451,7 +480,7 @@ export default function Topbar() {
               type="button"
               onClick={handleSignOut}
               title="Sign Out"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A2A7C0] hover:text-rose-400 hover:bg-[#151A35] rounded-xl border border-[rgba(100,110,255,0.12)] transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#A1A1AA] hover:text-rose-400 hover:bg-[#121212] rounded-lg border border-[#1D1D1D] transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign Out</span>
@@ -459,7 +488,7 @@ export default function Topbar() {
           ) : (
             <Link
               href="/auth/login"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#A5A9FF] hover:text-white bg-[rgba(27,31,184,0.22)] hover:bg-[#1B1FB8] rounded-xl border border-[rgba(100,110,255,0.30)] transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#000000] bg-[#F5F5F5] hover:bg-[#E4E4E7] rounded-lg border border-[#F5F5F5] transition-colors cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign In</span>
@@ -469,25 +498,25 @@ export default function Topbar() {
           {/* User Avatar */}
           <div
             title={profile?.fullName || "User Profile"}
-            className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1B1FB8] to-[#454BFF] flex items-center justify-center shadow-inner cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center cursor-pointer"
           >
-            <span className="text-xs font-bold text-white">{initials}</span>
+            <span className="text-xs font-bold text-[#F5F5F5]">{initials}</span>
           </div>
         </div>
       </header>
 
       {/* Interactive System Status & API Key Configuration Modal */}
       {showStatusModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-2xl bg-[#101326] border border-[rgba(100,110,255,0.24)] rounded-2xl shadow-2xl overflow-hidden space-y-5 p-6 relative text-left">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-fadeIn">
+          <div className="w-full max-w-2xl bg-[#0D0D0D] border border-[#292929] rounded-2xl overflow-hidden space-y-5 p-6 relative text-left">
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-white/8">
+            <div className="flex items-start justify-between pb-4 border-b border-[#1D1D1D]">
               <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-[#F5F5F5] flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#A1A1AA]" />
                   System & API Connection Status
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-[#A1A1AA] mt-1">
                   Real-time connection status for database and AI services.
                 </p>
               </div>
@@ -496,13 +525,13 @@ export default function Topbar() {
                 <button
                   type="button"
                   onClick={fetchSystemStatus}
-                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs flex items-center gap-1"
+                  className="p-1.5 rounded-lg border border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors text-xs flex items-center gap-1 cursor-pointer"
                   title="Refresh status"
                 >
                   <RefreshCw
                     className={clsx(
                       "w-3.5 h-3.5",
-                      loadingStatus ? "animate-spin text-indigo-400" : ""
+                      loadingStatus ? "animate-spin text-[#F5F5F5]" : ""
                     )}
                   />
                   <span className="hidden sm:inline">Refresh</span>
@@ -510,7 +539,7 @@ export default function Topbar() {
                 <button
                   type="button"
                   onClick={() => setShowStatusModal(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5"
+                  className="p-1 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -520,10 +549,10 @@ export default function Topbar() {
             {/* Service Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-h-[60vh] overflow-y-auto pr-1">
               {/* 1. Database & Persistence */}
-              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Database className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                    <Database className="w-4 h-4 text-[#A1A1AA]" />
                     Supabase PostgreSQL
                   </span>
                   {statusData?.database.configured ? (
@@ -536,24 +565,24 @@ export default function Topbar() {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                   {statusData?.database.details || "Local in-memory store active with sample applications and jobs."}
                 </p>
                 <a
                   href="https://supabase.com/dashboard"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                  className="inline-flex items-center gap-1 text-[10px] text-[#F5F5F5] hover:text-[#A1A1AA] underline font-semibold"
                 >
                   Get free Supabase keys <ExternalLink className="w-2.5 h-2.5" />
                 </a>
               </div>
 
               {/* 2. Primary AI Engine */}
-              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-violet-400" />
+                  <span className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#A78BFA]" />
                     Gemini 2.0 Flash
                   </span>
                   {statusData?.aiEngine.geminiActive ? (
@@ -566,7 +595,7 @@ export default function Topbar() {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                   {statusData?.aiEngine.geminiActive
                     ? "Live AI model reasoning for job matching and bullet rewriting."
                     : "Built-in resume and keyword analysis active."}
@@ -575,16 +604,16 @@ export default function Topbar() {
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                  className="inline-flex items-center gap-1 text-[10px] text-[#F5F5F5] hover:text-[#A1A1AA] underline font-semibold"
                 >
                   Get free Gemini API key <ExternalLink className="w-2.5 h-2.5" />
                 </a>
               </div>
 
               {/* 3. Live Job Search Feed */}
-              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
                     <Briefcase className="w-4 h-4 text-emerald-400" />
                     OpenWeb Ninja + Himalayas APIs
                   </span>
@@ -601,16 +630,16 @@ export default function Topbar() {
                       <CheckCircle2 className="w-3 h-3" /> Himalayas
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#121212] text-[#F5F5F5] border border-[#292929]">
                       ⚡ Demo Catalog
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                   {statusData?.jobFeed.details ||
                     "OpenWeb Ninja (India/Global JSearch) + Himalayas Remote APIs active."}
                 </p>
-                <div className="flex items-center gap-4 text-[10px] text-indigo-400 font-semibold">
+                <div className="flex items-center gap-4 text-[10px] text-[#A1A1AA] font-semibold">
                   <span>Primary: OpenWeb Ninja (JSearch)</span>
                   <span>•</span>
                   <span>Remote: Himalayas App</span>
@@ -618,9 +647,9 @@ export default function Topbar() {
               </div>
 
               {/* 4. Local Python Resume Parser */}
-              <div className="p-3.5 rounded-xl border border-[rgba(100,110,255,0.14)] bg-[#080A14] space-y-2">
+              <div className="p-3.5 rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-[#F5F5F5] flex items-center gap-1.5">
                     <Cpu className="w-4 h-4 text-amber-400" />
                     Python PDF/DOCX Parser
                   </span>
@@ -629,15 +658,15 @@ export default function Topbar() {
                       <CheckCircle2 className="w-3 h-3" /> PyMuPDF Online
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/15 text-slate-400 border border-slate-500/25">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#121212] text-[#A1A1AA] border border-[#292929]">
                       ⚡ Internal Buffer Parser
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                   {statusData?.pythonParser.details || "Local microservice running on port 8000."}
                 </p>
-                <div className="flex items-center justify-between text-[10px] bg-white/5 p-1.5 rounded-lg font-mono text-slate-300">
+                <div className="flex items-center justify-between text-[10px] bg-[#080808] border border-[#1D1D1D] p-1.5 rounded-lg font-mono text-[#F5F5F5]">
                   <span className="truncate">uvicorn main:app --reload --port 8000</span>
                   <button
                     type="button"
@@ -647,7 +676,7 @@ export default function Topbar() {
                         "py-cmd"
                       )
                     }
-                    className="ml-2 text-indigo-400 hover:text-white shrink-0"
+                    className="ml-2 text-[#F5F5F5] hover:text-[#A1A1AA] shrink-0 cursor-pointer"
                     title="Copy start command"
                   >
                     {copiedKey === "py-cmd" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -657,14 +686,14 @@ export default function Topbar() {
             </div>
 
             {/* Footer */}
-            <div className="pt-3 border-t border-white/8 flex items-center justify-between">
-              <span className="text-[11px] text-slate-400">
-                Configure keys anytime in <code className="text-white">.env.local</code>
+            <div className="pt-3 border-t border-[#1D1D1D] flex items-center justify-between">
+              <span className="text-[11px] text-[#71717A]">
+                Configure keys anytime in <code className="text-[#F5F5F5]">.env.local</code>
               </span>
               <button
                 type="button"
                 onClick={() => setShowStatusModal(false)}
-                className="px-4 py-1.5 bg-[#1B1FB8] hover:bg-[#292EDB] text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-[rgba(27,31,184,0.35)]"
+                className="px-4 py-1.5 bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 Done
               </button>
@@ -675,23 +704,23 @@ export default function Topbar() {
 
       {/* ─── GLOBAL SEARCH MODAL (Ctrl+K / Cmd+K) ──────────────────────────────── */}
       {showSearchModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/70 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-lg rounded-2xl bg-[#101326] border border-[rgba(100,110,255,0.24)] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/80 animate-fadeIn">
+          <div className="w-full max-w-lg rounded-xl bg-[#0D0D0D] border border-[#292929] overflow-hidden">
             {/* Search Input Bar */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-white/2">
-              <Search className="w-4 h-4 text-indigo-400 shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1D1D1D] bg-[#0A0A0A]">
+              <Search className="w-4 h-4 text-[#A1A1AA] shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search jobs, tracked applications, readiness goals, or pages..."
-                className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+                className="w-full bg-transparent text-sm text-[#F5F5F5] placeholder-[#52525B] focus:outline-none"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={() => setShowSearchModal(false)}
-                className="text-[10px] bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded text-slate-400 font-mono"
+                className="text-[10px] bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] px-1.5 py-0.5 rounded text-[#A1A1AA] hover:text-[#F5F5F5] font-mono cursor-pointer transition-colors"
               >
                 ESC
               </button>
@@ -701,7 +730,7 @@ export default function Topbar() {
             <div className="max-h-80 overflow-y-auto p-3 space-y-3 text-xs">
               {/* Navigation Shortcuts */}
               <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                <p className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider px-2 mb-1">
                   Navigation
                 </p>
                 <div className="space-y-1">
@@ -727,10 +756,10 @@ export default function Topbar() {
                           setShowSearchModal(false);
                           router.push(item.href);
                         }}
-                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-left text-slate-300 hover:text-white transition-all group"
+                        className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#121212] text-left text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors group cursor-pointer"
                       >
-                        <span className="font-medium">{item.label}</span>
-                        <span className="text-[11px] text-slate-500 group-hover:text-indigo-400 flex items-center gap-1">
+                        <span className="font-medium text-[#F5F5F5]">{item.label}</span>
+                        <span className="text-[11px] text-[#71717A] group-hover:text-[#F5F5F5] flex items-center gap-1">
                           {item.desc} <ArrowRight className="w-3 h-3" />
                         </span>
                       </button>
@@ -746,7 +775,7 @@ export default function Topbar() {
                     (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
               ).length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                  <p className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider px-2 mb-1">
                     Tracked Applications
                   </p>
                   <div className="space-y-1">
@@ -766,13 +795,13 @@ export default function Topbar() {
                             setShowSearchModal(false);
                             router.push("/tracker");
                           }}
-                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-indigo-500/10 text-left transition-all"
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#121212] text-left transition-colors cursor-pointer"
                         >
                           <div>
-                            <p className="text-white font-medium">{app.company}</p>
-                            <p className="text-[10px] text-slate-400">{app.title}</p>
+                            <p className="text-[#F5F5F5] font-medium">{app.company}</p>
+                            <p className="text-[10px] text-[#71717A]">{app.title}</p>
                           </div>
-                          <span className="text-[10px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] text-[#F5F5F5] bg-[#121212] border border-[#292929] px-2 py-0.5 rounded-full">
                             {app.status}
                           </span>
                         </button>
@@ -789,7 +818,7 @@ export default function Topbar() {
                   m.title.toLowerCase().includes(searchQuery.toLowerCase())
               ).length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                  <p className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider px-2 mb-1">
                     Readiness Goals
                   </p>
                   <div className="space-y-1">
@@ -809,10 +838,10 @@ export default function Topbar() {
                             setShowSearchModal(false);
                             router.push("/readiness");
                           }}
-                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/10 text-left transition-all"
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#121212] text-left transition-colors cursor-pointer"
                         >
-                          <span className="text-slate-300 truncate max-w-xs">{m.title}</span>
-                          <span className="text-[10px] text-slate-400">{m.completed ? "✓ Done" : "Pending"}</span>
+                          <span className="text-[#F5F5F5] truncate max-w-xs">{m.title}</span>
+                          <span className="text-[10px] text-[#71717A]">{m.completed ? "✓ Done" : "Pending"}</span>
                         </button>
                       ))}
                   </div>

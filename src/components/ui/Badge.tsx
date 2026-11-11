@@ -5,13 +5,13 @@ type BadgeVariant = "indigo" | "emerald" | "amber" | "rose" | "violet" | "slate"
 type BadgeSize = "sm" | "md";
 
 const variantMap: Record<BadgeVariant, string> = {
-  indigo: "bg-[rgba(27,31,184,0.22)] text-[#A5A9FF] border-[rgba(100,110,255,0.30)]",
-  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
-  amber: "bg-amber-500/15 text-amber-300 border-amber-500/25",
-  rose: "bg-rose-500/15 text-rose-300 border-rose-500/25",
-  violet: "bg-violet-500/15 text-violet-300 border-violet-500/25",
-  slate: "bg-[#101326] text-[#A2A7C0] border-[rgba(100,110,255,0.15)]",
-  sky: "bg-sky-500/15 text-sky-300 border-sky-500/25",
+  indigo: "bg-[#121212] text-[#F5F5F5] border-[#292929]",
+  emerald: "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/25",
+  amber: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25",
+  rose: "bg-[#F43F5E]/10 text-[#F43F5E] border-[#F43F5E]/25",
+  violet: "bg-[#A78BFA]/10 text-[#A78BFA] border-[#A78BFA]/25",
+  slate: "bg-[#0A0A0A] text-[#A1A1AA] border-[#1D1D1D]",
+  sky: "bg-[#38BDF8]/10 text-[#38BDF8] border-[#38BDF8]/25",
 };
 
 const sizeMap: Record<BadgeSize, string> = {
@@ -47,13 +47,13 @@ export default function Badge({
         <span
           className={clsx(
             "w-1.5 h-1.5 rounded-full",
-            variant === "indigo" && "bg-[#454BFF]",
-            variant === "emerald" && "bg-emerald-400",
-            variant === "amber" && "bg-amber-400",
-            variant === "rose" && "bg-rose-400",
-            variant === "violet" && "bg-violet-400",
-            variant === "slate" && "bg-[#737A99]",
-            variant === "sky" && "bg-sky-400"
+            variant === "indigo" && "bg-[#F5F5F5]",
+            variant === "emerald" && "bg-[#10B981]",
+            variant === "amber" && "bg-[#F59E0B]",
+            variant === "rose" && "bg-[#F43F5E]",
+            variant === "violet" && "bg-[#A78BFA]",
+            variant === "slate" && "bg-[#71717A]",
+            variant === "sky" && "bg-[#38BDF8]"
           )}
         />
       )}

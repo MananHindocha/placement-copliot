@@ -14,19 +14,19 @@ export default function ErrorBanner({
   onRetry,
 }: ErrorBannerProps) {
   return (
-    <div className="rounded-xl border border-rose-500/30 bg-[#0B0D18] p-4 text-rose-200 shadow-lg">
+    <div className="rounded-xl border border-[#F43F5E]/25 bg-[#0D0D0D] p-4 text-[#F5F5F5]">
       <div className="flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+        <AlertCircle className="w-4 h-4 text-[#F43F5E] shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold text-rose-300">{title}</h4>
-          <p className="text-xs text-rose-200/90 mt-1 break-words">{message}</p>
+          <h4 className="text-xs font-semibold text-[#F43F5E]">{title}</h4>
+          <p className="text-xs text-[#A1A1AA] mt-1 break-words">{message}</p>
         </div>
         {onRetry && (
           <Button
             variant="secondary"
             size="sm"
             onClick={onRetry}
-            className="shrink-0 text-xs gap-1 border-rose-500/30 hover:bg-rose-500/20 text-rose-200"
+            className="shrink-0 text-xs gap-1 border-[#F43F5E]/25 hover:bg-[#F43F5E]/10 text-[#F43F5E]"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Retry</span>

@@ -189,20 +189,20 @@ export default function IntegratedRobotNavigator() {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 10px 20px;
-          background: var(--bg2, #161b27);
-          border: 1px solid var(--border, #2a3148);
+          padding: 10px 16px;
+          background: #0d0d0d;
+          border: 1px solid #1d1d1d;
           border-radius: 12px;
           flex-wrap: wrap;
-          min-height: 52px;
+          min-height: 48px;
         }
 
         .step-indicator {
           font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.06em;
+          font-weight: 600;
+          letter-spacing: 0.05em;
           text-transform: uppercase;
-          color: var(--accent, #38bdf8);
+          color: #a78bfa;
           white-space: nowrap;
           flex-shrink: 0;
         }
@@ -210,7 +210,7 @@ export default function IntegratedRobotNavigator() {
         .step-label {
           font-size: 13px;
           font-weight: 500;
-          color: var(--fg, #e2e8f0);
+          color: #f5f5f5;
           flex: 1;
           min-width: 0;
         }
@@ -218,20 +218,21 @@ export default function IntegratedRobotNavigator() {
         .step-cta {
           font-size: 12px;
           font-weight: 600;
-          padding: 6px 14px;
-          border-radius: 6px;
-          background: var(--accent, #38bdf8);
-          color: #000;
+          padding: 6px 12px;
+          border-radius: 8px;
+          background: #f5f5f5;
+          color: #000000;
           text-decoration: none;
           white-space: nowrap;
           flex-shrink: 0;
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          transition: background-color 0.15s ease;
         }
 
         .step-cta:hover {
-          opacity: 0.9;
+          background: #e4e4e7;
         }
 
         .step-dots {
@@ -245,17 +246,17 @@ export default function IntegratedRobotNavigator() {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: var(--border, #2a3148);
+          background: #262626;
           transition: background 0.2s;
         }
 
         .step-dots .dot.done {
-          background: var(--accent, #38bdf8);
+          background: #f5f5f5;
         }
 
         .step-dots .dot.active {
-          background: var(--fg2, #94a3b8);
-          outline: 2px solid var(--accent, #38bdf8);
+          background: #a78bfa;
+          outline: 2px solid #a78bfa;
           outline-offset: 1px;
         }
 
@@ -270,10 +271,10 @@ export default function IntegratedRobotNavigator() {
         .nav-btn {
           font-size: 12px;
           padding: 5px 10px;
-          border-radius: 6px;
-          border: 1px solid var(--border, #2a3148);
-          background: transparent;
-          color: var(--fg2, #94a3b8);
+          border-radius: 8px;
+          border: 1px solid #1d1d1d;
+          background: #0a0a0a;
+          color: #a1a1aa;
           cursor: pointer;
           font-family: inherit;
           white-space: nowrap;
@@ -281,8 +282,9 @@ export default function IntegratedRobotNavigator() {
         }
 
         .nav-btn:hover {
-          color: var(--fg, #e2e8f0);
-          border-color: var(--fg3, #64748b);
+          color: #f5f5f5;
+          border-color: #292929;
+          background: #121212;
         }
 
         @media (max-width: 600px) {
@@ -296,7 +298,7 @@ export default function IntegratedRobotNavigator() {
       <div className="nav-bar">
         {/* Robot Icon */}
         <div className="flex items-center gap-1.5 shrink-0" title="Placement Co-pilot Assistant">
-          <Bot className="w-4 h-4 text-sky-400" />
+          <Bot className="w-4 h-4 text-[#A78BFA]" />
         </div>
 
         {/* Current Step or Celebration */}
