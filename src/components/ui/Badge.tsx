@@ -5,13 +5,13 @@ type BadgeVariant = "indigo" | "emerald" | "amber" | "rose" | "violet" | "slate"
 type BadgeSize = "sm" | "md";
 
 const variantMap: Record<BadgeVariant, string> = {
-  indigo: "bg-[rgba(27,31,184,0.22)] text-[#A5A9FF] border-[rgba(100,110,255,0.30)]",
-  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
-  amber: "bg-amber-500/15 text-amber-300 border-amber-500/25",
-  rose: "bg-rose-500/15 text-rose-300 border-rose-500/25",
-  violet: "bg-violet-500/15 text-violet-300 border-violet-500/25",
-  slate: "bg-[#101326] text-[#A2A7C0] border-[rgba(100,110,255,0.15)]",
-  sky: "bg-sky-500/15 text-sky-300 border-sky-500/25",
+  indigo: "bg-[#B293E2]/12 text-[#B293E2] border-[#B293E2]/25",
+  emerald: "bg-emerald-500/12 text-emerald-400 border-emerald-500/25",
+  amber: "bg-amber-500/12 text-amber-300 border-amber-500/25",
+  rose: "bg-rose-500/12 text-rose-400 border-rose-500/25",
+  violet: "bg-[#735BA0]/20 text-[#C8B2EB] border-[#735BA0]/35",
+  slate: "bg-[#171820] text-[#969085] border-[#262733]",
+  sky: "bg-[#735BA0]/15 text-[#B293E2] border-[#735BA0]/30",
 };
 
 const sizeMap: Record<BadgeSize, string> = {
@@ -47,13 +47,13 @@ export default function Badge({
         <span
           className={clsx(
             "w-1.5 h-1.5 rounded-full",
-            variant === "indigo" && "bg-[#454BFF]",
+            variant === "indigo" && "bg-[#B293E2]",
             variant === "emerald" && "bg-emerald-400",
             variant === "amber" && "bg-amber-400",
             variant === "rose" && "bg-rose-400",
-            variant === "violet" && "bg-violet-400",
-            variant === "slate" && "bg-[#737A99]",
-            variant === "sky" && "bg-sky-400"
+            variant === "violet" && "bg-[#987AC9]",
+            variant === "slate" && "bg-[#969085]",
+            variant === "sky" && "bg-[#B293E2]"
           )}
         />
       )}

@@ -508,8 +508,8 @@ export default function ResumePage() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="rounded-2xl border border-indigo-500/40 bg-indigo-950/80 p-3.5 flex items-center gap-2 text-xs text-indigo-200">
-          <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+        <div className="rounded-xl border border-[#735BA0]/40 bg-[#171820] p-3.5 flex items-center gap-2 text-xs text-[#F8F8F9]">
+          <Sparkles className="w-4 h-4 text-[#B293E2] shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -529,7 +529,7 @@ export default function ResumePage() {
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-bold text-[#F8F8F9] tracking-tight flex flex-wrap items-center gap-2">
             My Resume
             {engineSource === "gemini" && (
               <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
@@ -538,8 +538,8 @@ export default function ResumePage() {
               </span>
             )}
             {engineSource === "groq" && (
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1">
-                <Zap className="w-3 h-3 text-cyan-400" />
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/30 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-[#B293E2]" />
                 Groq AI Active
               </span>
             )}
@@ -550,41 +550,41 @@ export default function ResumePage() {
               </span>
             )}
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[#969085] mt-1">
             Upload your resume and a job role to see your match score and exactly what to improve.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           {/* Tab Switcher */}
-          <div className="flex items-center gap-1 p-1 bg-[#080A14] border border-[rgba(100,110,255,0.14)] rounded-xl shrink-0">
+          <div className="flex items-center gap-1 p-1 bg-[#111218] border border-[#22232D] rounded-xl shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("analyse")}
               className={clsx(
-                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
+                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer",
                 activeTab === "analyse"
-                  ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
+                  : "text-[#969085] hover:text-[#F8F8F9]"
               )}
             >
-              <TrendingUp className="w-3.5 h-3.5" />
+              <TrendingUp className="w-3.5 h-3.5 text-[#B293E2]" />
               Analyse My Resume
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("tailor")}
               className={clsx(
-                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5",
+                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer",
                 activeTab === "tailor"
-                  ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
+                  : "text-[#969085] hover:text-[#F8F8F9]"
               )}
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />
               Tailor for a Job
               {appliedSuggestions.size > 0 && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
               )}
             </button>
           </div>
@@ -593,14 +593,14 @@ export default function ResumePage() {
 
       {/* Diagnostic Tip / Microservice Health Pill */}
       {diagnosticTip && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs border bg-white/3 border-white/6 text-slate-300">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs border bg-[#111218] border-[#22232D] text-[#969085]">
           <div className="flex items-center gap-2">
             {engineSource === "gemini" ? (
               <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
             ) : engineSource === "groq" ? (
-              <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
+              <Zap className="w-4 h-4 text-[#B293E2] shrink-0" />
             ) : (
-              <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+              <Cpu className="w-4 h-4 text-[#B293E2] shrink-0" />
             )}
             <span>{diagnosticTip}</span>
           </div>
@@ -611,7 +611,7 @@ export default function ResumePage() {
               </span>
             )}
             {engineSource === "groq" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/30">
                 <Zap className="w-3 h-3" /> Groq Ultra-Fast AI
               </span>
             )}
@@ -633,10 +633,10 @@ export default function ResumePage() {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             className={clsx(
-              "relative border-2 border-dashed rounded-3xl p-10 text-center transition-all bg-[#0B0D18]",
+              "relative border-2 border-dashed rounded-2xl p-10 text-center transition-colors bg-[#111218]",
               dragActive
-                ? "border-indigo-500 bg-indigo-500/10 scale-[1.01]"
-                : "border-indigo-500/30 hover:border-indigo-400/60 hover:bg-[#0e1330]"
+                ? "border-[#B293E2] bg-[#1D1D26]"
+                : "border-[#2A2B38] hover:border-[#735BA0]/70 hover:bg-[#171820]"
             )}
           >
             <input
@@ -653,22 +653,22 @@ export default function ResumePage() {
 
             {analyzing ? (
               <div className="py-8 space-y-3">
-                <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mx-auto" />
-                <p className="text-sm font-semibold text-white">Analyzing Document...</p>
-                <p className="text-xs text-slate-400">Extracting sections, links & metrics via AI Analyzer</p>
+                <Loader2 className="w-10 h-10 text-[#B293E2] animate-spin mx-auto" />
+                <p className="text-sm font-semibold text-[#F8F8F9]">Analyzing Document...</p>
+                <p className="text-xs text-[#969085]">Extracting sections, links &amp; metrics via AI Analyzer</p>
                 <div className="w-64 mx-auto">
                   <ProgressBar value={uploadProgress} color="indigo" size="sm" />
                 </div>
               </div>
             ) : (
               <div>
-                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4 shadow-md shadow-indigo-500/10">
-                  <Upload className="w-6 h-6 text-indigo-400" />
+                <div className="w-14 h-14 rounded-xl bg-[#171820] border border-[#262733] flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-6 h-6 text-[#B293E2]" />
                 </div>
-                <h3 className="text-base font-bold text-white mb-1">
+                <h3 className="text-base font-bold text-[#F8F8F9] mb-1">
                   Upload Your Resume (PDF, DOCX, or TXT)
                 </h3>
-                <p className="text-xs text-slate-400 mb-4 max-w-md mx-auto">
+                <p className="text-xs text-[#969085] mb-4 max-w-md mx-auto">
                   Drag and drop your resume file or browse from your computer to run the full ATS diagnostic score, extract verified skills, and tailor your bullet points.
                 </p>
                 <Button
@@ -684,28 +684,28 @@ export default function ResumePage() {
           </div>
         </div>
       ) : loading && !analysis ? (
-        <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+        <div className="flex items-center justify-center py-24 text-[#969085] gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-[#B293E2]" />
           <span className="text-sm">Loading resume telemetry...</span>
         </div>
       ) : (
         activeTab === "analyse" ? (
           <div className="space-y-6">
             {/* Explanatory subtitle */}
-            <p className="text-xs text-slate-400">
-              These scores show how well your resume targets <strong>{targetRole || "your chosen role"}</strong>. 
+            <p className="text-xs text-[#969085]">
+              These scores show how well your resume targets <strong className="text-[#F8F8F9]">{targetRole || "your chosen role"}</strong>. 
               Your overall Resume Score is {atsScore || 0}% — the scores below show where to improve for specific jobs.
             </p>
 
             {/* Diagnostic Score Pillars */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Overall JD Match */}
-              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <div className="p-4 rounded-xl border border-[#22232D] bg-[#111218] relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-[#969085] mb-1">
                   <span className="font-medium">Job Match Score</span>
-                  <Target className="w-4 h-4 text-indigo-400" />
+                  <Target className="w-4 h-4 text-[#B293E2]" />
                 </div>
-                <div className="text-3xl font-extrabold text-white mb-2">
+                <div className="text-3xl font-extrabold text-[#F8F8F9] mb-2 tabular-nums">
                   <span className={clsx(matchScore >= 80 ? "text-emerald-400" : matchScore >= 65 ? "text-amber-400" : "text-rose-400")}>
                     {matchScore}%
                   </span>
@@ -716,50 +716,50 @@ export default function ResumePage() {
                   size="sm"
                   label="Job Match Score"
                 />
-                <p className="text-[10px] text-slate-400 mt-2">{matchedKeywordCount} of {analysis.keywords.length} target skills matched for {targetRole || analysis.jobTitle}.</p>
-                <p className="text-[10px] text-slate-500 mt-1">{analysis.keywords.length === 0 ? "Upload a resume to compare its skills with this role." : matchedKeywordCount === analysis.keywords.length ? "Your listed target skills are all present." : `Add ${analysis.keywords.length - matchedKeywordCount} missing target skill${analysis.keywords.length - matchedKeywordCount === 1 ? "" : "s"} where your experience supports them.`}</p>
+                <p className="text-[10px] text-[#969085] mt-2">{matchedKeywordCount} of {analysis.keywords.length} target skills matched for {targetRole || analysis.jobTitle}.</p>
+                <p className="text-[10px] text-[#969085]/75 mt-1">{analysis.keywords.length === 0 ? "Upload a resume to compare its skills with this role." : matchedKeywordCount === analysis.keywords.length ? "Your listed target skills are all present." : `Add ${analysis.keywords.length - matchedKeywordCount} missing target skill${analysis.keywords.length - matchedKeywordCount === 1 ? "" : "s"} where your experience supports them.`}</p>
               </div>
 
               {/* Formatting Score */}
-              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <div className="p-4 rounded-xl border border-[#22232D] bg-[#111218] relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-[#969085] mb-1">
                   <span className="font-medium">Formatting Score</span>
-                  <ShieldCheck className="w-4 h-4 text-violet-400" />
+                  <ShieldCheck className="w-4 h-4 text-[#B293E2]" />
                 </div>
-                <div className="text-3xl font-extrabold text-violet-400 mb-2">
+                <div className="text-3xl font-extrabold text-[#B293E2] mb-2 tabular-nums">
                   {atsScore}%
                 </div>
                 <ProgressBar value={atsScore} color="violet" size="sm" label="Resume Score" />
-                <p className="text-[10px] text-slate-400 mt-2">Checks section headers, contact links, length & machine readability.</p>
-                <p className="text-[10px] text-slate-500 mt-1">{atsChecks.length ? atsChecks.map(([passed, label]) => `${passed ? "✓" : "!"} ${label}`).join(" · ") : "Upload a resume to see structural checks."}</p>
+                <p className="text-[10px] text-[#969085] mt-2">Checks section headers, contact links, length &amp; machine readability.</p>
+                <p className="text-[10px] text-[#969085]/75 mt-1">{atsChecks.length ? atsChecks.map(([passed, label]) => `${passed ? "✓" : "!"} ${label}`).join(" · ") : "Upload a resume to see structural checks."}</p>
               </div>
 
               {/* Quantified Impact */}
-              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <div className="p-4 rounded-xl border border-[#22232D] bg-[#111218] relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-[#969085] mb-1">
                   <span className="font-medium">Impact Score</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                 </div>
-                <div className="text-3xl font-extrabold text-emerald-400 mb-2">
+                <div className="text-3xl font-extrabold text-emerald-400 mb-2 tabular-nums">
                   {impactScore}%
                 </div>
                 <ProgressBar value={impactScore} color="emerald" size="sm" label="Impact Score" />
-                <p className="text-[10px] text-slate-400 mt-2">{quantifiedBulletCount} of {resumeBullets.length} bullets include a measurable number.</p>
-                <p className="text-[10px] text-slate-500 mt-1">Recruiters can see scope more clearly with outcomes such as “reduced latency by 30%.”</p>
+                <p className="text-[10px] text-[#969085] mt-2">{quantifiedBulletCount} of {resumeBullets.length} bullets include a measurable number.</p>
+                <p className="text-[10px] text-[#969085]/75 mt-1">Recruiters can see scope more clearly with outcomes such as “reduced latency by 30%.”</p>
               </div>
 
               {/* Action Verb Strength */}
-              <div className="p-4 rounded-xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <div className="p-4 rounded-xl border border-[#22232D] bg-[#111218] relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-[#969085] mb-1">
                   <span className="font-medium">Writing Strength</span>
                   <Zap className="w-4 h-4 text-amber-400" />
                 </div>
-                <div className="text-3xl font-extrabold text-amber-400 mb-2">
+                <div className="text-3xl font-extrabold text-amber-400 mb-2 tabular-nums">
                   {verbScore}%
                 </div>
                 <ProgressBar value={verbScore} color="amber" size="sm" label="Writing Strength" />
-                <p className="text-[10px] text-slate-400 mt-2">Measures strong engineering verbs against passive phrasing.</p>
-                <p className="text-[10px] text-slate-500 mt-1">{weakOpeners.length ? `${weakOpeners.length} weak opener${weakOpeners.length === 1 ? "" : "s"} found: ${weakOpeners.slice(0, 2).map((bullet) => `“${bullet.slice(0, 28)}”`).join(", ")}. Try “Engineered,” “Optimized,” or “Architected.”` : "No common weak openers found. Keep leading with specific actions."}</p>
+                <p className="text-[10px] text-[#969085] mt-2">Measures strong engineering verbs against passive phrasing.</p>
+                <p className="text-[10px] text-[#969085]/75 mt-1">{weakOpeners.length ? `${weakOpeners.length} weak opener${weakOpeners.length === 1 ? "" : "s"} found: ${weakOpeners.slice(0, 2).map((bullet) => `“${bullet.slice(0, 28)}”`).join(", ")}. Try “Engineered,” “Optimized,” or “Architected.”` : "No common weak openers found. Keep leading with specific actions."}</p>
               </div>
             </div>
 
@@ -769,16 +769,16 @@ export default function ResumePage() {
               <div className="lg:col-span-1 space-y-4">
                 {/* Active Document Card (Replaces redundant upload dropzone when resume is loaded) */}
                 {analysis.meta?.fileName && (
-                  <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 flex items-center justify-between text-left">
+                  <div className="rounded-xl border border-[#22232D] bg-[#111218] p-4 flex items-center justify-between text-left">
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5 text-indigo-400" />
+                      <div className="w-9 h-9 rounded-lg bg-[#171820] border border-[#262733] flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5 text-[#B293E2]" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-white truncate max-w-[170px]">
+                        <div className="text-xs font-semibold text-[#F8F8F9] truncate max-w-[170px]">
                           {analysis.meta.fileName}
                         </div>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[#969085]">
                           {analysis.meta.pageCount ? `${analysis.meta.pageCount} page(s) · ` : ""}Analyzed
                         </span>
                       </div>
@@ -790,16 +790,16 @@ export default function ResumePage() {
                 )}
 
                 {/* Target Role & Collapsible Job Description Bar */}
-                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">
+                <div className="rounded-xl border border-[#22232D] bg-[#111218] p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-semibold text-[#F8F8F9] flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-[#B293E2]" />
                       Target Role
                     </span>
                     <button
                       type="button"
                       onClick={() => setIsJdOpen(!isJdOpen)}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+                      className="text-[10px] text-[#B293E2] hover:text-[#C3A9EB] font-medium flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       {isJdOpen ? "Hide JD Bar" : "Paste JD"}
                       {isJdOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -812,7 +812,7 @@ export default function ResumePage() {
                       value={targetRole}
                       onChange={(e) => setTargetRole(e.target.value)}
                       placeholder="e.g. Frontend Developer, SDE-1"
-                      className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg px-3 py-2 text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
                     />
                     <Button
                       type="button"
@@ -829,7 +829,7 @@ export default function ResumePage() {
                   {/* Collapsible JD Input */}
                   {isJdOpen && (
                     <div className="space-y-2 pt-1 animate-fadeIn">
-                      <label className="text-[10px] text-slate-400 block font-medium">
+                      <label className="text-[10px] text-[#969085] block font-medium">
                         Paste Job Description (JD) to match against:
                       </label>
                       <textarea
@@ -837,7 +837,7 @@ export default function ResumePage() {
                         value={targetJd}
                         onChange={(e) => setTargetJd(e.target.value)}
                         placeholder="Paste required skills, requirements or JD text here..."
-                        className="w-full bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full bg-[#0A0B0F] border border-[#262733] rounded-lg p-2.5 text-xs text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
                       />
                       <Button
                         type="button"
@@ -854,12 +854,12 @@ export default function ResumePage() {
                 </div>
 
                 {/* Auto-Sync Extracted Skills to Profile & Job Discovery */}
-                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-4 space-y-3">
+                <div className="rounded-xl border border-[#22232D] bg-[#111218] p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white">Profile Synchronization</span>
+                    <span className="text-xs font-semibold text-[#F8F8F9]">Profile Synchronization</span>
                     <Award className="w-3.5 h-3.5 text-amber-400" />
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-[#969085] leading-relaxed">
                     Automatically pass discovered skills to the AI Job Matcher so discovery matches your actual resume.
                   </p>
                   <Button
@@ -878,10 +878,10 @@ export default function ResumePage() {
               {/* Right Column: Strengths, Keyword Gaps & "What to Improve" */}
               <div className="lg:col-span-2 space-y-5">
                 {/* Critical Fixes & Gaps */}
-                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-4">
+                <div className="rounded-xl border border-[#22232D] bg-[#111218] p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-rose-400" />
-                    <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+                    <h3 className="text-xs font-semibold text-[#F8F8F9] uppercase tracking-wider">
                       Critical Gaps to Address
                     </h3>
                   </div>
@@ -890,7 +890,7 @@ export default function ResumePage() {
                     {analysis.gaps.map((gap, i) => (
                       <div
                         key={i}
-                        className="p-3.5 rounded-xl bg-rose-500/5 border border-rose-500/15 flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed"
+                        className="p-3.5 rounded-xl bg-rose-500/5 border border-rose-500/18 flex items-start gap-2.5 text-xs text-[#969085] leading-relaxed"
                       >
                         <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                         <span>{gap}</span>
@@ -900,10 +900,10 @@ export default function ResumePage() {
                 </div>
 
                 {/* Verified Strengths */}
-                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-4">
+                <div className="rounded-xl border border-[#22232D] bg-[#111218] p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+                    <h3 className="text-xs font-semibold text-[#F8F8F9] uppercase tracking-wider">
                       Verified Strengths
                     </h3>
                   </div>
@@ -912,7 +912,7 @@ export default function ResumePage() {
                     {analysis.strengths.map((str, i) => (
                       <div
                         key={i}
-                        className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15 flex items-start gap-2.5 text-xs text-slate-300"
+                        className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/18 flex items-start gap-2.5 text-xs text-[#969085]"
                       >
                         <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                         <span>{str}</span>
@@ -922,12 +922,12 @@ export default function ResumePage() {
                 </div>
 
                 {/* Keyword Analysis Breakdown */}
-                <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-5 space-y-3">
+                <div className="rounded-xl border border-[#22232D] bg-[#111218] p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+                    <h3 className="text-xs font-semibold text-[#F8F8F9] uppercase tracking-wider">
                       Keyword Match Grid ({targetRole})
                     </h3>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-[#969085] tabular-nums">
                       {analysis.keywords.filter((k) => k.present).length} of {analysis.keywords.length} present
                     </span>
                   </div>
@@ -963,15 +963,15 @@ export default function ResumePage() {
             <div className="space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-300" />
+                  <h3 className="text-sm font-semibold text-[#F8F8F9] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#B293E2]" />
                     AI Bullet Rewrites
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#969085]">
                     High-impact action verb and metric improvements
                   </p>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35 tabular-nums">
                   {appliedSuggestions.size} of {analysis.suggestions.length} applied
                 </span>
               </div>
@@ -984,23 +984,23 @@ export default function ResumePage() {
                   <div
                     key={suggestion.id}
                     className={clsx(
-                      "rounded-2xl border transition-all overflow-hidden bg-[#0B0D18]",
+                      "rounded-xl border transition-colors overflow-hidden bg-[#111218]",
                       isApplied
-                        ? "border-emerald-500/40 shadow-lg shadow-emerald-500/5"
-                        : "border-white/8 hover:border-white/15"
+                        ? "border-emerald-500/35"
+                        : "border-[#22232D] hover:border-[#2E303E]"
                     )}
                   >
                     {/* Header bar */}
                     <button
                       type="button"
                       onClick={() => setExpandedSuggestion(isExpanded ? null : suggestion.id)}
-                      className="w-full flex items-center justify-between p-4 text-left"
+                      className="w-full flex items-center justify-between p-4 text-left cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
                         <Badge variant={IMPACT_BADGE[suggestion.impact]} size="sm">
                           {suggestion.impact} impact
                         </Badge>
-                        <span className="text-xs font-semibold text-white">
+                        <span className="text-xs font-semibold text-[#F8F8F9]">
                           {SECTION_LABELS[suggestion.section] || suggestion.section}
                         </span>
                       </div>
@@ -1011,18 +1011,18 @@ export default function ResumePage() {
                           </span>
                         )}
                         {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-slate-400" />
+                          <ChevronUp className="w-4 h-4 text-[#969085]" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                          <ChevronDown className="w-4 h-4 text-[#969085]" />
                         )}
                       </div>
                     </button>
 
                     {/* Expandable Body */}
                     {isExpanded && (
-                      <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+                      <div className="px-4 pb-4 space-y-3 border-t border-[#22232D] pt-3">
                         {/* Original Bullet */}
-                        <div className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/15">
+                        <div className="p-3 rounded-lg bg-rose-500/8 border border-rose-500/20">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-400 block mb-1">
                             Original Line
                           </span>
@@ -1032,12 +1032,12 @@ export default function ResumePage() {
                         </div>
 
                         {/* Suggested XYZ Bullet */}
-                        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                          <div className="flex items-center justify-between mb-1">
+                        <div className="p-3 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
+                          <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
                               AI Improved
                             </span>
-                            <span className="text-[10px] text-slate-400 italic">
+                            <span className="text-[10px] text-[#969085] italic">
                               {suggestion.reason}
                             </span>
                           </div>
@@ -1051,7 +1051,7 @@ export default function ResumePage() {
                           <button
                             type="button"
                             onClick={() => handleCopy(suggestion.id, suggestion.suggested)}
-                            className="px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5"
+                            className="px-3 py-1.5 rounded-lg border border-[#262733] text-xs font-medium text-[#969085] hover:text-[#F8F8F9] hover:bg-[#171820] transition-colors flex items-center gap-1.5 cursor-pointer"
                           >
                             {copiedId === suggestion.id ? (
                               <>
@@ -1070,10 +1070,10 @@ export default function ResumePage() {
                             type="button"
                             onClick={() => handleApplySuggestion(suggestion.id)}
                             className={clsx(
-                              "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5",
+                              "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer",
                               isApplied
-                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                : "bg-[#1B1FB8] hover:bg-[#292EDB] text-white shadow-md shadow-indigo-500/20"
+                                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                                : "bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F]"
                             )}
                           >
                             {isApplied ? (
@@ -1097,11 +1097,11 @@ export default function ResumePage() {
             </div>
 
             {/* Right: Live Resume Document Preview Pane */}
-            <div className="rounded-2xl border border-[rgba(100,110,255,0.12)] bg-[#0B0D18] p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/8">
+            <div className="rounded-xl border border-[#22232D] bg-[#111218] p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#22232D]">
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Live Resume Document</h4>
-                  <p className="text-[11px] text-slate-400">
+                  <h4 className="text-sm font-semibold text-[#F8F8F9]">Live Resume Document</h4>
+                  <p className="text-[11px] text-[#969085] tabular-nums">
                     {appliedSuggestions.size} improvement(s) actively reflected in preview
                   </p>
                 </div>
@@ -1110,7 +1110,7 @@ export default function ResumePage() {
                     variant="secondary"
                     size="sm"
                     onClick={handleDownloadVectorPdf}
-                    className="gap-1.5 text-xs text-slate-300 hover:text-white"
+                    className="gap-1.5 text-xs"
                     title="Directly download clean vector PDF file"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -1120,7 +1120,7 @@ export default function ResumePage() {
                     variant="primary"
                     size="sm"
                     onClick={handlePrintResume}
-                    className="gap-1.5 text-xs shadow-md shadow-indigo-600/30"
+                    className="gap-1.5 text-xs"
                     title="Save as PDF via browser print with zero blank pages and zero URL stamps"
                   >
                     <Printer className="w-3.5 h-3.5" />
@@ -1129,7 +1129,7 @@ export default function ResumePage() {
                 </div>
               </div>
 
-              <div className="text-[11px] px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              <div className="text-[11px] px-3 py-1.5 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
                 {parsedResume ? `Editing ${parsedResume.fileName}` : "Upload a resume to see and edit the complete document here."}
               </div>
 

@@ -189,29 +189,29 @@ export default function CompanyWarRoomModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-gradient-to-b from-[#0e1224] via-[#090d1a] to-[#050710] border border-indigo-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A0B0F]/80 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-4xl bg-[#111218] border border-[#22232D] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-950/60 via-[#121630] to-black/60 border-b border-indigo-500/30">
+        <div className="flex items-center justify-between px-6 py-4 bg-[#171820] border-b border-[#22232D]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/30 to-cyan-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shadow-inner">
-              <Brain className="w-5 h-5 text-indigo-400" />
+            <div className="w-10 h-10 rounded-xl bg-[#111218] border border-[#262733] flex items-center justify-center text-[#B293E2]">
+              <Brain className="w-5 h-5 text-[#B293E2]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white tracking-tight">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-bold text-[#F8F8F9] tracking-tight">
                   Interview Prep Kit: {card.company}
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35">
                   {card.title}
                 </span>
                 {card.matchScore > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                     {card.matchScore}% Match
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-[#969085] mt-0.5">
                 Company interview rounds, key focus areas, and a tailored study roadmap.
               </p>
             </div>
@@ -220,7 +220,7 @@ export default function CompanyWarRoomModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -229,29 +229,29 @@ export default function CompanyWarRoomModal({
         {/* Modal Scrollable Body: 3 Panels */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1 font-sans">
           {/* ─── PANEL 1: COMPANY INTERVIEW DNA ─── */}
-          <div className="rounded-2xl border border-indigo-500/25 bg-[#0B0F20]/90 p-5 space-y-4 shadow-lg">
-            <div className="flex items-center justify-between pb-3 border-b border-white/8">
+          <div className="rounded-xl border border-[#22232D] bg-[#171820] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
               <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-cyan-400" />
-                <h4 className="text-sm font-bold text-white tracking-tight">
+                <Target className="w-4 h-4 text-[#B293E2]" />
+                <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight">
                   Interview Rounds &amp; Weightage
                 </h4>
               </div>
-              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono text-[#B293E2] bg-[#1D1D26] border border-[#735BA0]/35 px-2.5 py-0.5 rounded-full">
                 Round Breakdown
               </span>
             </div>
 
             {/* Visual Round Weight Breakdown Bars */}
             <div className="space-y-3">
-              <div className="w-full h-3 rounded-full bg-black/60 overflow-hidden flex border border-white/10">
+              <div className="w-full h-3 rounded-full bg-[#0A0B0F] overflow-hidden flex border border-[#262733]">
                 {dna.roundDistribution.map((r, i) => (
                   <div
                     key={i}
                     style={{ width: `${r.pct}%` }}
                     className={clsx(
-                      "h-full transition-all flex items-center justify-center text-[9px] font-mono font-bold text-black",
-                      i === 0 ? "bg-cyan-400" : i === 1 ? "bg-indigo-400" : "bg-purple-400"
+                      "h-full transition-all flex items-center justify-center text-[9px] font-mono font-bold text-[#0A0B0F]",
+                      i === 0 ? "bg-[#B293E2]" : i === 1 ? "bg-[#735BA0]" : "bg-[#4F414D]"
                     )}
                     title={`${r.name}: ${r.pct}%`}
                   />
@@ -262,13 +262,13 @@ export default function CompanyWarRoomModal({
                 {dna.roundDistribution.map((r, i) => (
                   <div
                     key={i}
-                    className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1"
+                    className="p-3 rounded-xl bg-[#111218] border border-[#22232D] space-y-1"
                   >
                     <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-white">{r.name}</span>
-                      <span className="font-mono text-cyan-300">{r.pct}%</span>
+                      <span className="text-[#F8F8F9]">{r.name}</span>
+                      <span className="font-mono tabular-nums text-[#B293E2]">{r.pct}%</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-[#969085] leading-relaxed">
                       {r.focus}
                     </p>
                   </div>
@@ -277,16 +277,16 @@ export default function CompanyWarRoomModal({
             </div>
 
             {/* Persona & Key Topics Pills */}
-            <div className="pt-2 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-              <div className="text-slate-300">
-                <span className="text-slate-400 font-semibold">Interviewer Persona: </span>
+            <div className="pt-2 border-t border-[#22232D] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="text-[#F8F8F9]/90">
+                <span className="text-[#969085] font-semibold">Interviewer Persona: </span>
                 <span>{dna.interviewerPersona}</span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {dna.keyTopics.map((k) => (
                   <span
                     key={k}
-                    className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono text-slate-300"
+                    className="px-2 py-0.5 rounded-md bg-[#111218] border border-[#262733] text-[10px] font-mono text-[#969085]"
                   >
                     {k}
                   </span>
@@ -296,21 +296,21 @@ export default function CompanyWarRoomModal({
           </div>
 
           {/* ─── PANEL 2: SKILLS TO STRENGTHEN ─── */}
-          <div className="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-[#1a0a14]/90 via-[#12080f]/90 to-[#0b0509]/90 p-5 space-y-4 shadow-lg">
-            <div className="flex items-center justify-between pb-3 border-b border-rose-500/20">
+          <div className="rounded-xl border border-rose-500/30 bg-[#171820] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-400" />
-                <h4 className="text-sm font-bold text-white tracking-tight">
+                <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight">
                   Skills to Strengthen for {card.company}
                 </h4>
               </div>
-              <span className="text-[10px] font-mono text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono text-rose-300 bg-rose-500/10 border border-rose-500/25 px-2.5 py-0.5 rounded-full">
                 Based on your resume &amp; practice
               </span>
             </div>
 
             {bluffOverlaps.length === 0 ? (
-              <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center gap-3">
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <p className="text-xs text-emerald-200">
                   <span className="font-bold">Strong Match: </span>
@@ -322,7 +322,7 @@ export default function CompanyWarRoomModal({
                 {bluffOverlaps.map((skill) => (
                   <div
                     key={skill.skill_name}
-                    className="p-4 rounded-xl bg-rose-950/30 border border-rose-500/40 space-y-2.5 animate-fadeIn"
+                    className="p-4 rounded-xl bg-rose-500/8 border border-rose-500/25 space-y-2.5 animate-fadeIn"
                   >
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
@@ -338,14 +338,14 @@ export default function CompanyWarRoomModal({
                           onClose();
                           onLaunchProbe(skill.skill_name);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 text-xs font-semibold transition-colors cursor-pointer"
                       >
                         <Zap className="w-3.5 h-3.5 text-amber-300" />
                         <span>Take Quick Skill Check</span>
                       </button>
                     </div>
 
-                    <p className="text-xs text-slate-300 leading-relaxed">
+                    <p className="text-xs text-[#969085] leading-relaxed">
                       This skill is listed on your resume but hasn&apos;t been tested yet in practice sessions. Practice this topic to be confident during technical rounds.
                     </p>
                   </div>
@@ -355,46 +355,46 @@ export default function CompanyWarRoomModal({
           </div>
 
           {/* ─── PANEL 3: TAILORED RESUME & 3-DAY STUDY PLAN ─── */}
-          <div className="rounded-2xl border border-indigo-500/25 bg-[#0B0F20]/90 p-5 space-y-4 shadow-lg">
-            <div className="flex items-center justify-between pb-3 border-b border-white/8">
+          <div className="rounded-xl border border-[#22232D] bg-[#171820] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#22232D]">
               <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-purple-400" />
-                <h4 className="text-sm font-bold text-white tracking-tight">
+                <Layers className="w-4 h-4 text-[#B293E2]" />
+                <h4 className="text-sm font-bold text-[#F8F8F9] tracking-tight">
                   Tailored Resume &amp; 3-Day Study Plan
                 </h4>
               </div>
-              <span className="text-[10px] font-mono text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono text-[#B293E2] bg-[#1D1D26] border border-[#735BA0]/35 px-2.5 py-0.5 rounded-full">
                 Your Review
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Sprint Status Box */}
-              <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+              <div className="p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-xs font-bold text-[#F8F8F9] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#B293E2]" />
                     3-Day Study Plan
                   </span>
                   <span
                     className={clsx(
                       "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border",
                       sprintInjected
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                        : "bg-white/5 text-slate-400 border-white/10"
+                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                        : "bg-[#171820] text-[#969085] border-[#262733]"
                     )}
                   >
                     {sprintInjected ? "Plan Active" : "Not Added"}
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[#969085] leading-relaxed">
                   Adds 3 daily practice tasks to your study plan tailored to {card.company}&apos;s interview rounds.
                 </p>
                 <button
                   type="button"
                   onClick={handleInjectSprint}
                   disabled={sprintInjected || isInjecting}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isInjecting ? (
                     <>
@@ -408,7 +408,7 @@ export default function CompanyWarRoomModal({
                     </>
                   ) : (
                     <>
-                      <Zap className="w-3.5 h-3.5 text-amber-300" />
+                      <Zap className="w-3.5 h-3.5" />
                       <span>Add 3-Day Study Plan</span>
                     </>
                   )}
@@ -416,34 +416,34 @@ export default function CompanyWarRoomModal({
               </div>
 
               {/* Resume Fork Status Box */}
-              <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+              <div className="p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-xs font-bold text-[#F8F8F9] flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#B293E2]" />
                     Tailored Resume Version
                   </span>
                   <span
                     className={clsx(
                       "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border",
                       matchingApproval
-                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                        ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
                         : diffStaged
-                        ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
-                        : "bg-white/5 text-slate-400 border-white/10"
+                        ? "bg-[#1D1D26] text-[#B293E2] border-[#735BA0]/35"
+                        : "bg-[#171820] text-[#969085] border-[#262733]"
                     )}
                   >
                     {matchingApproval ? "Waiting for your review" : diffStaged ? "Review in Progress" : "Current Resume"}
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[#969085] leading-relaxed">
                   Suggests bullet rewrites highlighting skills {card.company} looks for.
                 </p>
                 <button
                   type="button"
                   onClick={handleStageResumeFork}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all cursor-pointer shadow-md shadow-purple-600/20"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-[#1D1D26] hover:bg-[#262733] text-[#F8F8F9] border border-[#735BA0]/45 font-semibold text-xs transition-colors cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-200" />
+                  <Sparkles className="w-3.5 h-3.5 text-[#B293E2]" />
                   <span>Review Tailored Resume Suggestions</span>
                 </button>
               </div>
@@ -452,14 +452,14 @@ export default function CompanyWarRoomModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-black/60 border-t border-white/8 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-400">
+        <div className="px-6 py-4 bg-[#171820] border-t border-[#22232D] flex items-center justify-between gap-3">
+          <div className="text-xs text-[#969085]">
             Your preparation data is saved automatically.
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all cursor-pointer"
+            className="px-5 py-2 rounded-lg bg-[#111218] hover:bg-[#1D1D26] border border-[#262733] text-[#F8F8F9] text-xs font-semibold transition-colors cursor-pointer"
           >
             Close Prep Kit
           </button>

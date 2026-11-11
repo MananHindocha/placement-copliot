@@ -56,19 +56,19 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#1B1FB8] mb-3 shadow-lg shadow-[rgba(27,31,184,0.4)]">
-            <GraduationCap className="w-6 h-6 text-white" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#171820] border border-[#2A2B38] mb-3">
+            <GraduationCap className="w-6 h-6 text-[#B293E2]" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Placement Co-pilot</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-[#F8F8F9] tracking-tight">Placement Co-pilot</h1>
+          <p className="text-sm text-[#969085] mt-1">
             Sign in to access your persistent job search dashboard
           </p>
 
           {/* Config status badge */}
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-slate-300">
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-[#111218] border-[#22232D] text-[#969085]">
             {configured ? (
               <>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <span>Supabase Live Auth Active</span>
               </>
             ) : (
@@ -81,9 +81,9 @@ export default function LoginPage() {
         </div>
 
         {/* Auth Card */}
-        <div className="rounded-2xl border border-white/8 bg-[#0B0D18] border border-[rgba(100,110,255,0.14)] p-6 sm:p-8 shadow-2xl">
+        <div className="rounded-2xl bg-[#111218] border border-[#22232D] p-6 sm:p-8 shadow-xl">
           {/* Mode Switcher */}
-          <div className="grid grid-cols-2 p-1 rounded-xl bg-[#050505] border border-[rgba(100,110,255,0.12)] mb-6 text-sm">
+          <div className="grid grid-cols-2 p-1 rounded-xl bg-[#0A0B0F] border border-[#22232D] mb-6 text-sm">
             <button
               type="button"
               onClick={() => {
@@ -91,10 +91,10 @@ export default function LoginPage() {
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              className={`py-2 rounded-lg font-medium transition-all ${
+              className={`py-2 rounded-lg font-medium transition-colors cursor-pointer ${
                 mode === "signin"
-                  ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
+                  : "text-[#969085] hover:text-[#F8F8F9]"
               }`}
             >
               Sign In
@@ -106,10 +106,10 @@ export default function LoginPage() {
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              className={`py-2 rounded-lg font-medium transition-all ${
+              className={`py-2 rounded-lg font-medium transition-colors cursor-pointer ${
                 mode === "signup"
-                  ? "bg-[#1B1FB8] text-white shadow-md shadow-[rgba(27,31,184,0.35)]"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[#1D1D26] text-[#F8F8F9] border border-[#735BA0]/50"
+                  : "text-[#969085] hover:text-[#F8F8F9]"
               }`}
             >
               Create Account
@@ -118,14 +118,14 @@ export default function LoginPage() {
 
           {/* Notification Messages */}
           {errorMsg && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5">
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-500/8 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
               <div className="flex-1">{errorMsg}</div>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-start gap-2.5">
+            <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/8 border border-emerald-500/20 text-emerald-300 text-xs flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
               <div className="flex-1">{successMsg}</div>
             </div>
@@ -135,7 +135,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-[#F8F8F9] mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -144,13 +144,13 @@ export default function LoginPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Arjun Kumar"
-                  className="w-full px-3.5 py-2.5 text-sm bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl text-[#F5F6FF] placeholder-[#737A99] focus:outline-none focus:border-[#454BFF] focus:ring-1 focus:ring-[#1B1FB8]"
+                  className="w-full px-3.5 py-2.5 text-sm bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-[#F8F8F9] mb-1.5">
                 Email Address
               </label>
               <input
@@ -159,12 +159,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@university.edu"
-                className="w-full px-3.5 py-2.5 text-sm bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl text-[#F5F6FF] placeholder-[#737A99] focus:outline-none focus:border-[#454BFF] focus:ring-1 focus:ring-[#1B1FB8]"
+                className="w-full px-3.5 py-2.5 text-sm bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-[#F8F8F9] mb-1.5">
                 Password
               </label>
               <input
@@ -174,7 +174,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 text-sm bg-[#050505] border border-[rgba(100,110,255,0.16)] rounded-xl text-[#F5F6FF] placeholder-[#737A99] focus:outline-none focus:border-[#454BFF] focus:ring-1 focus:ring-[#1B1FB8]"
+                className="w-full px-3.5 py-2.5 text-sm bg-[#0A0B0F] border border-[#262733] rounded-xl text-[#F8F8F9] placeholder-[#969085]/60 focus:outline-none focus:border-[#B293E2] focus:ring-1 focus:ring-[#B293E2]/40 transition-colors"
               />
             </div>
 
@@ -196,26 +196,26 @@ export default function LoginPage() {
               {/* Divider */}
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[rgba(100,110,255,0.12)]" />
+                  <div className="w-full border-t border-[#22232D]" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-[#0B0D18] px-3 text-slate-500">Or explore without an account</span>
+                  <span className="bg-[#111218] px-3 text-[#969085]">Or explore without an account</span>
                 </div>
               </div>
 
               {/* Demo Mode Button */}
               <Link
                 href="/dashboard"
-                className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#050505] border border-[rgba(100,110,255,0.14)] hover:bg-[#151A35] hover:border-[rgba(100,110,255,0.28)] text-[#A2A7C0] hover:text-[#F5F6FF] transition-all text-sm font-medium group"
+                className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#171820] border border-[#262733] hover:bg-[#1D1D26] hover:border-[#735BA0]/45 text-[#969085] hover:text-[#F8F8F9] transition-colors text-sm font-medium group"
               >
-                <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <Sparkles className="w-4 h-4 text-[#B293E2]" />
                 <span>Continue in Demo Mode</span>
-                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-[#969085] group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </>
           )}
 
-          <p className="mt-4 text-center text-xs text-slate-500 flex items-center justify-center gap-1.5">
+          <p className="mt-4 text-center text-xs text-[#969085] flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Secure Supabase RLS ownership isolation</span>
           </p>

@@ -18,13 +18,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-black">
-      <body className="h-full flex antialiased bg-black text-[#F5F6FF]">
+    <html lang="en" className="h-full bg-[#0A0B0F]">
+      <body className="h-full flex antialiased bg-[#0A0B0F] text-[#F8F8F9]">
         <AgentProvider>
           <Sidebar />
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-black">
+          <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#0A0B0F]">
             <Topbar />
-            <main className="flex-1 overflow-y-auto bg-black p-4 sm:p-6 space-y-6">
+            <main className="flex-1 overflow-y-auto bg-[#0A0B0F] p-4 sm:p-6 space-y-5">
               <IntegratedRobotNavigator />
               {children}
             </main>

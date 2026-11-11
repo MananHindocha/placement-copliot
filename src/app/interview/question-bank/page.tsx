@@ -44,66 +44,66 @@ const ACCENT_STYLES: Record<
   }
 > = {
   indigo: {
-    iconBg: "bg-indigo-500/15 border-indigo-500/30",
-    iconColor: "text-indigo-400",
-    borderHover: "hover:border-indigo-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(99,102,241,0.18)]",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
+    iconColor: "text-[#B293E2]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "indigo",
   },
   cyan: {
-    iconBg: "bg-cyan-500/15 border-cyan-500/30",
-    iconColor: "text-cyan-400",
-    borderHover: "hover:border-cyan-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(6,182,212,0.18)]",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
+    iconColor: "text-[#B293E2]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "indigo",
   },
   blue: {
-    iconBg: "bg-blue-500/15 border-blue-500/30",
-    iconColor: "text-blue-400",
-    borderHover: "hover:border-blue-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(59,130,246,0.18)]",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
+    iconColor: "text-[#B293E2]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "indigo",
   },
   purple: {
-    iconBg: "bg-purple-500/15 border-purple-500/30",
-    iconColor: "text-purple-400",
-    borderHover: "hover:border-purple-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(168,85,247,0.18)]",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
+    iconColor: "text-[#B293E2]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "violet",
   },
   sky: {
-    iconBg: "bg-sky-500/15 border-sky-500/30",
-    iconColor: "text-sky-400",
-    borderHover: "hover:border-sky-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(14,165,233,0.18)]",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
+    iconColor: "text-[#B293E2]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "indigo",
   },
   rose: {
-    iconBg: "bg-rose-500/15 border-rose-500/30",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
     iconColor: "text-rose-400",
-    borderHover: "hover:border-rose-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(244,63,94,0.18)]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "rose",
   },
   amber: {
-    iconBg: "bg-amber-500/15 border-amber-500/30",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
     iconColor: "text-amber-400",
-    borderHover: "hover:border-amber-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(245,158,11,0.18)]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "amber",
   },
   emerald: {
-    iconBg: "bg-emerald-500/15 border-emerald-500/30",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
     iconColor: "text-emerald-400",
-    borderHover: "hover:border-emerald-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(16,185,129,0.18)]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "emerald",
   },
   violet: {
-    iconBg: "bg-violet-500/15 border-violet-500/30",
-    iconColor: "text-violet-400",
-    borderHover: "hover:border-violet-500/50",
-    glowHover: "group-hover:shadow-[0_0_28px_rgba(139,92,246,0.18)]",
+    iconBg: "bg-[#171820] border-[#262733] group-hover:border-[#735BA0]/50",
+    iconColor: "text-[#B293E2]",
+    borderHover: "hover:border-[#735BA0]/60",
+    glowHover: "",
     badgeVariant: "violet",
   },
 };
@@ -112,22 +112,22 @@ export default function QuestionBankRoleSelectionPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ─── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[rgba(100,110,255,0.12)] gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#22232D] gap-4">
         <div>
           <Link
             href="/interview"
-            className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2 group font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-[#B293E2] hover:text-[#C3A9EB] transition-colors mb-2 group font-medium"
           >
-            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span>Back to Interview Modes</span>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/25">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#F8F8F9] flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-[#171820] text-[#B293E2] border border-[#262733]">
               <BookOpen className="w-6 h-6" />
             </div>
             <span>Choose Your Interview Role</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
+          <p className="text-xs sm:text-sm text-[#969085] mt-1 max-w-2xl">
             Select your target role to get a personalized interview experience with relevant technical, behavioral, and engineering questions.
           </p>
         </div>
@@ -136,7 +136,7 @@ export default function QuestionBankRoleSelectionPage() {
           <Badge variant="indigo" size="md">
             QUESTION BANK
           </Badge>
-          <div className="px-3 py-1 rounded-full bg-white/5 border border-[rgba(100,110,255,0.12)] text-slate-300 text-xs font-mono font-medium">
+          <div className="px-3 py-1 rounded-full bg-[#111218] border border-[#22232D] text-[#969085] text-xs font-mono font-medium tabular-nums">
             {QUESTION_BANK_ROLES.length} ROLES AVAILABLE
           </div>
         </div>
@@ -156,10 +156,9 @@ export default function QuestionBankRoleSelectionPage() {
             >
               <Card
                 className={clsx(
-                  "h-full p-5 sm:p-6 bg-[#0B0D18] border border-white/10 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4",
+                  "h-full p-5 sm:p-6 bg-[#111218] border border-[#22232D] rounded-xl transition-colors cursor-pointer flex flex-col justify-between space-y-4 hover:bg-[#171820]/70",
                   styling.borderHover,
-                  styling.glowHover,
-                  "group-hover:-translate-y-0.5"
+                  styling.glowHover
                 )}
               >
                 {/* Top Section: Icon & Category */}
@@ -167,12 +166,12 @@ export default function QuestionBankRoleSelectionPage() {
                   <div className="flex items-center justify-between">
                     <div
                       className={clsx(
-                        "w-12 h-12 rounded-xl border flex items-center justify-center transition-transform group-hover:scale-105",
+                        "w-11 h-11 rounded-lg border flex items-center justify-center transition-colors",
                         styling.iconBg,
                         styling.iconColor
                       )}
                     >
-                      <IconComponent className="w-6 h-6" />
+                      <IconComponent className="w-5 h-5" />
                     </div>
 
                     <Badge variant={styling.badgeVariant} size="sm">
@@ -182,31 +181,31 @@ export default function QuestionBankRoleSelectionPage() {
 
                   {/* Role Title & Description */}
                   <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
+                    <h3 className="text-lg font-bold text-[#F8F8F9] group-hover:text-[#B293E2] transition-colors">
                       {role.title}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed line-clamp-3">
+                    <p className="text-xs text-[#969085] mt-1.5 leading-relaxed line-clamp-3">
                       {role.description}
                     </p>
                   </div>
                 </div>
 
                 {/* Bottom Section: Topic Tags & Explore Indicator */}
-                <div className="pt-3 border-t border-[rgba(100,110,255,0.12)] space-y-3">
+                <div className="pt-3 border-t border-[#22232D] space-y-3">
                   <div className="flex flex-wrap gap-1.5">
                     {role.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-[rgba(100,110,255,0.12)] group-hover:border-white/10 transition-colors"
+                        className="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md bg-[#171820] text-[#969085] border border-[#262733] transition-colors"
                       >
                         {tag}
                       </span>
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 text-xs font-semibold text-indigo-400 group-hover:text-indigo-300">
+                  <div className="flex items-center justify-between pt-1 text-xs font-semibold text-[#B293E2] group-hover:text-[#C3A9EB]">
                     <span>Explore Interview</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
               </Card>

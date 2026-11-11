@@ -99,28 +99,24 @@ export default function MultiCompanyOverlapCard() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-[#0c0f24]/95 via-[#0e1430]/90 to-[#0a0d1e]/95 p-6 shadow-2xl backdrop-blur-xl">
-      {/* Background ambient mesh */}
-      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-indigo-500/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-cyan-500/15 blur-3xl" />
-
+    <div className="relative overflow-hidden rounded-xl border border-[#22232D] bg-[#111218] p-6">
       {/* ─── HEADER ─── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-indigo-500/20 pb-4 mb-5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#22232D] pb-4 mb-5">
         <div className="flex items-start gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/30 to-cyan-500/20 border border-indigo-500/40 text-indigo-300 shadow-inner">
-            <Target className="h-6 w-6 text-indigo-400" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#171820] border border-[#262733] text-[#B293E2]">
+            <Target className="h-5 w-5" />
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-[#F8F8F9] tracking-tight">
                 🎯 Skills Across Saved Jobs
               </h3>
-              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-mono font-bold text-indigo-300">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#735BA0]/35 bg-[#1D1D26] px-2.5 py-0.5 text-[10px] font-mono font-bold text-[#B293E2]">
                 <Sparkles className="h-3 w-3" />
                 High Impact
               </span>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-[#969085] leading-relaxed">
               Common technical topics across all your saved jobs to help you study efficiently.
             </p>
           </div>
@@ -131,21 +127,21 @@ export default function MultiCompanyOverlapCard() {
           type="button"
           onClick={handlePrioritizeSharedSprint}
           disabled={isPrioritizing || isExecuting || prioritized}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-500 hover:to-cyan-400 active:scale-[0.98] transition-all disabled:opacity-70 cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#B293E2] px-5 py-2.5 text-xs font-semibold text-[#0A0B0F] hover:bg-[#C3A9EB] transition-colors disabled:opacity-70 cursor-pointer shrink-0"
         >
           {isPrioritizing ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin text-white" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               <span>Updating Study Plan...</span>
             </>
           ) : prioritized ? (
             <>
-              <Check className="h-4 w-4 text-emerald-300" />
+              <Check className="h-4 w-4 text-emerald-800" />
               <span>⚡ Common Topics Added to Study Plan!</span>
             </>
           ) : (
             <>
-              <Zap className="h-4 w-4 text-amber-300 animate-pulse" />
+              <Zap className="h-4 w-4" />
               <span>⚡ Add Common Topics to Study Plan</span>
             </>
           )}
@@ -153,18 +149,18 @@ export default function MultiCompanyOverlapCard() {
       </div>
 
       {/* ─── DYNAMIC INSIGHT CALLOUT BANNER ─── */}
-      <div className="mb-5 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+      <div className="mb-5 rounded-xl border border-[#735BA0]/35 bg-[#171820] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shrink-0 mt-0.5">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
+          <div className="p-2 rounded-lg bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/30 shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs font-bold text-cyan-200">
+            <div className="text-xs font-bold text-[#B293E2]">
               Top Study Recommendations:
             </div>
-            <p className="text-xs text-slate-200 font-medium leading-relaxed mt-0.5">
-              &ldquo;Mastering <span className="text-cyan-300 font-bold underline">PostgreSQL Indexing &amp; Concurrency</span> and{" "}
-              <span className="text-indigo-300 font-bold underline">Distributed System Design (Redis)</span> helps verify{" "}
+            <p className="text-xs text-[#F8F8F9]/90 font-medium leading-relaxed mt-0.5">
+              &ldquo;Mastering <span className="text-[#B293E2] font-bold underline">PostgreSQL Indexing &amp; Concurrency</span> and{" "}
+              <span className="text-[#B293E2] font-bold underline">Distributed System Design (Redis)</span> helps verify{" "}
               <span className="text-rose-400 font-bold font-mono">{bluffRiskCount || 2} unverified skill(s)</span> and covers{" "}
               <span className="text-emerald-400 font-bold font-mono">100% ({totalCompaniesCount}/{totalCompaniesCount})</span> of your saved jobs.&rdquo;
             </p>
@@ -172,7 +168,7 @@ export default function MultiCompanyOverlapCard() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-          <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 rounded-full">
+          <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-500/12 border border-emerald-500/25 px-3 py-1 rounded-full">
             High Efficiency
           </span>
         </div>
@@ -180,7 +176,7 @@ export default function MultiCompanyOverlapCard() {
 
       {/* ─── HIGH-LEVERAGE SKILL CARDS WITH COMPANY PILLS ─── */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 px-1 uppercase tracking-wider">
+        <div className="flex items-center justify-between text-[11px] font-bold text-[#969085] px-1 uppercase tracking-wider">
           <span>Shared Technical Topics</span>
           <span>Company Coverage</span>
         </div>
@@ -188,26 +184,26 @@ export default function MultiCompanyOverlapCard() {
         {overlapSkills.map((item, idx) => (
           <div
             key={item.skill}
-            className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/30 p-4 hover:bg-black/50 hover:border-indigo-500/40 transition-all shadow-sm"
+            className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-[#22232D] bg-[#171820] p-4 hover:bg-[#1D1D26] hover:border-[#735BA0]/45 transition-colors"
           >
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/25 text-[10px] font-mono font-bold text-indigo-300 border border-indigo-500/30">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1D1D26] text-[10px] font-mono font-bold text-[#B293E2] border border-[#735BA0]/35 tabular-nums">
                   #{idx + 1}
                 </span>
-                <span className="text-sm font-bold text-white tracking-tight">{item.skill}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-white/10 font-mono">
+                <span className="text-sm font-bold text-[#F8F8F9] tracking-tight">{item.skill}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#111218] text-[#969085] border border-[#262733] font-mono">
                   {item.category}
                 </span>
                 {item.clearsBluffRisk && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-500/12 border border-rose-500/25 text-rose-300">
                     <ShieldAlert className="w-2.5 h-2.5 text-rose-400" />
                     Verifies Skills
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 flex items-center gap-1.5 pl-7">
-                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+              <p className="text-xs text-[#969085] flex items-center gap-1.5 pl-7">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#B293E2] shrink-0" />
                 <span>{item.recommendation}</span>
               </p>
             </div>
@@ -215,18 +211,18 @@ export default function MultiCompanyOverlapCard() {
             {/* Company Coverage Pills */}
             <div className="flex items-center gap-3 self-start md:self-center pl-7 md:pl-0 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-500 font-mono font-semibold">Covers:</span>
+                <span className="text-[10px] text-[#969085] font-mono font-semibold">Covers:</span>
                 {item.companies.map((c) => (
                   <span
                     key={c}
-                    className="inline-flex items-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 shadow-sm"
+                    className="inline-flex items-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#1D1D26] border border-[#735BA0]/30 text-[#B293E2]"
                   >
                     {c}
                   </span>
                 ))}
               </div>
 
-              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/12 px-2.5 py-1 rounded-lg border border-emerald-500/25 tabular-nums">
                 {item.leverageScore}%
               </span>
             </div>
@@ -235,14 +231,14 @@ export default function MultiCompanyOverlapCard() {
       </div>
 
       {/* Footer bar */}
-      <div className="mt-5 pt-3.5 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+      <div className="mt-5 pt-3.5 border-t border-[#22232D] flex flex-col sm:flex-row items-center justify-between text-xs text-[#969085] gap-2">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="h-2 w-2 rounded-full bg-emerald-400" />
           <span>Based on your {totalCompaniesCount} saved jobs</span>
         </div>
         <Link
           href="/tracker"
-          className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-xs font-semibold group"
+          className="inline-flex items-center gap-1 text-[#B293E2] hover:text-[#C3A9EB] text-xs font-semibold group transition-colors"
         >
           <span>Open Application Tracker</span>
           <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />

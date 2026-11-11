@@ -27,29 +27,29 @@ const ICONS: Record<string, LucideIcon> = {
 
 const colorMap: Record<string, { bg: string; icon: string; delta: string }> = {
   indigo: {
-    bg: "bg-[rgba(27,31,184,0.20)] border-[rgba(100,110,255,0.28)]",
-    icon: "text-[#777CFF]",
-    delta: "text-[#777CFF]",
+    bg: "bg-[#171820] border-[#262733]",
+    icon: "text-[#B293E2]",
+    delta: "text-[#B293E2]",
   },
   emerald: {
-    bg: "bg-emerald-500/15 border-emerald-500/25",
+    bg: "bg-[#171820] border-[#262733]",
     icon: "text-emerald-400",
     delta: "text-emerald-400",
   },
   amber: {
-    bg: "bg-amber-500/15 border-amber-500/25",
+    bg: "bg-[#171820] border-[#262733]",
     icon: "text-amber-400",
     delta: "text-amber-400",
   },
   rose: {
-    bg: "bg-rose-500/15 border-rose-500/25",
+    bg: "bg-[#171820] border-[#262733]",
     icon: "text-rose-400",
     delta: "text-rose-400",
   },
   violet: {
-    bg: "bg-violet-500/15 border-violet-500/25",
-    icon: "text-violet-400",
-    delta: "text-violet-400",
+    bg: "bg-[#171820] border-[#262733]",
+    icon: "text-[#B293E2]",
+    delta: "text-[#B293E2]",
   },
 };
 
@@ -58,15 +58,15 @@ export default function StatCard({ label, value, delta, deltaPositive, icon, col
   const c = colorMap[color] ?? colorMap.indigo;
 
   return (
-    <div className="bg-[#0B0D18] border border-[rgba(100,110,255,0.12)] rounded-2xl p-5 hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/40 transition-all duration-200 hover:shadow-xl hover:shadow-[rgba(27,31,184,0.10)]">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-[#A2A7C0] font-medium">{label}</p>
-          <p className="text-3xl font-bold text-[#F5F6FF] mt-1.5">{value}</p>
+    <div className="bg-[#111218] border border-[#22232D] rounded-xl p-5 hover:border-[#313241] hover:bg-[#14151D] transition-colors duration-150">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-[#969085]">{label}</p>
+          <p className="text-2xl font-semibold text-[#F8F8F9] mt-2 tracking-tight tabular-nums">{value}</p>
           {delta && (
             <p
               className={clsx(
-                "text-xs mt-1.5 font-medium",
+                "text-xs mt-2 font-medium",
                 deltaPositive ? "text-emerald-400" : "text-rose-400"
               )}
             >
@@ -74,8 +74,8 @@ export default function StatCard({ label, value, delta, deltaPositive, icon, col
             </p>
           )}
         </div>
-        <div className={clsx("w-10 h-10 rounded-xl border flex items-center justify-center", c.bg)}>
-          <Icon className={clsx("w-5 h-5", c.icon)} />
+        <div className={clsx("w-9 h-9 rounded-lg border flex items-center justify-center shrink-0", c.bg)}>
+          <Icon className={clsx("w-4 h-4", c.icon)} />
         </div>
       </div>
     </div>

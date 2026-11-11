@@ -416,31 +416,31 @@ export default function SkillMicroProbeModal({
     : Object.keys(selectedAnswers).length === questions.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-gradient-to-b from-[#0c1020] via-[#090d1a] to-[#060810] border border-indigo-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A0B0F]/80 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-2xl bg-[#111218] border border-[#22232D] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Terminal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-black/60 border-b border-indigo-500/20">
+        <div className="flex items-center justify-between px-5 py-3.5 bg-[#171820] border-b border-[#22232D]">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-rose-500/80 border border-rose-400/50 inline-block" />
-              <span className="w-3 h-3 rounded-full bg-amber-500/80 border border-amber-400/50 inline-block" />
-              <span className="w-3 h-3 rounded-full bg-emerald-500/80 border border-emerald-400/50 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70 border border-rose-400/40 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70 border border-amber-400/40 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70 border border-emerald-400/40 inline-block" />
             </div>
-            <div className="h-4 w-px bg-white/10 mx-1" />
-            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-white">
-              <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="h-4 w-px bg-[#262733] mx-1" />
+            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#F8F8F9]">
+              <Terminal className="w-3.5 h-3.5 text-[#B293E2]" />
               <span>skill-check://{skillName.toLowerCase().replace(/\s+/g, "-")}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* 60s Animated Timer */}
+            {/* 60s Timer */}
             <div
               className={clsx(
-                "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold border transition-colors",
+                "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold tabular-nums border transition-colors",
                 timeLeft <= 15
-                  ? "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse"
-                  : "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                  ? "bg-rose-500/15 text-rose-400 border-rose-500/35"
+                  : "bg-[#1D1D26] text-[#B293E2] border-[#735BA0]/40"
               )}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -450,7 +450,7 @@ export default function SkillMicroProbeModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-[#969085] hover:text-[#F8F8F9] hover:bg-[#1D1D26] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -458,17 +458,17 @@ export default function SkillMicroProbeModal({
         </div>
 
         {/* Subheader Banner */}
-        <div className="px-6 py-2.5 bg-indigo-950/40 border-b border-indigo-500/15 flex items-center justify-between flex-wrap gap-2 text-xs">
-          <div className="flex items-center gap-2 text-indigo-200">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
+        <div className="px-6 py-2.5 bg-[#171820]/60 border-b border-[#22232D] flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="flex items-center gap-2 text-[#F8F8F9]">
+            <Zap className="w-3.5 h-3.5 text-[#B293E2]" />
             <span className="font-semibold">60-Second Quick Skill Check</span>
-            <span className="text-slate-400">• Answer 2/2 correctly to verify this skill</span>
+            <span className="text-[#969085]">• Answer 2/2 correctly to verify this skill</span>
           </div>
 
           <button
             type="button"
             onClick={() => setIsFreeTextMode((prev) => !prev)}
-            className="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+            className="text-[11px] font-mono text-[#B293E2] hover:text-[#C3A9EB] underline cursor-pointer transition-colors"
           >
             {isFreeTextMode ? "← Switch to Multiple Choice" : "Switch to Free-Text Mode"}
           </button>
@@ -482,27 +482,27 @@ export default function SkillMicroProbeModal({
               className={clsx(
                 "p-5 rounded-xl border text-center space-y-3 animate-fadeIn",
                 isPassed
-                  ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-200"
-                  : "bg-rose-950/40 border-rose-500/40 text-rose-200"
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-200"
               )}
             >
               <div className="flex justify-center">
                 {isPassed ? (
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/30">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                     <CheckCircle2 className="w-7 h-7" />
                   </div>
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-lg shadow-rose-500/30">
+                  <div className="w-12 h-12 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
                     <AlertTriangle className="w-7 h-7" />
                   </div>
                 )}
               </div>
 
               <div>
-                <h4 className="text-base font-bold text-white">
+                <h4 className="text-base font-bold text-[#F8F8F9]">
                   {isPassed ? "🎉 Great job! Skill Verified" : "Review Recommended"}
                 </h4>
-                <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto">
+                <p className="text-xs text-[#969085] mt-1 max-w-md mx-auto">
                   {isPassed
                     ? `Your knowledge of ${skillName} is confirmed! Your skill level has been updated and marked as verified.`
                     : `You answered ${calculateScore()}/2 correctly. Re-read the explanations below and try again when ready.`}
@@ -510,7 +510,7 @@ export default function SkillMicroProbeModal({
               </div>
 
               {isPassed && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold">
                   <ShieldCheck className="w-4 h-4" />
                   <span>Skill Level Promoted • Verified</span>
                 </div>
@@ -521,8 +521,8 @@ export default function SkillMicroProbeModal({
           {/* Free-Text Mode */}
           {isFreeTextMode && !submitted && (
             <div className="space-y-3">
-              <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 text-xs text-slate-300 space-y-2">
-                <span className="font-bold text-white">Open-Ended Question:</span>
+              <div className="p-3.5 rounded-xl bg-[#171820] border border-[#22232D] text-xs text-[#969085] space-y-2">
+                <span className="font-bold text-[#F8F8F9]">Open-Ended Question:</span>
                 <p className="leading-relaxed">
                   Explain how you handle concurrency, locking, and data integrity in {skillName} under heavy distributed traffic. Include trade-offs and error scenarios.
                 </p>
@@ -532,9 +532,9 @@ export default function SkillMicroProbeModal({
                 onChange={(e) => setFreeTextAnswer(e.target.value)}
                 placeholder="Type your explanation here (minimum 35 characters)..."
                 rows={6}
-                className="w-full p-4 rounded-xl bg-black/60 border border-indigo-500/30 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 font-mono leading-relaxed"
+                className="w-full p-4 rounded-xl bg-[#0A0B0F] border border-[#262733] text-xs text-[#F8F8F9] placeholder-[#969085]/50 focus:outline-none focus:border-[#B293E2] font-mono leading-relaxed"
               />
-              <div className="text-right text-[11px] text-slate-400 font-mono">
+              <div className="text-right text-[11px] text-[#969085] tabular-nums font-mono">
                 {freeTextAnswer.length} characters (min 35)
               </div>
             </div>
@@ -547,15 +547,15 @@ export default function SkillMicroProbeModal({
               return (
                 <div
                   key={q.id}
-                  className="p-4 rounded-xl bg-black/30 border border-white/8 space-y-3"
+                  className="p-4 rounded-xl bg-[#171820] border border-[#22232D] space-y-3"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono font-bold shrink-0">
+                    <span className="px-2 py-0.5 rounded bg-[#1D1D26] text-[#B293E2] border border-[#735BA0]/35 text-[10px] font-mono font-bold shrink-0">
                       Q{qIdx + 1} • {q.topic}
                     </span>
                   </div>
 
-                  <p className="text-xs font-semibold text-white leading-relaxed">
+                  <p className="text-xs font-semibold text-[#F8F8F9] leading-relaxed">
                     {q.question}
                   </p>
 
@@ -572,26 +572,26 @@ export default function SkillMicroProbeModal({
                           onClick={() => handleSelectOption(qIdx, opt.id)}
                           disabled={submitted}
                           className={clsx(
-                            "w-full text-left p-3 rounded-xl border text-xs transition-all flex items-start gap-2.5 cursor-pointer",
+                            "w-full text-left p-3 rounded-xl border text-xs transition-colors flex items-start gap-2.5 cursor-pointer",
                             showFeedback && isCorrect
-                              ? "bg-emerald-950/60 border-emerald-500/60 text-emerald-100 ring-1 ring-emerald-500/40"
+                              ? "bg-emerald-500/12 border-emerald-500/45 text-emerald-100"
                               : showFeedback && isSelected && !isCorrect
-                              ? "bg-rose-950/60 border-rose-500/60 text-rose-100"
+                              ? "bg-rose-500/12 border-rose-500/45 text-rose-100"
                               : isSelected
-                              ? "bg-indigo-600/30 border-indigo-400 text-white ring-1 ring-indigo-500/50"
-                              : "bg-[#0b0e1a]/80 border-white/6 hover:border-indigo-500/30 hover:bg-[#101426] text-slate-300"
+                              ? "bg-[#1D1D26] border-[#B293E2]/60 text-[#F8F8F9]"
+                              : "bg-[#111218] border-[#262733] hover:border-[#735BA0]/50 hover:bg-[#1D1D26]/60 text-[#969085] hover:text-[#F8F8F9]"
                           )}
                         >
                           <span
                             className={clsx(
                               "w-5 h-5 rounded-md flex items-center justify-center font-mono font-bold text-[11px] shrink-0 mt-0.5 border",
                               showFeedback && isCorrect
-                                ? "bg-emerald-500/30 border-emerald-400 text-emerald-300"
+                                ? "bg-emerald-500/25 border-emerald-400/60 text-emerald-300"
                                 : showFeedback && isSelected && !isCorrect
-                                ? "bg-rose-500/30 border-rose-400 text-rose-300"
+                                ? "bg-rose-500/25 border-rose-400/60 text-rose-300"
                                 : isSelected
-                                ? "bg-indigo-500/40 border-indigo-400 text-indigo-200"
-                                : "bg-white/5 border-white/10 text-slate-400"
+                                ? "bg-[#B293E2] border-[#B293E2] text-[#0A0B0F]"
+                                : "bg-[#171820] border-[#262733] text-[#969085]"
                             )}
                           >
                             {opt.id}
@@ -619,11 +619,11 @@ export default function SkillMicroProbeModal({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 bg-black/60 border-t border-white/8 flex items-center justify-between gap-3">
+        <div className="px-6 py-4 bg-[#171820] border-t border-[#22232D] flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-all border border-white/10 cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-[#111218] hover:bg-[#1D1D26] text-[#969085] hover:text-[#F8F8F9] text-xs font-semibold transition-colors border border-[#262733] cursor-pointer"
           >
             {submitted ? "Close" : "Cancel"}
           </button>
@@ -633,7 +633,7 @@ export default function SkillMicroProbeModal({
               type="button"
               onClick={handleSubmit}
               disabled={!allAnswered || isSubmitting}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] font-semibold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -642,7 +642,7 @@ export default function SkillMicroProbeModal({
                 </>
               ) : (
                 <>
-                  <Zap className="w-3.5 h-3.5 text-amber-300" />
+                  <Zap className="w-3.5 h-3.5" />
                   <span>Submit Answers</span>
                 </>
               )}
@@ -658,7 +658,7 @@ export default function SkillMicroProbeModal({
                     setSubmitted(false);
                     setIsPassed(false);
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Try Again (60s)</span>
@@ -667,7 +667,7 @@ export default function SkillMicroProbeModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-md shadow-emerald-500/25 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors cursor-pointer"
               >
                 <span>Done</span>
                 <ArrowRight className="w-3.5 h-3.5" />
