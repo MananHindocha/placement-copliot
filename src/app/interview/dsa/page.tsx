@@ -627,21 +627,17 @@ export default function DsaProblemsetPage() {
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-[#F5F5F5]">
-                    {selectedCompany} — Live Interview Bank
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#A1A1AA] border border-[#292929]">
-                    <Flame className="w-3 h-3 text-amber-400" />
-                    <span>liquidslr/leetcode-company-wise-problems</span>
+                    {selectedCompany} — Interview Problem Bank
                   </span>
                   {isLoadingRepoProblems && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#A78BFA]">
                       <RefreshCw className="w-3 h-3 animate-spin" />
-                      <span>Syncing CSV...</span>
+                      <span>Syncing...</span>
                     </span>
                   )}
                   {!isLoadingRepoProblems && repoSyncMeta && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
-                      Top {totalCount} of {repoSyncMeta.totalInRepo} problems in repo
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25">
+                      Top {totalCount} of {repoSyncMeta.totalInRepo} problems
                     </span>
                   )}
                 </div>

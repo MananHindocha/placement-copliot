@@ -39,9 +39,13 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: DO NOT REMOVE auth.getUser()
   // Validates token against Supabase Auth server, avoiding spoofing risks with getSession()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  return { response: supabaseResponse, user, supabase };
+    return { response: supabaseResponse, user, supabase };
+  } catch {
+    return { response: supabaseResponse, user: null, supabase };
+  }
 }

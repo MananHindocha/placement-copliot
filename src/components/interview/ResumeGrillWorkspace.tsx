@@ -32,7 +32,6 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
   const [totalFilesScanned, setTotalFilesScanned] = useState<number>(0);
   const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>([]);
   const [grillTrace, setGrillTrace] = useState<string[]>([]);
-  const [grillTools, setGrillTools] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Read detected resume from localStorage
@@ -138,7 +137,6 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
 
       const data = await res.json();
       if (Array.isArray(data.langGraphTrace)) setGrillTrace(data.langGraphTrace);
-      if (Array.isArray(data.toolsExecuted)) setGrillTools(data.toolsExecuted);
       if (data.githubRepoSummary) {
         setRepoSummary(data.githubRepoSummary as RepoSummaryInfo);
       }
@@ -213,14 +211,8 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
           <div className="flex items-center gap-2.5">
             <GithubIcon className="w-6 h-6 text-[#F59E0B]" />
             <div>
-              <h3 className="text-base font-bold text-[#F5F5F5] flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-bold text-[#F5F5F5]">
                 GitHub Repository Deep-Grill Analyzer
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/25">
-                  CODEBASE DEFENSE
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-[#121212] text-[#A1A1AA] border border-[#292929] font-mono">
-                  {roleMeta.title}
-                </span>
               </h3>
               <p className="text-xs text-[#71717A] mt-0.5">
                 Provide your project repo to inspect real source code files (`.c`, `.h`, `.py`, `.ts`, `.go`, `.rs`), functions, and commits for file-specific grilling on {roleMeta.title} architecture &amp; trade-offs.
@@ -329,26 +321,6 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
                     </span>
                   )}
                 </span>
-                {(grillTools.length > 0 || grillTrace.length > 0) && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {grillTools.map((tool) => (
-                      <span
-                        key={tool}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#121212] text-[#10B981] border border-[#292929]"
-                      >
-                        Tool: {tool}
-                      </span>
-                    ))}
-                    {grillTrace.map((node) => (
-                      <span
-                        key={node}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#121212] text-[#A78BFA] border border-[#292929]"
-                      >
-                        {node}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {githubAnalysis.detectedStack.map((tech) => (

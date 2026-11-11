@@ -94,10 +94,10 @@ export default function CustomInterviewSessionWorkspace({
       startCardTitle="Ready for Your Custom Interview?"
       startCardDescription={`Your AI interviewer is ready with ${session.generatedQuestions.length} tailored questions based on your resume and target job requirements.`}
       startCardIndicators={[
-        { label: "Dual-Synthesizer Questions", dotColor: "bg-[#10B981]" },
+        { label: "Tailored Questions", dotColor: "bg-[#10B981]" },
         { label: "JD & Resume Alignment", dotColor: "bg-[#A78BFA]" },
-        { label: "Voice & WPM Telemetry", dotColor: "bg-[#38BDF8]" },
-        { label: "Bar-Raiser Evaluation", dotColor: "bg-[#F59E0B]" },
+        { label: "Voice & Pacing Analysis", dotColor: "bg-[#38BDF8]" },
+        { label: "Detailed Evaluation", dotColor: "bg-[#F59E0B]" },
       ]}
     />
   );

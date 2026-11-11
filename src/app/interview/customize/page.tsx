@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import {
   Sparkles,
@@ -267,15 +266,9 @@ export default function CustomizePage() {
             Generate personalized interview questions matching your resume and target role.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Badge variant="emerald" size="md">
-            DUAL-SYNTHESIZER AI
-          </Badge>
-        </div>
       </div>
 
-      {/* ─── DUAL-SYNTHESIZER AI QUESTION GENERATOR CARD ─────────────────────── */}
+      {/* Custom Question Generator Card */}
       <Card className="p-5 md:p-8 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-6">
         {/* Card Header */}
         <div className="flex items-start justify-between pb-4 border-b border-[#1D1D1D]">
@@ -285,11 +278,8 @@ export default function CustomizePage() {
                 <Sparkles className="w-5 h-5" />
               </div>
               <h2 className="text-lg font-bold text-[#F5F5F5] tracking-tight">
-                Dual-Synthesizer AI Question Generator
+                Custom Interview Question Generator
               </h2>
-              <Badge variant="emerald" size="sm">
-                Resume &amp; JD Matched
-              </Badge>
             </div>
             <p className="text-xs sm:text-sm text-[#A1A1AA] leading-relaxed">
               Synthesizes your uploaded resume projects &amp; skills with target company requirements to generate tailored, bar-raiser interview questions.

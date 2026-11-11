@@ -154,15 +154,12 @@ export default function QuestionBankRoleSelectionPage() {
             className={clsx(
               "px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
               liveAgentMode
-                ? "bg-indigo-600/25 border-indigo-500/50 text-indigo-200 shadow-sm shadow-indigo-500/20"
-                : "bg-[#121212] border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5]"
+                ? "bg-[#121212] border-[#292929] text-[#F5F5F5]"
+                : "bg-[#0D0D0D] border-[#1D1D1D] text-[#A1A1AA] hover:text-[#F5F5F5]"
             )}
           >
-            {liveAgentMode ? "⚡ Live Conversational AI Interviewer: ON" : "📚 Classic Question Bank Mode"}
+            {liveAgentMode ? "Live AI Interviewer: ON" : "Classic Question Bank"}
           </button>
-          <Badge variant="indigo" size="md">
-            QUESTION BANK
-          </Badge>
           <div className="px-3 py-1 rounded-full bg-[#0D0D0D] border border-[#1D1D1D] text-[#A1A1AA] text-xs font-mono font-medium tabular-nums">
             {QUESTION_BANK_ROLES.length} ROLES AVAILABLE
           </div>

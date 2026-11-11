@@ -784,7 +784,7 @@ export default function InterviewStudioStage({
       (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setRecordingStatusBadge("Whisper Neural Audio Backup Active");
+      setRecordingStatusBadge("Voice Backup Recording Active");
       return;
     }
 
@@ -1471,19 +1471,14 @@ export default function InterviewStudioStage({
 
       {/* Adaptive Targeting Alert if candidate has unverified bluff risks */}
       {bluffRiskCount > 0 && digitalTwin?.skills && digitalTwin.skills.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-[#F43F5E]/10 border border-[#F43F5E]/25 flex items-center justify-between gap-3 text-xs text-[#F43F5E]">
-          <div className="flex items-center gap-2.5">
-            <ShieldAlert className="w-4 h-4 text-[#F43F5E] shrink-0" />
-            <div>
-              <span className="font-bold text-[#F5F5F5]">Targeted Practice Active: </span>
-              <span>
-                {bluffRiskCount} skill{bluffRiskCount > 1 ? "s on your resume need" : " on your resume needs"} more practice. The interviewer will include questions to help you strengthen these topics.
-              </span>
-            </div>
+        <div className="mb-4 p-3 rounded-xl bg-[#F43F5E]/10 border border-[#F43F5E]/25 flex items-center gap-2.5 text-xs text-[#F43F5E]">
+          <ShieldAlert className="w-4 h-4 text-[#F43F5E] shrink-0" />
+          <div>
+            <span className="font-bold text-[#F5F5F5]">Targeted Practice Active: </span>
+            <span>
+              {bluffRiskCount} skill{bluffRiskCount > 1 ? "s on your resume need" : " on your resume needs"} more practice. The interviewer will include questions to help you strengthen these topics.
+            </span>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#F43F5E]/15 text-[#F43F5E] border border-[#F43F5E]/25 shrink-0">
-            Focused Practice
-          </span>
         </div>
       )}
 
@@ -1540,20 +1535,13 @@ export default function InterviewStudioStage({
             </div>
           )}
 
-          {/* Adaptive Agent Mastery Level Badge */}
+          {/* Difficulty Level Indicator */}
           <span
-            className={clsx(
-              "text-[11px] font-semibold px-2.5 py-1 rounded-lg border font-mono flex items-center gap-1.5",
-              candidateLevel === 3
-                ? "bg-amber-500/15 text-amber-300 border-amber-500/35 shadow-sm shadow-amber-500/10"
-                : candidateLevel === 2
-                ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/35"
-                : "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
-            )}
-            title="Adaptive Agent scales difficulty automatically from your live evaluation scores"
+            className="text-[11px] font-medium px-2.5 py-1 rounded-lg border border-[#1D1D1D] bg-[#121212] text-[#A1A1AA] font-mono flex items-center gap-1.5"
+            title="Difficulty scales automatically from your evaluation scores"
           >
-            <Zap className="w-3 h-3 shrink-0" />
-            Adaptive Agent Level {candidateLevel} / 3 ·{" "}
+            <Zap className="w-3 h-3 shrink-0 text-[#A78BFA]" />
+            Level {candidateLevel} / 3 ·{" "}
             {candidateLevel === 3
               ? "Staff Bar-Raiser"
               : candidateLevel === 2
@@ -1949,7 +1937,7 @@ export default function InterviewStudioStage({
                 {isTranscribingWithWhisper && (
                   <div className="p-2 rounded-lg bg-[#0A0A0A] border border-[#292929] text-xs text-[#A1A1AA] flex items-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A78BFA]" />
-                    <span>Transcribing with Neural Whisper Model...</span>
+                    <span>Transcribing audio response...</span>
                   </div>
                 )}
               </Card>
@@ -2018,14 +2006,8 @@ export default function InterviewStudioStage({
                       </span>
                     ))}
                     {activeQuestion?.exactFunctionOrStruct && (
-                      <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                      <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#121212] text-[#A1A1AA] border border-[#292929]">
                         ƒ {activeQuestion.exactFunctionOrStruct}
-                      </span>
-                    )}
-                    {activeQuestion?.isAiEscalated && (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-indigo-500/20 text-amber-300 border border-amber-400/40 flex items-center gap-1 shadow-sm shadow-amber-500/10">
-                        <Rocket className="w-3 h-3 text-amber-400" />
-                        Live API Escalated Question
                       </span>
                     )}
                   </div>
@@ -2362,42 +2344,6 @@ export default function InterviewStudioStage({
                         </span>
                       </div>
                     </div>
-
-                    {/* LangGraph.js StateGraph Execution Trace */}
-                    {(evalResult.langGraphTrace?.length || evalResult.engine) && (
-                      <div className="px-3.5 py-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-2">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div className="flex items-center gap-2">
-                            <BrainCircuit className="w-3.5 h-3.5 text-[#A78BFA]" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA]">
-                              LangGraph.js Execution Trace
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] font-mono text-[#71717A]">
-                            {evalResult.engine && <span>{evalResult.engine}</span>}
-                            {evalResult.storageMode && (
-                              <span className="px-1.5 py-0.5 rounded bg-[#121212] border border-[#292929] text-[#A1A1AA]">
-                                {evalResult.storageMode === "supabase" ? "Supabase Sync" : "Local Store"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {evalResult.langGraphTrace && evalResult.langGraphTrace.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {evalResult.langGraphTrace.map((node, idx) => (
-                              <span key={`${node}-${idx}`} className="inline-flex items-center gap-1.5">
-                                <span className="px-2 py-0.5 rounded-md bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#F5F5F5]">
-                                  {node}
-                                </span>
-                                {idx < evalResult.langGraphTrace!.length - 1 && (
-                                  <span className="text-[10px] text-[#52525B] font-mono">→</span>
-                                )}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                     {/* STAR Breakdown Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">

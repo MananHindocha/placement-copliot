@@ -7,6 +7,7 @@ import {
   HandLandmarker,
 } from "@mediapipe/tasks-vision";
 import { clsx } from "clsx";
+import { Camera } from "lucide-react";
 
 export interface CvTelemetrySnapshot {
   eyeContactScore: number;
@@ -35,6 +36,8 @@ export interface CvTelemetrySnapshot {
 }
 
 interface VisionProctorStageProps {
+  variant?: "full" | "sidebar";
+  autoStart?: boolean;
   interviewerTitle?: string;
   targetFileBadge?: string;
   interviewerActionBadge?: string;
@@ -102,6 +105,8 @@ function installMediaPipeConsoleFilter() {
 installMediaPipeConsoleFilter();
 
 export default function VisionProctorStage({
+  variant = "full",
+  autoStart,
   interviewerTitle = "AI Bar-Raiser Agent",
   targetFileBadge,
   interviewerActionBadge = "OPENING_QUESTION",
@@ -110,7 +115,8 @@ export default function VisionProctorStage({
   isAgentSpeaking = false,
   onSpeakPrompt,
 }: VisionProctorStageProps) {
-  const [cameraEnabled, setCameraEnabled] = useState<boolean>(true);
+  const shouldAutoStart = autoStart ?? (variant === "full");
+  const [cameraEnabled, setCameraEnabled] = useState<boolean>(shouldAutoStart);
   const [modelsLoaded, setModelsLoaded] = useState<boolean>(false);
   const [modelLoadError, setModelLoadError] = useState<string | null>(null);
   const [showLandmarksOverlay, setShowLandmarksOverlay] = useState<boolean>(true);
@@ -138,6 +144,7 @@ export default function VisionProctorStage({
   const handLandmarkerRef = useRef<HandLandmarker | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const modelsInitPromiseRef = useRef<Promise<void> | null>(null);
 
   // Sync live UI toggle flags cleanly into refs for the 60 FPS loop
   const showLandmarksRef = useRef<boolean>(showLandmarksOverlay);
@@ -594,14 +601,11 @@ export default function VisionProctorStage({
     }
   }, [startCvDetectionLoop, stopWebcamStream]);
 
-  // Initialize MediaPipe WASM + FaceLandmarker + HandLandmarker + Webcam once on mount
-  useEffect(() => {
-    isMountedRef.current = true;
+  const ensureMediaPipeModels = useCallback(async () => {
+    if (faceLandmarkerRef.current && handLandmarkerRef.current) return;
+    if (modelsInitPromiseRef.current) return modelsInitPromiseRef.current;
 
-    async function initMediaPipeAndCamera() {
-      // Start camera immediately so video feed appears even while models finish downloading
-      void startWebcamStream();
-
+    const loadPromise = (async () => {
       try {
         const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_BASE);
         if (!isMountedRef.current) return;
@@ -652,19 +656,185 @@ export default function VisionProctorStage({
             : "Could not load MediaPipe CV models."
         );
       }
-    }
+    })();
 
-    void initMediaPipeAndCamera();
+    modelsInitPromiseRef.current = loadPromise;
+    return loadPromise;
+  }, []);
+
+  const handleEnableCamera = useCallback(async () => {
+    setModelLoadError(null);
+    await startWebcamStream();
+    void ensureMediaPipeModels();
+  }, [ensureMediaPipeModels, startWebcamStream]);
+
+  // Initialize MediaPipe + Webcam on mount only when auto-start is enabled
+  useEffect(() => {
+    isMountedRef.current = true;
+    let autoStartTimer: number | undefined;
+
+    if (shouldAutoStart) {
+      autoStartTimer = window.setTimeout(() => {
+        if (!isMountedRef.current) return;
+        void startWebcamStream();
+        void ensureMediaPipeModels();
+      }, 0);
+    }
 
     return () => {
       isMountedRef.current = false;
+      if (autoStartTimer !== undefined) {
+        window.clearTimeout(autoStartTimer);
+      }
       stopWebcamStream();
       faceLandmarkerRef.current?.close();
       faceLandmarkerRef.current = null;
       handLandmarkerRef.current?.close();
       handLandmarkerRef.current = null;
+      modelsInitPromiseRef.current = null;
     };
-  }, [startWebcamStream, stopWebcamStream]);
+  }, [ensureMediaPipeModels, shouldAutoStart, startWebcamStream, stopWebcamStream]);
+
+  if (variant === "sidebar") {
+    return (
+      <div className="rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] p-5 space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Camera className="w-4 h-4 text-[#A78BFA] shrink-0" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#F5F5F5] truncate">
+              Camera Monitoring
+            </h2>
+          </div>
+
+          {cameraEnabled ? (
+            <button
+              type="button"
+              onClick={stopWebcamStream}
+              className="rounded-md border border-[#292929] bg-[#121212] hover:bg-[#1A1A1A] px-2.5 py-1 text-[11px] font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors cursor-pointer shrink-0"
+            >
+              Turn Off
+            </button>
+          ) : (
+            <span className="rounded-md border border-[#1D1D1D] bg-[#121212] px-2 py-0.5 text-[11px] font-medium text-[#A1A1AA] shrink-0">
+              Optional
+            </span>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[#1D1D1D] bg-[#080808] overflow-hidden">
+          <div className={clsx("relative aspect-video bg-[#050505]", cameraEnabled ? "block" : "hidden")}>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover -scale-x-100"
+            />
+            <canvas
+              ref={overlayCanvasRef}
+              className="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none"
+            />
+            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2 pointer-events-none">
+              <span
+                className={clsx(
+                  "px-2 py-0.5 rounded-md text-[10px] font-medium border truncate",
+                  telemetry.lookingAtCamera
+                    ? "bg-[#050505]/85 text-[#10B981] border-[#10B981]/30"
+                    : "bg-[#050505]/90 text-[#F43F5E] border-[#F43F5E]/40"
+                )}
+              >
+                {telemetry.lookingAtCamera ? "Attention: Focused" : "Attention: Off-screen"}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-[#050505]/85 border border-[#292929] text-[10px] text-[#F5F5F5] font-mono tabular-nums shrink-0">
+                {telemetry.eyeContactScore}%
+              </span>
+            </div>
+          </div>
+
+          {!cameraEnabled && (
+            <div className="px-5 py-7 flex flex-col items-center justify-center text-center space-y-3.5">
+              <div className="w-9 h-9 rounded-lg border border-[#1D1D1D] bg-[#121212] flex items-center justify-center">
+                <Camera className="w-4 h-4 text-[#71717A]" />
+              </div>
+              <p className="text-xs text-[#A1A1AA] max-w-[260px] leading-relaxed">
+                Enable your camera to check whether you&apos;re maintaining proper screen attention during the interview.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleEnableCamera()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] px-4 py-2 text-xs font-semibold text-[#000000] transition-colors cursor-pointer"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Enable Camera</span>
+              </button>
+              <p className="text-[11px] text-[#71717A]">
+                Processed locally on your device. Video is never uploaded or stored.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {modelLoadError && (
+          <div className="p-2.5 rounded-lg bg-[#F43F5E]/10 border border-[#F43F5E]/25 text-xs text-[#F43F5E] flex items-center justify-between gap-2">
+            <span>{modelLoadError}</span>
+            <button
+              type="button"
+              onClick={() => setModelLoadError(null)}
+              className="text-[11px] underline text-[#F5F5F5] cursor-pointer shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {cameraEnabled && modelsLoaded && (eyeContactAlert || handPostureAlert) && (
+          <div className="p-2.5 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/25 text-xs text-[#F59E0B]">
+            {eyeContactAlert || handPostureAlert}
+          </div>
+        )}
+
+        {cameraEnabled && (
+          <div className="grid grid-cols-3 gap-2 text-[11px]">
+            <div className="p-2 rounded-lg bg-[#080808] border border-[#1D1D1D]">
+              <div className="text-[#71717A] text-[10px]">Eye Contact</div>
+              <div
+                className={clsx(
+                  "font-semibold truncate tabular-nums",
+                  telemetry.lookingAtCamera ? "text-[#10B981]" : "text-[#F43F5E]"
+                )}
+              >
+                {telemetry.eyeContactScore}%
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-[#080808] border border-[#1D1D1D]">
+              <div className="text-[#71717A] text-[10px]">Posture</div>
+              <div
+                className={clsx(
+                  "font-semibold truncate",
+                  telemetry.postureStatus === "UPRIGHT_CENTERED"
+                    ? "text-[#10B981]"
+                    : "text-[#F59E0B]"
+                )}
+              >
+                {telemetry.postureStatus === "UPRIGHT_CENTERED" ? "Upright" : "Adjust"}
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-[#080808] border border-[#1D1D1D]">
+              <div className="text-[#71717A] text-[10px]">Lighting</div>
+              <div
+                className={clsx(
+                  "font-semibold truncate tabular-nums",
+                  telemetry.lightingStatus === "OPTIMAL" ? "text-[#10B981]" : "text-[#F59E0B]"
+                )}
+              >
+                {telemetry.lightingPct}%
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] p-5 space-y-4">
