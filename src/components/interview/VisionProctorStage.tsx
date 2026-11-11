@@ -60,9 +60,46 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   [0, 17],
 ];
 
-type WindowWithWebkitAudio = Window & {
-  webkitAudioContext?: typeof AudioContext;
-};
+type WindowWithMediaPipePatch = Window &
+  typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+    __mediapipeConsolePatched?: boolean;
+  };
+
+/**
+ * Emscripten/MediaPipe C++ WASM pipes normal GLOG INFO/warning lines (such as
+ * "INFO: Created TensorFlow Lite XNNPACK delegate for CPU.") through stderr (`console.error`),
+ * which triggers Next.js 16's red dev Console Error overlay. Route those harmless C++ runtime
+ * messages to `console.info` while passing all real errors straight through.
+ */
+function installMediaPipeConsoleFilter() {
+  if (typeof window === "undefined") return;
+  const win = window as WindowWithMediaPipePatch;
+  if (win.__mediapipeConsolePatched) return;
+  win.__mediapipeConsolePatched = true;
+
+  const originalConsoleError = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    const msg = args
+      .filter((a): a is string => typeof a === "string")
+      .join(" ")
+      .trim();
+    if (
+      msg.includes("INFO: Created TensorFlow Lite XNNPACK delegate") ||
+      msg.includes("XNNPACK delegate for CPU") ||
+      msg.startsWith("INFO:") ||
+      msg.startsWith("I0000 ") ||
+      msg.startsWith("W0000 ") ||
+      msg.includes("gl_context")
+    ) {
+      console.info("[MediaPipe WASM]", ...args);
+      return;
+    }
+    originalConsoleError(...args);
+  };
+}
+
+installMediaPipeConsoleFilter();
 
 export default function VisionProctorStage({
   interviewerTitle = "AI Bar-Raiser Agent",
@@ -132,7 +169,7 @@ export default function VisionProctorStage({
 
     try {
       const AudioCtx =
-        window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
+        window.AudioContext || (window as WindowWithMediaPipePatch).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
@@ -229,18 +266,28 @@ export default function VisionProctorStage({
       const faceLandmarker = faceLandmarkerRef.current;
       const handLandmarker = handLandmarkerRef.current;
 
-      if (!video || !canvas || video.readyState < 2 || !streamRef.current) {
+      if (
+        !video ||
+        !canvas ||
+        !streamRef.current ||
+        video.readyState < 2 ||
+        video.videoWidth === 0 ||
+        video.videoHeight === 0 ||
+        video.paused ||
+        video.ended
+      ) {
         rafIdRef.current = requestAnimationFrame(renderLoop);
         return;
       }
 
       if (video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
-        const tsMs = Math.max(lastDetectTsRef.current + 1, Math.round(performance.now()));
+        const rawNow = Math.floor(performance.now());
+        const tsMs = Math.max(rawNow, lastDetectTsRef.current + 1);
         lastDetectTsRef.current = tsMs;
 
-        const targetW = video.videoWidth || 640;
-        const targetH = video.videoHeight || 480;
+        const targetW = video.videoWidth;
+        const targetH = video.videoHeight;
         if (canvas.width !== targetW || canvas.height !== targetH) {
           canvas.width = targetW;
           canvas.height = targetH;
@@ -267,7 +314,8 @@ export default function VisionProctorStage({
 
         try {
           const faceResult = faceLandmarker.detectForVideo(video, tsMs);
-          const handResult = handLandmarker.detectForVideo(video, tsMs);
+          lastDetectTsRef.current = tsMs + 1;
+          const handResult = handLandmarker.detectForVideo(video, tsMs + 1);
 
           // 1. Analyze 3D Face & Iris Landmarks
           let gazeDirection: CvTelemetrySnapshot["gazeDirection"] = "NO_FACE";
