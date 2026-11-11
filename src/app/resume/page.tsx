@@ -58,7 +58,6 @@ import {
   Target,
   Zap,
   TrendingUp,
-  Cpu,
   RefreshCw,
   Printer,
   Download,
@@ -178,9 +177,6 @@ export default function ResumePage() {
     } catch {}
     return false;
   });
-  const [diagnosticTip, setDiagnosticTip] = useState<string | null>(null);
-  const [engineSource, setEngineSource] = useState<"gemini" | "groq" | "heuristic" | null>(null);
-  const [pythonParserActive, setPythonParserActive] = useState<boolean | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const { triggerAgent, runAutonomousBootstrap } = useAgent();
@@ -314,16 +310,13 @@ export default function ResumePage() {
 
       setAnalysis(result.analysis);
       setEditableResume(result.analysis.parsedResume || null);
-      setPythonParserActive(result.pythonParserActive);
-      setDiagnosticTip(result.diagnosticTip || null);
-      setEngineSource(result.source);
       setAppliedSuggestions(new Set());
 
       if ((result.analysis.suggestions ?? []).length > 0) {
         setExpandedSuggestion(result.analysis.suggestions[0].id);
       }
 
-      showToast(`Resume parsed successfully via ${result.source.toUpperCase()} engine!`);
+      showToast("Resume analyzed successfully!");
 
       // Bidirectional sync with dashboard and robot navigator
       if (typeof window !== "undefined") {
@@ -400,8 +393,6 @@ export default function ResumePage() {
         );
         setAnalysis(res.analysis);
         setEditableResume(res.analysis.parsedResume || null);
-        setDiagnosticTip(res.diagnosticTip || null);
-        setEngineSource(res.source);
         showToast("Re-evaluated resume against new role & JD!");
 
         triggerAgent({
@@ -595,26 +586,8 @@ export default function ResumePage() {
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[#F5F5F5] tracking-tight flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-bold text-[#F5F5F5] tracking-tight">
             My Resume
-            {engineSource === "gemini" && (
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#10B981]" />
-                Gemini AI Active
-              </span>
-            )}
-            {engineSource === "groq" && (
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#121212] text-[#A1A1AA] border border-[#292929] flex items-center gap-1">
-                <Zap className="w-3 h-3 text-[#A78BFA]" />
-                Groq AI Active
-              </span>
-            )}
-            {engineSource === "heuristic" && (
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/25 flex items-center gap-1">
-                <Cpu className="w-3 h-3 text-[#F59E0B]" />
-                Heuristic Scanner
-              </span>
-            )}
           </h1>
           <p className="text-xs text-[#A1A1AA] mt-1">
             Upload your resume and a job role to see your match score and exactly what to improve.
@@ -656,39 +629,6 @@ export default function ResumePage() {
           </div>
         </div>
       </div>
-
-      {/* Diagnostic Tip / Microservice Health Pill */}
-      {diagnosticTip && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs border bg-[#0D0D0D] border-[#1D1D1D] text-[#A1A1AA]">
-          <div className="flex items-center gap-2">
-            {engineSource === "gemini" ? (
-              <Sparkles className="w-4 h-4 text-[#10B981] shrink-0" />
-            ) : engineSource === "groq" ? (
-              <Zap className="w-4 h-4 text-[#A78BFA] shrink-0" />
-            ) : (
-              <Cpu className="w-4 h-4 text-[#A1A1AA] shrink-0" />
-            )}
-            <span>{diagnosticTip}</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {engineSource === "gemini" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25">
-                <Sparkles className="w-3 h-3" /> Gemini 3.5 Flash
-              </span>
-            )}
-            {engineSource === "groq" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#121212] text-[#A1A1AA] border border-[#292929]">
-                <Zap className="w-3 h-3 text-[#A78BFA]" /> Groq Ultra-Fast AI
-              </span>
-            )}
-            {pythonParserActive && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25">
-                <Check className="w-3 h-3" /> PyMuPDF Active
-              </span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Main Content Area */}
       {!analysis ? (

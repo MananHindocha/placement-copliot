@@ -8,7 +8,6 @@ const AGENT_BANNER_ROUTES = ["/dashboard", "/resume"];
 
 function shouldRenderAgentBanner(pathname: string | null): boolean {
   if (!pathname) return false;
-  if (pathname === "/") return true;
   return AGENT_BANNER_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );

@@ -210,7 +210,6 @@ export default function LiveProjectGrillRoom({
   repoSummary,
   questions,
   isAnalyzingRepo,
-  langGraphTrace = [],
   backHref = "/interview/resume-grill",
   headerSlot,
 }: LiveProjectGrillRoomProps) {
@@ -222,8 +221,6 @@ export default function LiveProjectGrillRoom({
 
   const [history, setHistory] = useState<ProjectGrillTurn[]>([]);
   const [currentAction, setCurrentAction] = useState("OPENING_QUESTION");
-  const [engineNodes, setEngineNodes] = useState<string[]>(langGraphTrace);
-  const [storageMode, setStorageMode] = useState<string>("local_file");
 
   const [candidateInput, setCandidateInput] = useState("");
   const [codeScratchpad, setCodeScratchpad] = useState("");
@@ -381,11 +378,6 @@ export default function LiveProjectGrillRoom({
     setCandidateLevel(1);
     setTurnNumber(1);
     setCurrentAction("OPENING_QUESTION");
-    setEngineNodes(
-      langGraphTrace.length > 0
-        ? langGraphTrace
-        : ["github_source_fetcher", "code_grounding_grill", "live_cross_examiner"]
-    );
     setSkillMatrix([]);
     setStudyTasksAddedList([]);
     setStudyPlanNotification(null);
@@ -472,7 +464,6 @@ export default function LiveProjectGrillRoom({
         return;
       }
 
-      if (data.storageMode) setStorageMode(data.storageMode);
       const hintText =
         data.spokenHint ||
         currentQuestion.hint ||
@@ -660,11 +651,6 @@ export default function LiveProjectGrillRoom({
         setHistory(history);
         setCandidateInput(candidateTurn.content);
         return;
-      }
-
-      if (data.storageMode) setStorageMode(data.storageMode);
-      if (Array.isArray(data.langGraphTrace) && data.langGraphTrace.length > 0) {
-        setEngineNodes(data.langGraphTrace);
       }
 
       const normalizedScore = normalizeDisplayScore(data.overallScore, 60);
@@ -948,16 +934,11 @@ export default function LiveProjectGrillRoom({
                 Change Role
               </Link>
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-bold text-[#F5F5F5]">
-                    {roleMeta.title} Project Grill
-                  </h1>
-                  <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                    🔥 Deep Grill Mode
-                  </span>
-                </div>
-                <p className="text-xs text-[#A1A1AA]">
-                  Real repository source-code inspection • Live conversational AI defense • Auto Study-Plan sync
+                <h1 className="text-xl font-bold text-[#F5F5F5]">
+                  {roleMeta.title} Project Grill
+                </h1>
+                <p className="text-xs text-[#A1A1AA] mt-0.5">
+                  Real repository source-code inspection • Live conversational AI defense • Automatic Study-Plan sync
                 </p>
               </div>
             </div>
@@ -1058,19 +1039,16 @@ export default function LiveProjectGrillRoom({
             </button>
             <div>
               <h1 className="text-xl font-bold text-[#F5F5F5] flex items-center gap-2 flex-wrap">
-                Live Autonomous Project Interviewer
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                <span>Live Autonomous Project Interviewer</span>
+                <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-[#121212] text-[#A1A1AA] border border-[#292929]">
                   {roleMeta.title}
                 </span>
-                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  🐙 {repoDisplayName}
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#A78BFA] border border-[#292929]">
-                  LangChain.js Code-Grounded Agent
+                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25">
+                  {repoDisplayName}
                 </span>
               </h1>
-              <p className="text-xs text-[#A1A1AA]">
-                Real source-code cross-examination • Posture Coach • 30s Proactive Hint • Auto Study-Plan Sync ({storageMode === "supabase" ? "Supabase" : "Local Store"})
+              <p className="text-xs text-[#A1A1AA] mt-0.5">
+                Real source-code cross-examination • Posture coach • Proactive hint coaching • Automatic Study-Plan sync
               </p>
             </div>
           </div>
@@ -1167,26 +1145,6 @@ export default function LiveProjectGrillRoom({
               <div className={`px-3 py-1 rounded-full text-xs font-medium border ${badgeMeta.color}`}>
                 {badgeMeta.label}
               </div>
-
-              {engineNodes.length > 0 && (
-                <div className="w-full text-left px-3 py-2 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA]">
-                    Agent Execution Trace
-                  </div>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {engineNodes.map((node, idx) => (
-                      <span key={`${node}-${idx}`} className="inline-flex items-center gap-1">
-                        <span className="px-1.5 py-0.5 rounded bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#F5F5F5]">
-                          {node}
-                        </span>
-                        {idx < engineNodes.length - 1 && (
-                          <span className="text-[10px] text-[#52525B] font-mono">→</span>
-                        )}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Current Prompt */}
               <div className="w-full text-left p-4 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D]">

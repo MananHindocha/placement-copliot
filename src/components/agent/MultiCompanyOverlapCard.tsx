@@ -107,15 +107,9 @@ export default function MultiCompanyOverlapCard() {
             <Target className="h-5 w-5" />
           </div>
           <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
-                🎯 Skills Across Saved Jobs
-              </h3>
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#292929] bg-[#121212] px-2.5 py-0.5 text-[10px] font-mono font-bold text-[#F5F5F5]">
-                <Sparkles className="h-3 w-3" />
-                High Impact
-              </span>
-            </div>
+            <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
+              🎯 Skills Across Saved Jobs
+            </h3>
             <p className="text-xs text-[#A1A1AA] leading-relaxed">
               Common technical topics across all your saved jobs to help you study efficiently.
             </p>
@@ -165,12 +159,6 @@ export default function MultiCompanyOverlapCard() {
               <span className="text-[#10B981] font-bold font-mono">100% ({totalCompaniesCount}/{totalCompaniesCount})</span> of your saved jobs.&rdquo;
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-          <span className="text-[11px] font-mono font-bold text-[#10B981] bg-[#10B981]/10 border border-[#10B981]/25 px-3 py-1 rounded-full">
-            High Efficiency
-          </span>
         </div>
       </div>
 

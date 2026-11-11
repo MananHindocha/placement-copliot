@@ -9,7 +9,6 @@ import {
   KanbanSquare,
   MessageSquare,
   Target,
-  Zap,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
@@ -88,6 +87,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={pathname.startsWith("/auth") ? false : undefined}
               aria-label={item.label}
               title={collapsed ? item.label : undefined}
               className={clsx(
@@ -145,16 +145,6 @@ export default function Sidebar() {
           <ChevronLeft className="w-3.5 h-3.5" />
         )}
       </button>
-
-      {/* Powered by badge */}
-      {!collapsed && (
-        <div className="px-3 pb-3.5 hidden sm:block">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0D0D0D] border border-[#1D1D1D]">
-            <Zap className="w-3.5 h-3.5 text-[#A78BFA] shrink-0" />
-            <span className="text-[11px] text-[#71717A] truncate">Powered by Gemini AI</span>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

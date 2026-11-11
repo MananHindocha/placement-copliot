@@ -72,7 +72,7 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
       arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
       numberColor: "text-[#71717A] font-mono",
     },
-    tags: ["Role-Specific", "STAR Framework", "Live Telemetry", "Bar-Raiser AI"],
+    tags: ["Role-Specific", "STAR Framework", "Voice Practice"],
     actionText: "Start Practice →",
   },
   {
@@ -112,7 +112,7 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
       arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
       numberColor: "text-[#71717A] font-mono",
     },
-    tags: ["Resume Tailored", "Company Presets", "Job Description Match", "Dual-AI Synthesis"],
+    tags: ["Resume & JD Match", "Company Presets", "Tailored Questions"],
     actionText: "Start Practice →",
   },
 ];

@@ -235,9 +235,6 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
           <Badge variant="violet" size="md">
             {DSA_OA_PROBLEMS.length} OA Problems
           </Badge>
-          <Badge variant="indigo" size="md">
-            Multi-Language IDE
-          </Badge>
         </div>
       </div>
 

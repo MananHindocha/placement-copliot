@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, ArrowRight, ShieldCheck, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
 import { signInWithEmail, signUpWithEmail } from "@/lib/services/auth.service";
-import { isSupabaseConfigured, getEffectiveDataMode } from "@/lib/supabase/config";
+import {
+  isSupabaseConfigured,
+  getEffectiveDataMode,
+  sanitizeRedirectPath,
+  setDemoSessionCookie,
+} from "@/lib/supabase/config";
 import Button from "@/components/ui/Button";
 
 export default function LoginPage() {
@@ -20,6 +25,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const getPostAuthDestination = () => {
+    const nextParam =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("next")
+        : null;
+    return sanitizeRedirectPath(nextParam, "/dashboard");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +50,8 @@ export default function LoginPage() {
     try {
       if (mode === "signin") {
         await signInWithEmail(email, password);
-        router.push("/dashboard");
+        setDemoSessionCookie(false);
+        router.push(getPostAuthDestination());
         router.refresh();
       } else {
         await signUpWithEmail(email, password, fullName);
@@ -206,6 +220,13 @@ export default function LoginPage() {
               {/* Demo Mode Button */}
               <Link
                 href="/dashboard"
+                prefetch={false}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDemoSessionCookie(true);
+                  router.push(getPostAuthDestination());
+                  router.refresh();
+                }}
                 className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] hover:bg-[#121212] hover:border-[#292929] text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors text-sm font-medium group"
               >
                 <Sparkles className="w-4 h-4 text-[#A78BFA]" />

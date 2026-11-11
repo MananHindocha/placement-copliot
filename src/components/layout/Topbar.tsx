@@ -26,7 +26,7 @@ import {
   Clock,
   ArrowRight,
 } from "lucide-react";
-import { getEffectiveDataMode } from "@/lib/supabase/config";
+import { getEffectiveDataMode, setDemoSessionCookie } from "@/lib/supabase/config";
 import {
   getStoredApplications,
   getStoredReadinessMilestones,
@@ -297,6 +297,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
 
   const handleSignOut = async () => {
     await signOutUser();
+    setDemoSessionCookie(false);
     setIsAuthenticated(false);
     router.push("/auth/login");
     router.refresh();
@@ -515,6 +516,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
           ) : (
             <Link
               href="/auth/login"
+              onClick={() => setDemoSessionCookie(false)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#000000] bg-[#F5F5F5] hover:bg-[#E4E4E7] rounded-lg border border-[#F5F5F5] transition-colors cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5" />
@@ -766,7 +768,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                     { label: "Resume Studio", href: "/resume", desc: "ATS scanner & diagnostic" },
                     { label: "Job Discovery", href: "/jobs", desc: "Find matched jobs" },
                     { label: "Application Tracker", href: "/tracker", desc: "Kanban pipeline" },
-                    { label: "AI Practice Interview Coach", href: "/interview", desc: "Whisper audio & video studio" },
+                    { label: "AI Practice Interview Coach", href: "/interview", desc: "Audio & video practice studio" },
                     { label: "Placement Readiness Plan", href: "/readiness", desc: "Milestones roadmap" },
                   ]
                     .filter(

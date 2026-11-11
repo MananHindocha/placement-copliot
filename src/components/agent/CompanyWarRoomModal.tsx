@@ -230,16 +230,11 @@ export default function CompanyWarRoomModal({
         <div className="p-6 space-y-6 overflow-y-auto flex-1 font-sans">
           {/* ─── PANEL 1: COMPANY INTERVIEW DNA ─── */}
           <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#A1A1AA]" />
-                <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
-                  Interview Rounds &amp; Weightage
-                </h4>
-              </div>
-              <span className="text-[10px] font-mono text-[#A1A1AA] bg-[#121212] border border-[#292929] px-2.5 py-0.5 rounded-full">
-                Round Breakdown
-              </span>
+            <div className="flex items-center gap-2 pb-3 border-b border-[#1D1D1D]">
+              <Target className="w-4 h-4 text-[#A1A1AA]" />
+              <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
+                Interview Rounds &amp; Weightage
+              </h4>
             </div>
 
             {/* Visual Round Weight Breakdown Bars */}
@@ -297,16 +292,11 @@ export default function CompanyWarRoomModal({
 
           {/* ─── PANEL 2: SKILLS TO STRENGTHEN ─── */}
           <div className="rounded-xl border border-rose-500/30 bg-[#0A0A0A] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-400" />
-                <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
-                  Skills to Strengthen for {card.company}
-                </h4>
-              </div>
-              <span className="text-[10px] font-mono text-rose-300 bg-rose-500/10 border border-rose-500/25 px-2.5 py-0.5 rounded-full">
-                Based on your resume &amp; practice
-              </span>
+            <div className="flex items-center gap-2 pb-3 border-b border-[#1D1D1D]">
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
+                Skills to Strengthen for {card.company}
+              </h4>
             </div>
 
             {bluffOverlaps.length === 0 ? (
@@ -356,16 +346,11 @@ export default function CompanyWarRoomModal({
 
           {/* ─── PANEL 3: TAILORED RESUME & 3-DAY STUDY PLAN ─── */}
           <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1D1D1D]">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#A1A1AA]" />
-                <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
-                  Tailored Resume &amp; 3-Day Study Plan
-                </h4>
-              </div>
-              <span className="text-[10px] font-mono text-[#A1A1AA] bg-[#121212] border border-[#292929] px-2.5 py-0.5 rounded-full">
-                Your Review
-              </span>
+            <div className="flex items-center gap-2 pb-3 border-b border-[#1D1D1D]">
+              <Layers className="w-4 h-4 text-[#A1A1AA]" />
+              <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
+                Tailored Resume &amp; 3-Day Study Plan
+              </h4>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

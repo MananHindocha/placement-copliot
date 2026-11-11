@@ -133,9 +133,6 @@ export default function ResumeGrillRoleSelectionPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="amber" size="md">
-            RESUME &amp; PROJECT GRILL
-          </Badge>
           <div className="px-3 py-1 rounded-full bg-[#0D0D0D] border border-[#1D1D1D] text-[#A1A1AA] text-xs font-mono font-medium tabular-nums">
             {QUESTION_BANK_ROLES.length} ROLES AVAILABLE
           </div>
