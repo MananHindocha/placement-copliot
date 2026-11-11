@@ -61,6 +61,7 @@ import {
   ShieldAlert,
   Zap,
   Rocket,
+  Lock,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
@@ -138,7 +139,7 @@ export default function InterviewStudioStage({
 
   const [questions, setQuestions] = useState<StudioQuestion[]>(() => {
     if (initialQuestions && initialQuestions.length > 0) return initialQuestions;
-    if (mode === "grill") return getBaselineAsStudioQuestions(initialRole, "grill");
+    if (mode === "grill") return [];
     if (mode === "custom") return [];
     const baseline = getBaselineAsStudioQuestions(initialRole, "bank");
     const curated = getRoleInterviewQuestions(initialRole, "all");
@@ -243,9 +244,18 @@ export default function InterviewStudioStage({
     if (initialQuestions && initialQuestions.length > 0) {
       setQuestions(initialQuestions);
       setCurrentIdx(0);
+      setCandidateLevel(1);
       setEvalResult(null);
       setLevelUpBanner(null);
       setResponse("");
+      if (requireManualStart) setInterviewLifecycle("preparing");
+    } else if (mode === "grill") {
+      setQuestions([]);
+      setCurrentIdx(0);
+      setEvalResult(null);
+      setLevelUpBanner(null);
+      setResponse("");
+      if (requireManualStart) setInterviewLifecycle("preparing");
     }
   }
 
@@ -985,8 +995,10 @@ export default function InterviewStudioStage({
 
   const totalFillersSpoken = Object.values(fillerCounts).reduce((a, b) => a + b, 0);
 
-  const isPreStart = requireManualStart && interviewLifecycle === "preparing";
   const isGrillMode = mode === "grill" || startCardIcon === "flame";
+  const isGrillLocked = mode === "grill" && availableQuestions.length === 0;
+  const isPreStart =
+    requireManualStart && interviewLifecycle === "preparing" && availableQuestions.length > 0;
   const activeStartCardTitle = startCardTitle || (isGrillMode ? "Ready for Your Technical Grill?" : "Ready to Begin Your Interview?");
   const activeStartCardDesc = startCardDescription || (isGrillMode ? "Your AI interviewer is ready to challenge your engineering decisions, architecture, and implementation choices." : "Your AI interviewer is ready. Make sure your camera and microphone are available before starting.");
   const activeStartCardIndicators = startCardIndicators || (isGrillMode ? [
@@ -1113,6 +1125,7 @@ export default function InterviewStudioStage({
           )}
         >
           {/* ─── STUDIO CONTROLS BAR ─────────────────────────────────────────────── */}
+      {!isGrillLocked && (
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-3 rounded-xl bg-[#0D0D0D] border border-[#1D1D1D]">
         <div className="flex items-center gap-2 flex-wrap">
           {badgeLabel && (
@@ -1209,6 +1222,7 @@ export default function InterviewStudioStage({
           </button>
         </div>
       </div>
+      )}
 
       {loading && questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-28 text-[#71717A] gap-3">
@@ -1300,6 +1314,20 @@ export default function InterviewStudioStage({
             )}
           </div>
         </div>
+      ) : isGrillLocked ? (
+        /* ─── REPOSITORY LOCK GATE (ZERO DEFAULT QUESTIONS BEFORE REPO UPLOAD) ─── */
+        <Card className="max-w-2xl mx-auto p-10 bg-[#0D0D0D] border border-dashed border-[#292929] rounded-2xl text-center space-y-3 my-4">
+          <div className="w-12 h-12 rounded-xl bg-[#121212] border border-[#292929] flex items-center justify-center mx-auto text-[#F59E0B]">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-[#F5F5F5]">
+            Upload Your GitHub Repository Link Above to Begin
+          </h3>
+          <p className="text-xs text-[#A1A1AA] leading-relaxed max-w-lg mx-auto">
+            No default or generic questions are pre-loaded here. Paste your project&apos;s public GitHub repository URL above (or click a 1-click sample repo) and click{" "}
+            <strong className="text-[#F5F5F5]">Generate Resume Project Grill Questions</strong> so the AI agent inspects your real source files, dependencies, and commits before unlocking your technical grill.
+          </p>
+        </Card>
       ) : (
         /* ─── AI STUDIO STAGE VIEW ─────────────────────────────────────────── */
         <div className="space-y-6">
@@ -1395,27 +1423,73 @@ export default function InterviewStudioStage({
                     </div>
                   )}
 
-                  {/* Top HUD Telemetry Bar */}
-                  {cameraActive && (
-                    <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between text-[11px] font-mono pointer-events-none">
-                      <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
-                        <span
-                          className={clsx(
-                            "w-2 h-2 rounded-full",
-                            reticleColor === "green"
-                              ? "bg-[#10B981] animate-pulse"
-                              : reticleColor === "amber"
-                              ? "bg-[#F59E0B]"
-                              : "bg-[#F43F5E] animate-ping"
-                          )}
-                        />
-                        <span>Eye Contact: {liveEyeContact >= 0 ? `${liveEyeContact}%` : "Scanning..."}</span>
+                  {/* Top HUD Telemetry Bar & Centering Posture Framing Overlay */}
+                  {cameraActive && !cameraPermissionDenied && (
+                    <>
+                      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between text-[11px] font-mono pointer-events-none">
+                        <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
+                          <span
+                            className={clsx(
+                              "w-2 h-2 rounded-full",
+                              reticleColor === "green"
+                                ? "bg-[#10B981] animate-pulse"
+                                : reticleColor === "amber"
+                                ? "bg-[#F59E0B]"
+                                : "bg-[#F43F5E] animate-ping"
+                            )}
+                          />
+                          <span>
+                            {isVirtualCamera
+                              ? "Virtual Studio HUD"
+                              : `Eye Contact: ${liveEyeContact >= 0 ? `${liveEyeContact}%` : "Scanning..."}`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
+                          <span>Posture: {livePosture}</span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2.5 py-1 rounded-full border border-[#292929] text-[#F5F5F5]">
-                        <span>Posture: {livePosture}</span>
+                      {/* Head & Eye-Line Centering Guide Box */}
+                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                        <div
+                          className={clsx(
+                            "w-36 h-32 rounded-2xl border border-dashed flex flex-col items-center pt-5 transition-colors",
+                            reticleColor === "green"
+                              ? "border-[#10B981]/50"
+                              : reticleColor === "amber"
+                              ? "border-[#F59E0B]/60"
+                              : "border-[#F43F5E]/60"
+                          )}
+                        >
+                          <div className="w-20 border-t border-cyan-400/50 text-[8px] font-mono uppercase tracking-wider text-cyan-300/80 text-center pt-0.5">
+                            Eye Line
+                          </div>
+                        </div>
                       </div>
-                    </div>
+
+                      {/* Live Posture & Framing Coaching Tip */}
+                      <div className="absolute bottom-2.5 left-2.5 right-12 pointer-events-none">
+                        <div className="inline-flex items-center gap-1.5 max-w-full px-2.5 py-1 rounded-lg bg-[#050505]/90 border border-[#292929] text-[10px] text-[#E4E4E7] backdrop-blur-sm">
+                          <span
+                            className={clsx(
+                              "w-1.5 h-1.5 rounded-full shrink-0",
+                              reticleColor === "green"
+                                ? "bg-[#10B981]"
+                                : reticleColor === "amber"
+                                ? "bg-[#F59E0B]"
+                                : "bg-[#F43F5E]"
+                            )}
+                          />
+                          <span className="truncate">
+                            {visualToast ||
+                              (livePosture === "Stable"
+                                ? "Centered framing & steady eye contact — explain trade-offs clearly."
+                                : "Keep shoulders level, center in the box, and align camera at eye line.")}
+                          </span>
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   {/* Camera Toggle Button */}
@@ -1544,6 +1618,15 @@ export default function InterviewStudioStage({
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#A1A1AA] border border-[#1D1D1D]">
                       Level {activeQuestion?.level || candidateLevel}/3
                     </span>
+                    {activeQuestion?.referencedFiles?.map((fp) => (
+                      <span
+                        key={fp}
+                        className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/12 text-amber-300 border border-amber-500/30 flex items-center gap-1"
+                      >
+                        <FileCode className="w-3 h-3 shrink-0" />
+                        <span>{fp}</span>
+                      </span>
+                    ))}
                     {activeQuestion?.isAiEscalated && (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-indigo-500/20 text-amber-300 border border-amber-400/40 flex items-center gap-1 shadow-sm shadow-amber-500/10">
                         <Rocket className="w-3 h-3 text-amber-400" />
@@ -1616,9 +1699,21 @@ export default function InterviewStudioStage({
                 </div>
 
                 {showHint && activeQuestion?.hint && (
-                  <div className="p-3.5 rounded-xl bg-[#0A0A0A] border border-[#292929] text-xs text-[#F5F5F5]/90 leading-relaxed font-sans animate-fadeIn">
-                    <strong className="text-[#A78BFA] block mb-1">Interviewer Expectations:</strong>
-                    {activeQuestion.hint}
+                  <div className="p-3.5 rounded-xl bg-[#0A0A0A] border border-[#292929] text-xs text-[#F5F5F5]/90 leading-relaxed font-sans animate-fadeIn space-y-2">
+                    <div>
+                      <strong className="text-[#A78BFA] block mb-1">Interviewer Expectations:</strong>
+                      {activeQuestion.hint}
+                    </div>
+                    {activeQuestion.whyAskThis && activeQuestion.whyAskThis !== activeQuestion.hint && (
+                      <p className="text-[11px] text-[#A1A1AA] pt-1 border-t border-[#1D1D1D]">
+                        <strong className="text-[#F5F5F5]">Pro Tip:</strong> {activeQuestion.whyAskThis}
+                      </p>
+                    )}
+                    {activeQuestion.codeExcerpt && (
+                      <pre className="mt-2 p-2.5 rounded-lg bg-[#050505] border border-[#1D1D1D] text-[10px] font-mono text-[#A1A1AA] overflow-x-auto max-h-36">
+                        {activeQuestion.codeExcerpt}
+                      </pre>
+                    )}
                   </div>
                 )}
 
@@ -1809,6 +1904,55 @@ export default function InterviewStudioStage({
                         );
                       })}
                     </div>
+
+                    {/* Interviewer Reaction + Detailed Answer Improvement Coaching */}
+                    {evalResult.interviewerReaction && (
+                      <div className="p-3.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] text-xs text-[#E4E4E7] leading-relaxed">
+                        <span className="font-semibold text-[#A78BFA]">Interviewer Feedback: </span>
+                        {evalResult.interviewerReaction}
+                      </div>
+                    )}
+
+                    {((evalResult.strengths && evalResult.strengths.length > 0) ||
+                      (evalResult.improvements && evalResult.improvements.length > 0) ||
+                      (evalResult.missedConcepts && evalResult.missedConcepts.length > 0)) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="p-4 rounded-xl bg-emerald-500/8 border border-emerald-500/25 space-y-2">
+                          <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>What You Did Well</span>
+                          </div>
+                          {evalResult.strengths && evalResult.strengths.length > 0 ? (
+                            <ul className="list-disc list-inside space-y-1 text-[#D4D4D8] text-[11px] leading-relaxed">
+                              {evalResult.strengths.map((s, idx) => (
+                                <li key={idx}>{s}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-[11px] text-[#A1A1AA]">
+                              Clear explanation of core behavior. Add measurable trade-offs to elevate further.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-amber-500/8 border border-amber-500/25 space-y-2">
+                          <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                            <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                            <span>How to Improve Your Answer</span>
+                          </div>
+                          <ul className="list-disc list-inside space-y-1 text-[#E4E4E7] text-[11px] leading-relaxed">
+                            {(evalResult.improvements || []).map((imp, idx) => (
+                              <li key={idx}>{imp}</li>
+                            ))}
+                            {(evalResult.missedConcepts || []).map((missed, idx) => (
+                              <li key={`missed-${idx}`}>
+                                Cover concept explicitly: <span className="font-mono text-amber-200">{missed}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Side-by-Side: Spoken vs Rewritten 95/100 Ideal Answer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

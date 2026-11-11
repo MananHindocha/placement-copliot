@@ -14,7 +14,6 @@ import InterviewStudioStage from "@/components/interview/InterviewStudioStage";
 import { GithubIcon, type StudioQuestion } from "@/components/interview/interview-common";
 import type { GitHubGrillAnalysis } from "@/types";
 import type { InterviewRoleMeta } from "@/lib/interview-roles";
-import { getBaselineAsStudioQuestions } from "@/lib/interview/role-baseline-questions";
 
 interface ResumeGrillWorkspaceProps {
   roleMeta: InterviewRoleMeta;
@@ -25,9 +24,9 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
   const [githubFocusNotes, setGithubFocusNotes] = useState("");
   const [isAnalyzingRepo, setIsAnalyzingRepo] = useState(false);
   const [githubAnalysis, setGithubAnalysis] = useState<GitHubGrillAnalysis | null>(null);
-  const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>(() =>
-    getBaselineAsStudioQuestions(roleMeta.title, "grill")
-  );
+  const [inspectedFiles, setInspectedFiles] = useState<string[]>([]);
+  const [totalFilesScanned, setTotalFilesScanned] = useState<number>(0);
+  const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>([]);
   const [grillTrace, setGrillTrace] = useState<string[]>([]);
   const [grillTools, setGrillTools] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -86,21 +85,27 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
     return () => window.clearTimeout(timer);
   }, []);
 
-  const handleAnalyzeGitHubRepo = async () => {
-    const hasResumeProjects = Boolean(detectedResume?.projects?.length);
-    if (!githubUrl.trim() && !hasResumeProjects) {
-      setError("Please enter a GitHub repository URL or upload a resume first to generate targeted project grilling questions.");
+  const handleAnalyzeGitHubRepo = async (overrideUrl?: string, overrideFocus?: string) => {
+    const targetUrl = (overrideUrl ?? githubUrl).trim();
+    const targetFocus = (overrideFocus ?? githubFocusNotes).trim();
+
+    if (!targetUrl) {
+      setError("Please enter a valid GitHub repository URL first so the AI interviewer can inspect your source code.");
       return;
     }
 
     setIsAnalyzingRepo(true);
     setError(null);
+    setGithubAnalysis(null);
+    setInspectedFiles([]);
+    setTotalFilesScanned(0);
+    setGrillQuestions([]);
 
     try {
       const contextualFocusNotes = [
         `Target Role: ${roleMeta.title}`,
         roleMeta.category ? `Domain Focus: ${roleMeta.category}` : "",
-        githubFocusNotes.trim(),
+        targetFocus,
       ]
         .filter(Boolean)
         .join(" | ");
@@ -110,7 +115,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetRole: roleMeta.title,
-          repoUrl: githubUrl.trim(),
+          repoUrl: targetUrl,
           focusNotes: contextualFocusNotes,
           resumeContext: detectedResume
             ? {
@@ -129,6 +134,12 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
       const data = await res.json();
       if (Array.isArray(data.langGraphTrace)) setGrillTrace(data.langGraphTrace);
       if (Array.isArray(data.toolsExecuted)) setGrillTools(data.toolsExecuted);
+      if (Array.isArray(data.githubRepoSummary?.inspectedFiles)) {
+        setInspectedFiles(data.githubRepoSummary.inspectedFiles);
+      }
+      if (typeof data.githubRepoSummary?.filesCount === "number") {
+        setTotalFilesScanned(data.githubRepoSummary.filesCount);
+      }
       if (data.analysis) {
         setGithubAnalysis(data.analysis as GitHubGrillAnalysis);
       }
@@ -215,7 +226,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
             </label>
             <input
               type="text"
-              placeholder="https://github.com/facebook/react or username/project-name"
+              placeholder="https://github.com/MananHindocha/placement-copliot or username/project-name"
               value={githubUrl}
               onChange={(e) => setGithubUrl(e.target.value)}
               className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2.5 text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929]"
@@ -223,9 +234,21 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
             <div className="flex items-center gap-1.5 flex-wrap mt-2">
               <span className="text-[10px] text-[#71717A] font-semibold uppercase">1-Click Test Repos:</span>
               {[
-                { name: "facebook/react", url: "https://github.com/facebook/react", focus: "Fiber reconciliation, hook queue, scheduling" },
-                { name: "vercel/next.js", url: "https://github.com/vercel/next.js", focus: "Server components, streaming SSR, App Router" },
-                { name: "expressjs/express", url: "https://github.com/expressjs/express", focus: "Middleware pipeline, router trie, error handling" },
+                {
+                  name: "MananHindocha/placement-copliot",
+                  url: "https://github.com/MananHindocha/placement-copliot",
+                  focus: "LangGraph interview engine, Next.js API routes, agent state sync",
+                },
+                {
+                  name: "vercel/next.js",
+                  url: "https://github.com/vercel/next.js",
+                  focus: "Server components, streaming SSR, App Router",
+                },
+                {
+                  name: "facebook/react",
+                  url: "https://github.com/facebook/react",
+                  focus: "Fiber reconciliation, hook queue, scheduling",
+                },
               ].map((demo) => (
                 <button
                   key={demo.name}
@@ -233,6 +256,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
                   onClick={() => {
                     setGithubUrl(demo.url);
                     setGithubFocusNotes(demo.focus);
+                    void handleAnalyzeGitHubRepo(demo.url, demo.focus);
                   }}
                   className="px-2 py-0.5 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[11px] text-[#A1A1AA] hover:text-[#F5F5F5] font-mono transition-colors cursor-pointer"
                 >
@@ -248,7 +272,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
             </label>
             <input
               type="text"
-              placeholder="e.g. Focus on WebSocket engine, Redis lock, auth JWT"
+              placeholder="e.g. Focus on LangGraph agent, API routes, state sync"
               value={githubFocusNotes}
               onChange={(e) => setGithubFocusNotes(e.target.value)}
               className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2.5 text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929]"
@@ -265,20 +289,18 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
 
         <div className="flex items-center justify-between flex-wrap gap-2">
           <span className="text-[11px] text-[#71717A]">
-            ⚡ Inspects README.md, package.json, file tree, and git commits to formulate deep {roleMeta.title} architectural cross-questions.
+            ⚡ Deep-scans source files, README.md, package manifest, and git commits before unlocking your {roleMeta.title} grill.
           </span>
           <Button
             variant="primary"
             size="sm"
             icon={isAnalyzingRepo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            onClick={handleAnalyzeGitHubRepo}
-            disabled={isAnalyzingRepo || (!githubUrl.trim() && !(detectedResume?.projects?.length))}
+            onClick={() => void handleAnalyzeGitHubRepo()}
+            disabled={isAnalyzingRepo || !githubUrl.trim()}
             className="font-semibold"
           >
             {isAnalyzingRepo
-              ? "Inspecting Codebase & Formulating Questions..."
-              : githubUrl.trim()
-              ? "Analyze Repo & Generate Grill Questions"
+              ? "Inspecting Source Files & Commits..."
               : "Generate Resume Project Grill Questions"}
           </Button>
         </div>
@@ -290,7 +312,12 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-2">
                   <FileCode className="w-4 h-4 text-[#A78BFA]" />
-                  Repository Intelligence: {githubAnalysis.owner}/{githubAnalysis.repoName}
+                  Deep-Scanned Repository: {githubAnalysis.owner}/{githubAnalysis.repoName}
+                  {totalFilesScanned > 0 && (
+                    <span className="text-[11px] font-mono text-[#71717A] font-normal">
+                      ({totalFilesScanned} files)
+                    </span>
+                  )}
                 </span>
                 {(grillTools.length > 0 || grillTrace.length > 0) && (
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -329,6 +356,20 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
               {githubAnalysis.summary}
             </p>
 
+            {(inspectedFiles.length > 0 || githubAnalysis.keyFilesAnalyzed.length > 0) && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="text-[#71717A] text-[11px]">Source files cross-examined:</span>
+                {(inspectedFiles.length > 0 ? inspectedFiles : githubAnalysis.keyFilesAnalyzed.slice(0, 5)).map((fp) => (
+                  <span
+                    key={fp}
+                    className="px-2 py-0.5 rounded bg-[#121212] border border-[#292929] font-mono text-[11px] text-[#F59E0B]"
+                  >
+                    {fp}
+                  </span>
+                ))}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-lg bg-[#10B981]/10 border border-[#10B981]/25">
                 <span className="font-bold text-[#10B981] block mb-1">Architecture Highlights</span>
@@ -358,7 +399,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
       mode="grill"
       initialRole={roleMeta.title}
       initialCategory="resume-grill"
-      initialQuestions={grillQuestions.length > 0 ? grillQuestions : undefined}
+      initialQuestions={grillQuestions}
       backHref="/interview/resume-grill"
       pageTitle={`${roleMeta.title} Project Grill`}
       pageSubtitle={`Experience an in-depth technical interview based on your ${roleMeta.title} projects, architecture, implementation decisions, and engineering trade-offs.`}
