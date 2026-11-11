@@ -477,185 +477,100 @@ export async function stage_resume_diff(
 
 export async function auto_seed_kanban_pipeline(
   userId: string,
-  args: { targetRole?: string; skills?: string[]; limit?: number } = {},
+  params: any = {},
   supabase?: any
 ): Promise<ToolExecutionResult & { status?: string }> {
-  const db = getDb(supabase);
+  // Extract skills and target role from agent params
+  const skills: string[] =
+    params.skills ||
+    params.targetSkills ||
+    params.requiredSkills ||
+    [];
+  const targetRole: string =
+    params.targetRole ||
+    params.role ||
+    "Software Engineer";
+  const limit: number = params.limit || 6;
 
-  const searchRole = (args.targetRole || "software engineer").trim();
-  const maxJobs = Math.min(args.limit || 4, 8);
+  // Build search query from skills and target role
+  const query = `${targetRole} ${skills.slice(0, 3).join(" ")}`.trim();
 
-  // Real Live Job Search Call to Remotive Public API
-  const encodedQuery = encodeURIComponent(searchRole);
-  let liveJobs: any[] = [];
+  let applications: any[] = [];
+
   try {
-    const remotiveRes = await fetch(
-      `https://remotive.com/api/remote-jobs?search=${encodedQuery}&limit=15`,
-      { headers: { Accept: "application/json" } }
+    // Use absolute URL for server-side fetch
+    const port = process.env.PORT || 3000;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : `http://localhost:${port}`);
+
+    const response = await fetch(
+      `${baseUrl}/api/jobs/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      {
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+      }
     );
-    if (remotiveRes.ok) {
-      const remotiveJson = await remotiveRes.json();
-      if (Array.isArray(remotiveJson?.jobs)) {
-        liveJobs = remotiveJson.jobs.slice(0, maxJobs);
-      }
+
+    if (response.ok) {
+      const data = await response.json();
+      const jobs = data.jobs || data.results || data.data || [];
+
+      applications = jobs.map((job: any, idx: number) => ({
+        id: job.id || `seeded-${Date.now()}-${idx}`,
+        company: job.company || job.employer || "Unknown Company",
+        role: job.title || job.position || targetRole,
+        title: job.title || job.position || targetRole,
+        status: "Applied",
+        appliedDate: new Date().toISOString().split("T")[0],
+        url: job.url || job.applyUrl || job.link || "",
+        location: job.location || job.city || "Remote",
+        salary: job.salary || job.salaryRange || "",
+        description: job.description || job.snippet || "",
+        matchScore: job.matchScore || job.score || 70,
+        source: "agent",
+        skills: skills,
+      }));
     }
-  } catch (err: any) {
-    console.warn("[auto_seed_kanban_pipeline] Remotive API network notice:", err?.message);
+  } catch (err) {
+    console.error("[auto_seed_kanban_pipeline] Job search failed:", err);
+    // Do NOT silently succeed — return honest empty state
   }
 
-  // Fallback to Himalayas Public API if Remotive returns 0 jobs
-  if (liveJobs.length === 0) {
+  // Also persist to database/in-memory store if db is available
+  if (applications.length > 0) {
     try {
-      const himalayasRes = await fetch(
-        `https://himalayas.app/jobs/api?q=${encodedQuery}&limit=10`,
-        { headers: { Accept: "application/json" } }
+      const db = getDb(supabase);
+      await db.from("applications").insert(
+        applications.map((a: any) => ({
+          user_id: userId,
+          company: a.company,
+          title: a.role || a.title,
+          status: a.status || "Applied",
+          url: a.url,
+          location: a.location,
+          salary: a.salary,
+          notes: `Live scouted via Agent for target role "${targetRole}".`,
+          created_at: new Date().toISOString(),
+        }))
       );
-      if (himalayasRes.ok) {
-        const himalayasJson = await himalayasRes.json();
-        const items = himalayasJson?.jobs || himalayasJson?.data || [];
-        if (Array.isArray(items) && items.length > 0) {
-          liveJobs = items.slice(0, maxJobs).map((j: any) => ({
-            company_name: j.companyName || j.company || "Himalayas Employer",
-            title: j.title || searchRole,
-            url: j.applicationUrl || j.url || "https://himalayas.app/jobs",
-            candidate_required_location: j.location || "Remote",
-            salary: j.salary || "Competitive",
-            tags: j.skills || j.categories || [],
-          }));
-        }
-      }
-    } catch (err: any) {
-      console.warn("[auto_seed_kanban_pipeline] Himalayas API network notice:", err?.message);
+    } catch {
+      // In-memory or database persistence notice
     }
   }
-
-  if (liveJobs.length === 0) {
-    // Provide realistic curated job listings for searchRole so seeding always succeeds even offline
-    liveJobs = [
-      {
-        company_name: "Stripe",
-        title: `${searchRole}`,
-        url: "https://stripe.com/jobs",
-        candidate_required_location: "Remote",
-        salary: "$145,000 - $185,000",
-        tags: ["Distributed Systems", "TypeScript", "Node.js", "APIs"],
-      },
-      {
-        company_name: "Vercel",
-        title: `${searchRole}`,
-        url: "https://vercel.com/careers",
-        candidate_required_location: "Remote",
-        salary: "$135,000 - $175,000",
-        tags: ["Next.js", "React", "Cloud Infrastructure"],
-      },
-      {
-        company_name: "Datadog",
-        title: `${searchRole}`,
-        url: "https://datadoghq.com/careers",
-        candidate_required_location: "Remote / Hybrid",
-        salary: "$140,000 - $180,000",
-        tags: ["Observability", "Go", "Distributed Systems"],
-      },
-      {
-        company_name: "Postman",
-        title: `${searchRole}`,
-        url: "https://postman.com/careers",
-        candidate_required_location: "Remote",
-        salary: "$130,000 - $165,000",
-        tags: ["Developer Tools", "APIs", "Microservices"],
-      },
-    ].slice(0, maxJobs);
-  }
-
-  const { data: existingApps } = await db
-    .from("applications")
-    .select("company, title")
-    .eq("user_id", userId);
-
-  const existingKeys = new Set(
-    (existingApps || []).map((a: any) => `${String(a.company).toLowerCase()}::${String(a.title || a.role).toLowerCase()}`)
-  );
-
-  const now = Date.now();
-  const rowsToInsert = liveJobs
-    .filter((job) => {
-      const key = `${String(job.company_name).toLowerCase()}::${String(job.title).toLowerCase()}`;
-      return !existingKeys.has(key);
-    })
-    .map((job, idx) => ({
-      id: `app-seed-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-      user_id: userId,
-      company: job.company_name,
-      title: job.title,
-      logo: `https://logo.clearbit.com/${encodeURIComponent(String(job.company_name).toLowerCase().replace(/[^a-z0-9]/g, ""))}.com`,
-      status: "Wishlist",
-      matchScore: Math.floor(Math.random() * 15) + 82,
-      priority: idx === 0 ? "high" : idx === 1 ? "medium" : "low",
-      url: job.url,
-      location: job.candidate_required_location || "Remote",
-      salary: job.salary || "Competitive",
-      notes: `Live scouted via Agent for target role "${searchRole}". Tags: ${(job.tags || []).slice(0, 6).join(", ")}. Recommended apply deadline: ${new Date(now + (idx + 2) * 86400000).toISOString().split("T")[0]}`,
-      created_at: new Date().toISOString(),
-    }));
-
-  if (rowsToInsert.length === 0) {
-    const existingList = (existingApps || []).slice(0, maxJobs).map((a: any, idx: number) => ({
-      id: a.id || `app-${idx}`,
-      company: a.company,
-      title: a.title,
-      logo: a.logo || `https://logo.clearbit.com/${encodeURIComponent(String(a.company).toLowerCase().replace(/[^a-z0-9]/g, ""))}.com`,
-      status: "Wishlist" as const,
-      matchScore: 88,
-      priority: "high" as const,
-      url: a.url || "https://remotive.com",
-      location: a.location || "Remote",
-      salary: a.salary || "Competitive",
-      notes: a.notes || `Scouted job for ${searchRole}.`,
-      createdAt: a.created_at || new Date().toISOString(),
-    }));
-    return {
-      success: true,
-      summary: `Found ${liveJobs.length} live jobs for "${searchRole}", all of which are already tracked in your Kanban pipeline.`,
-      data: {
-        seededCount: 0,
-        roles: liveJobs.map((j) => j.title),
-        applications: existingList,
-      },
-    };
-  }
-
-  const { data: insertedApps, error } = await db
-    .from("applications")
-    .insert(rowsToInsert)
-    .select("*");
-
-  if (error) {
-    throw new Error(`SUPABASE_KANBAN_SEED_ERROR: ${error.message}`);
-  }
-
-  const savedList = insertedApps && insertedApps.length > 0 ? insertedApps : rowsToInsert;
-  const applications = savedList.map((a: any, idx: number) => ({
-    id: a.id || `app-seed-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-    company: a.company,
-    title: a.title,
-    logo: a.logo || `https://logo.clearbit.com/${encodeURIComponent(String(a.company).toLowerCase().replace(/[^a-z0-9]/g, ""))}.com`,
-    status: (a.status === "Saved" ? "Wishlist" : a.status || "Wishlist"),
-    matchScore: typeof a.matchScore === "number" ? a.matchScore : 88,
-    priority: (a.priority || "high").toLowerCase() as "high" | "medium" | "low",
-    url: a.url || "https://remotive.com",
-    location: a.location || "Remote",
-    salary: a.salary || "Competitive",
-    notes: a.notes || `Live scouted by Placement Agent for "${searchRole}".`,
-    createdAt: a.created_at || new Date().toISOString(),
-  }));
 
   return {
     success: true,
-    summary: `Found ${applications.length} real jobs for "${searchRole}" and seeded them into your Kanban pipeline.`,
+    summary:
+      applications.length > 0
+        ? `Found ${applications.length} real ${targetRole} jobs matching your skills.`
+        : `Job search ran but returned no results for "${query}". Try broadening your target role.`,
     data: {
       seededCount: applications.length,
-      roles: applications.map((a: any) => a.title),
-      applications, // ← full objects here
+      roles: applications.map((a: any) => a.role),
+      applications: applications, // ← full objects for AgentProvider to sync
     },
   };
 }
