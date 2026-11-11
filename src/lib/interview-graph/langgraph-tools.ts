@@ -30,15 +30,26 @@ export interface SandboxExecutionToolResult {
   };
 }
 
+export interface InspectedSourceFile {
+  path: string;
+  codeExcerpt: string;
+}
+
 export interface GitHubRepoToolResult {
   owner: string;
   repo: string;
   fullName: string;
+  htmlUrl: string;
   description: string;
   primaryLanguage: string;
+  defaultBranch: string;
   stars: number;
   filePaths: string[];
+  totalFilesScanned: number;
   readmeExcerpt: string;
+  dependenciesManifest: string;
+  recentCommits: string[];
+  inspectedSourceFiles: InspectedSourceFile[];
 }
 
 interface GitTreeItem {
@@ -46,16 +57,90 @@ interface GitTreeItem {
   type?: string;
 }
 
+interface GitCommitItem {
+  commit?: {
+    message?: string;
+  };
+}
+
 function parseGitHubRepo(input?: string): { owner: string; repo: string } | null {
   if (!input || typeof input !== "string") return null;
   const cleaned = input.trim().replace(/\.git$/, "").replace(/\/$/, "");
-  const matchUrl = cleaned.match(/github\.com\/([^/]+)\/([^/]+)/i);
+  const matchUrl = cleaned.match(/github\.com\/([^/\s]+)\/([^/\s?#]+)/i);
   if (matchUrl) return { owner: matchUrl[1], repo: matchUrl[2] };
   const parts = cleaned.split("/");
   if (parts.length === 2 && parts[0] && parts[1]) {
-    return { owner: parts[0], repo: parts[1] };
+    return { owner: parts[0].trim(), repo: parts[1].trim() };
   }
   return null;
+}
+
+function selectHighSignalSourceFiles(filePaths: string[], focusNotes: string): string[] {
+  const codeExtensions = /\.(c|h|cpp|hpp|cc|cxx|ts|tsx|js|jsx|py|go|java|rs)$/i;
+  const buildManifests = /(?:^|\/)(Makefile|CMakeLists\.txt)$/i;
+  const hardIgnorePatterns =
+    /(node_modules|\.next|dist|build|vendor|\.min\.|\.d\.ts|tailwind\.config|postcss|eslint|vite\.config|package-lock|yarn\.lock)/i;
+  const lowPriorityTestPatterns =
+    /(?:^|\/)(tests?|__tests__|benchmarks?|e2e|fixtures?|mocks?)\/|(?:^|\/)(test_|slowtest|benchmark|ab\.py$)|_test\.|\.(spec|test)\./i;
+
+  const candidateFiles = filePaths.filter(
+    (p) => (codeExtensions.test(p) || buildManifests.test(p)) && !hardIgnorePatterns.test(p)
+  );
+
+  // Strictly skip tests/benchmarks whenever real source files exist in the repo
+  const nonTestCodeFiles = candidateFiles.filter(
+    (p) => codeExtensions.test(p) && !lowPriorityTestPatterns.test(p)
+  );
+  const poolToScore =
+    nonTestCodeFiles.length > 0
+      ? candidateFiles.filter((p) => !lowPriorityTestPatterns.test(p))
+      : candidateFiles;
+
+  const focusKeywords = focusNotes
+    .toLowerCase()
+    .split(/[^a-z0-9_]+/)
+    .filter((w) => w.length >= 3);
+
+  const scored = poolToScore.map((filePath) => {
+    const lower = filePath.toLowerCase();
+    const fileName = lower.split("/").pop() || lower;
+    let score = buildManifests.test(filePath) ? 2 : 15;
+
+    if (lowPriorityTestPatterns.test(lower)) score -= 80;
+    if (/\.(c|cpp|cc|cxx|rs|go)$/i.test(fileName)) score += 20;
+    if (/\.(h|hpp)$/i.test(fileName)) score += 12;
+    if (/\.(ts|tsx|py|java)$/i.test(fileName)) score += 8;
+
+    if (
+      /(dispatcher|worker|server|client|broker|engine|orchestrator|protocol|router|scheduler|queue|socket|net|thread|pool|core|main|app|index|graph|agent)/i.test(
+        fileName
+      )
+    ) {
+      score += 24;
+    }
+    if (
+      lower.includes("api/") ||
+      lower.includes("route.") ||
+      lower.includes("controller") ||
+      lower.includes("lib/") ||
+      lower.includes("service")
+    ) {
+      score += 12;
+    }
+    if (lower.includes("context/") || lower.includes("store") || lower.includes("db") || lower.includes("schema")) {
+      score += 6;
+    }
+    if (lower.startsWith("src/") || !lower.includes("/")) {
+      score += 10;
+    }
+    for (const kw of focusKeywords) {
+      if (lower.includes(kw)) score += 25;
+    }
+    return { filePath, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score || a.filePath.localeCompare(b.filePath));
+  return scored.slice(0, 6).map((s) => s.filePath);
 }
 
 /**
@@ -144,11 +229,15 @@ export const executeSandboxCodeTool = new DynamicStructuredTool({
 export const inspectGitHubRepoTool = new DynamicStructuredTool({
   name: "inspect_github_repo_tool",
   description:
-    "Fetches live GitHub repository metadata, up to 80 file tree paths, and the README excerpt for an engineering Deep-Grill session.",
+    "Fetches live GitHub repository metadata, recursive file tree, package manifest, recent commits, README excerpt, and actual source code excerpts from up to 6 core implementation files.",
   schema: z.object({
     repoInput: z.string().describe("GitHub repository URL or owner/repo slug"),
+    focusNotes: z
+      .string()
+      .optional()
+      .describe("Optional module or architecture focus notes for prioritizing source files"),
   }),
-  func: async ({ repoInput }): Promise<string> => {
+  func: async ({ repoInput, focusNotes = "" }): Promise<string> => {
     const parsed = parseGitHubRepo(repoInput);
     if (!parsed) {
       throw new Error(
@@ -158,10 +247,11 @@ export const inspectGitHubRepoTool = new DynamicStructuredTool({
 
     const headers: Record<string, string> = {
       Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Placement-Copilot-Agent",
+      "User-Agent": "Placement-Copilot-Deep-Grill-Agent",
     };
-    if (process.env.GITHUB_TOKEN) {
-      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    const token = process.env.GITHUB_TOKEN?.trim();
+    if (token && !token.includes("placeholder")) {
+      headers.Authorization = `Bearer ${token}`;
     }
 
     const repoRes = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`, {
@@ -170,7 +260,7 @@ export const inspectGitHubRepoTool = new DynamicStructuredTool({
     });
     if (!repoRes.ok) {
       throw new Error(
-        `GITHUB_API_ERROR: Could not fetch repo ${parsed.owner}/${parsed.repo} (HTTP ${repoRes.status}). Make sure the repository is public.`
+        `GITHUB_API_ERROR: Could not fetch repo ${parsed.owner}/${parsed.repo} (HTTP ${repoRes.status}). Make sure the repository exists and is public.`
       );
     }
     const repoMeta = (await repoRes.json()) as {
@@ -178,12 +268,13 @@ export const inspectGitHubRepoTool = new DynamicStructuredTool({
       description?: string;
       language?: string;
       stargazers_count?: number;
+      html_url?: string;
     };
     const defaultBranch = repoMeta.default_branch || "main";
 
-    const [treeRes, readmeRes] = await Promise.all([
+    const [treeRes, readmeRes, pkgRes, reqsRes, commitsRes] = await Promise.all([
       fetch(
-        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/trees/${defaultBranch}?recursive=1`,
+        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/trees/${encodeURIComponent(defaultBranch)}?recursive=1`,
         {
           headers,
           signal: AbortSignal.timeout(10000),
@@ -193,34 +284,99 @@ export const inspectGitHubRepoTool = new DynamicStructuredTool({
         headers,
         signal: AbortSignal.timeout(10000),
       }),
+      fetch(
+        `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${encodeURIComponent(defaultBranch)}/package.json`,
+        { signal: AbortSignal.timeout(8000) }
+      ).catch(() => null),
+      fetch(
+        `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${encodeURIComponent(defaultBranch)}/requirements.txt`,
+        { signal: AbortSignal.timeout(8000) }
+      ).catch(() => null),
+      fetch(
+        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=8`,
+        {
+          headers,
+          signal: AbortSignal.timeout(8000),
+        }
+      ).catch(() => null),
     ]);
 
-    let filePaths: string[] = [];
+    let allBlobPaths: string[] = [];
     if (treeRes.ok) {
       const treeJson = (await treeRes.json()) as { tree?: GitTreeItem[] };
-      filePaths = (treeJson.tree || [])
+      allBlobPaths = (treeJson.tree || [])
         .filter((item) => item.type === "blob" && typeof item.path === "string")
-        .map((item) => item.path!)
-        .slice(0, 80);
+        .map((item) => item.path!);
     }
 
     let readmeExcerpt = "";
     if (readmeRes.ok) {
       const readmeJson = (await readmeRes.json()) as { content?: string };
       if (readmeJson.content) {
-        readmeExcerpt = Buffer.from(readmeJson.content, "base64").toString("utf-8").slice(0, 2500);
+        readmeExcerpt = Buffer.from(readmeJson.content, "base64").toString("utf-8").slice(0, 2200);
       }
     }
+
+    let dependenciesManifest = "";
+    if (pkgRes && pkgRes.ok) {
+      dependenciesManifest = (await pkgRes.text()).slice(0, 1800);
+    } else if (reqsRes && reqsRes.ok) {
+      dependenciesManifest = (await reqsRes.text()).slice(0, 1500);
+    }
+
+    let recentCommits: string[] = [];
+    if (commitsRes && commitsRes.ok) {
+      const commitsJson = (await commitsRes.json()) as GitCommitItem[];
+      if (Array.isArray(commitsJson)) {
+        recentCommits = commitsJson
+          .map((c) => c.commit?.message?.split("\n")[0]?.trim())
+          .filter((msg): msg is string => Boolean(msg))
+          .slice(0, 6);
+      }
+    }
+
+    const keyFilesToRead = selectHighSignalSourceFiles(allBlobPaths, focusNotes);
+    const inspectedSourceFiles: InspectedSourceFile[] = [];
+
+    await Promise.all(
+      keyFilesToRead.map(async (filePath) => {
+        try {
+          const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+          const rawFileUrl = `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${encodeURIComponent(defaultBranch)}/${encodedPath}`;
+          const fRes = await fetch(rawFileUrl, { signal: AbortSignal.timeout(8000) });
+          if (fRes.ok) {
+            const text = await fRes.text();
+            inspectedSourceFiles.push({
+              path: filePath,
+              codeExcerpt: text.slice(0, 3200),
+            });
+          }
+        } catch {
+          // Skip individual file fetch failures cleanly
+        }
+      })
+    );
+
+    // Keep deterministic order matching priority score
+    inspectedSourceFiles.sort(
+      (a, b) => keyFilesToRead.indexOf(a.path) - keyFilesToRead.indexOf(b.path)
+    );
 
     const result: GitHubRepoToolResult = {
       owner: parsed.owner,
       repo: parsed.repo,
       fullName: `${parsed.owner}/${parsed.repo}`,
+      htmlUrl: repoMeta.html_url || `https://github.com/${parsed.owner}/${parsed.repo}`,
       description: repoMeta.description || "",
       primaryLanguage: repoMeta.language || "Unknown",
+      defaultBranch,
       stars: repoMeta.stargazers_count || 0,
-      filePaths,
+      filePaths: allBlobPaths.slice(0, 150),
+      totalFilesScanned: allBlobPaths.length,
       readmeExcerpt,
+      dependenciesManifest,
+      recentCommits,
+      inspectedSourceFiles,
     };
 
     return JSON.stringify(result);

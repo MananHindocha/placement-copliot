@@ -243,6 +243,7 @@ export type InterviewQuestion = {
   whyAskThis?: string;
   bridgeTag?: string;
   codeExcerpt?: string;
+  exactFunctionOrStruct?: string;
   progressiveHints?: string[];
   sampleAnswer?: string;
   idealAnswer?: string;
@@ -257,6 +258,7 @@ export interface GitHubGrillQuestion {
   difficulty: "Medium" | "Hard";
   question: string;
   referencedFiles: string[];
+  exactFunctionOrStruct?: string;
   codeExcerpt?: string;
   keyConcepts?: string[];
   whatInterviewerLooksFor: string;
