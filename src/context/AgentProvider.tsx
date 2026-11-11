@@ -259,7 +259,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const triggerAgent = useCallback(
     async (input: AgentTriggerInput) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
       setIsExecutingAgent(true);
       setAgentError(null);
       if (input.autoOpenDrawer) {
@@ -303,7 +303,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       } catch (err: any) {
         const msg =
           err?.name === "AbortError"
-            ? "Agent request timed out after 15s."
+            ? "Agent request timed out after 45s."
             : err?.message || "Network failure during agent execution.";
         setAgentError(msg);
         return { status: "FAILED", error: msg };
