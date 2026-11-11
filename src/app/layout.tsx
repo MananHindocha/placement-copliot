@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
-import Topbar from "@/components/layout/Topbar";
 import { AgentProvider } from "@/context/AgentProvider";
-import { ExecutionTraceDrawer } from "@/components/agent/ExecutionTraceDrawer";
-import IntegratedRobotNavigator from "@/components/agent/IntegratedRobotNavigator";
+import AppShell from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "Placement Co-pilot | Your AI-Powered Job Search Dashboard",
@@ -18,18 +15,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-black">
-      <body className="h-full flex antialiased bg-black text-[#F5F6FF]">
+    <html lang="en" className="h-full bg-[#000000]">
+      <body className="h-dvh overflow-hidden antialiased bg-[#000000] text-[#F5F5F5]">
         <AgentProvider>
-          <Sidebar />
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-black">
-            <Topbar />
-            <main className="flex-1 overflow-y-auto bg-black p-4 sm:p-6 space-y-6">
-              <IntegratedRobotNavigator />
-              {children}
-            </main>
-          </div>
-          <ExecutionTraceDrawer />
+          <AppShell>{children}</AppShell>
         </AgentProvider>
       </body>
     </html>

@@ -123,24 +123,24 @@ export default function BluffRiskAuditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-gradient-to-b from-[#130914] via-[#0d0710] to-[#08040a] border border-rose-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-fadeIn">
+      <div className="relative w-full max-w-4xl bg-[#0D0D0D] border border-[#292929] rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-rose-950/40 border-b border-rose-500/30">
+        <div className="flex items-center justify-between px-6 py-4 bg-[#0A0A0A] border-b border-[#1D1D1D]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/12 border border-rose-500/30 flex items-center justify-center text-rose-400">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white tracking-tight">
+                <h3 className="text-base font-bold text-[#F5F5F5] tracking-tight">
                   Resume Accuracy Check
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tabular-nums bg-rose-500/12 text-rose-300 border border-rose-500/30">
                   {bluffSkills.length} To Review
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-[#A1A1AA] mt-0.5">
                 Compare skills listed on your resume with your practice results to ensure accuracy.
               </p>
             </div>
@@ -149,18 +149,18 @@ export default function BluffRiskAuditModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#121212] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Diagnostic Overview Banner */}
-        <div className="px-6 py-3 bg-[#180a15] border-b border-rose-500/20 flex items-center justify-between flex-wrap gap-2 text-xs">
-          <div className="flex items-center gap-2 text-rose-200">
+        <div className="px-6 py-3 bg-[#050505] border-b border-[#1D1D1D] flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="flex items-center gap-2 text-[#F5F5F5]">
             <Scale className="w-4 h-4 text-rose-400" />
             <span className="font-semibold">Review Protocol:</span>
-            <span className="text-slate-300">
+            <span className="text-[#71717A]">
               Either test your knowledge with a 60-second check or choose an honest bullet rewrite.
             </span>
           </div>
@@ -169,14 +169,14 @@ export default function BluffRiskAuditModal({
         {/* Scrollable List of Cards */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1 font-sans">
           {bluffSkills.length === 0 ? (
-            <div className="p-10 text-center space-y-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/30">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto">
+            <div className="p-10 text-center space-y-3 rounded-xl bg-emerald-500/8 border border-emerald-500/25">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <h4 className="text-base font-bold text-white">
+              <h4 className="text-base font-bold text-[#F5F5F5]">
                 All Skills Verified!
               </h4>
-              <p className="text-xs text-slate-300 max-w-md mx-auto">
+              <p className="text-xs text-[#A1A1AA] max-w-md mx-auto">
                 All skills on your resume are backed by verified practice sessions and projects.
               </p>
             </div>
@@ -190,25 +190,25 @@ export default function BluffRiskAuditModal({
                 <div
                   key={skill.skill_name}
                   className={clsx(
-                    "rounded-2xl border p-5 transition-all space-y-4 shadow-lg",
+                    "rounded-xl border p-5 transition-colors space-y-4",
                     isRemediated
-                      ? "bg-emerald-950/25 border-emerald-500/30"
-                      : "bg-[#140813]/90 border-rose-500/30 hover:border-rose-500/50"
+                      ? "bg-emerald-500/8 border-emerald-500/30"
+                      : "bg-[#0A0A0A] border-[#1D1D1D] hover:border-rose-500/35"
                   )}
                 >
                   {/* Skill Badge & Discrepancy Header */}
-                  <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-white/8">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-base font-bold text-white">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#1D1D1D]">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="text-base font-bold text-[#F5F5F5]">
                         {skill.skill_name}
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/12 text-rose-300 border border-rose-500/30">
                         ⚠️ On Resume: {skill.claimed_level} · Practice Level: {skill.verified_confidence}
                       </span>
                     </div>
 
                     {isRemediated && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                         <Check className="w-3.5 h-3.5" />
                         <span>Skill Updated • Suggested Rewrite Staged</span>
                       </span>
@@ -218,23 +218,23 @@ export default function BluffRiskAuditModal({
                   {/* Side-by-Side Comparison Boxes */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Left Box: The Resume Claim */}
-                    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-2">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-                        <span className="flex items-center gap-1.5 text-purple-300">
-                          <FileText className="w-3.5 h-3.5 text-purple-400" />
+                    <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-4 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-[#A1A1AA]">
+                        <span className="flex items-center gap-1.5 text-[#A1A1AA]">
+                          <FileText className="w-3.5 h-3.5 text-[#A1A1AA]" />
                           Current Resume Bullet
                         </span>
-                        <span className="text-[10px] text-purple-400/80 font-mono">
+                        <span className="text-[10px] text-[#71717A] font-mono">
                           Parsed from Resume
                         </span>
                       </div>
-                      <p className="text-xs text-slate-200 leading-relaxed font-mono bg-purple-950/20 p-2.5 rounded-lg border border-purple-500/20">
+                      <p className="text-xs text-[#F5F5F5]/90 leading-relaxed font-mono bg-[#080808] p-2.5 rounded-lg border border-[#1D1D1D]">
                         {claimData.resumeClaim}
                       </p>
                     </div>
 
                     {/* Right Box: The Failed Evidence Citation */}
-                    <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2">
+                    <div className="rounded-xl border border-rose-500/25 bg-rose-500/8 p-4 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-bold text-rose-300">
                         <span className="flex items-center gap-1.5">
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
@@ -244,19 +244,19 @@ export default function BluffRiskAuditModal({
                           Session Result
                         </span>
                       </div>
-                      <p className="text-xs text-rose-200 leading-relaxed font-sans bg-black/40 p-2.5 rounded-lg border border-rose-500/20">
+                      <p className="text-xs text-rose-200 leading-relaxed font-sans bg-[#080808] p-2.5 rounded-lg border border-rose-500/20">
                         &ldquo;{claimData.failedCitation}&rdquo;
                       </p>
                     </div>
                   </div>
 
                   {/* Defensible Rewrite Preview */}
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 p-3.5 space-y-1.5">
+                  <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3.5 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Suggested Honest Rewrite:</span>
                     </div>
-                    <p className="text-xs text-emerald-100 font-mono leading-relaxed bg-black/30 p-2 rounded-lg border border-emerald-500/10">
+                    <p className="text-xs text-emerald-100 font-mono leading-relaxed bg-[#080808] p-2.5 rounded-lg border border-emerald-500/20">
                       {claimData.defensibleRewrite}
                     </p>
                   </div>
@@ -270,9 +270,9 @@ export default function BluffRiskAuditModal({
                         onClose();
                         onLaunchProbe(skill.skill_name);
                       }}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] text-[#000000] font-semibold text-xs transition-colors cursor-pointer"
                     >
-                      <Zap className="w-3.5 h-3.5 text-amber-300" />
+                      <Zap className="w-3.5 h-3.5" />
                       <span>Option A: ⚡ Quick Skill Check (60s Quiz)</span>
                     </button>
 
@@ -281,7 +281,7 @@ export default function BluffRiskAuditModal({
                       type="button"
                       onClick={() => handleToneDown(skill)}
                       disabled={isRemediated || isProcessing}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isProcessing ? (
                         <>
@@ -290,12 +290,12 @@ export default function BluffRiskAuditModal({
                         </>
                       ) : isRemediated ? (
                         <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
                           <span>Rewrite Staged</span>
                         </>
                       ) : (
                         <>
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-200" />
                           <span>Option B: 📝 Update Resume Bullet</span>
                         </>
                       )}
@@ -308,8 +308,8 @@ export default function BluffRiskAuditModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-black/60 border-t border-white/8 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-400">
+        <div className="px-6 py-4 bg-[#0A0A0A] border-t border-[#1D1D1D] flex items-center justify-between gap-3">
+          <div className="text-xs text-[#A1A1AA]">
             {bluffSkills.length > 0 ? (
               <span>
                 Ensuring your resume accurately matches your skills helps you succeed in technical interviews.
@@ -325,7 +325,7 @@ export default function BluffRiskAuditModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all cursor-pointer"
+              className="px-5 py-2 rounded-lg bg-[#121212] hover:bg-[#1A1A1A] border border-[#292929] text-[#F5F5F5] text-xs font-semibold transition-colors cursor-pointer"
             >
               Done
             </button>

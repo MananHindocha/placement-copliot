@@ -187,54 +187,51 @@ export default function RealResumeUploader({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={clsx(
-          "group relative flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-8 sm:p-12 text-center transition-all cursor-pointer",
+          "group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 sm:p-12 text-center transition-colors cursor-pointer",
           dragActive
-            ? "border-cyan-400 bg-cyan-950/20 scale-[1.01]"
-            : "border-indigo-500/30 bg-gradient-to-b from-[#0c0f24] to-[#070914] hover:border-indigo-400/60 hover:bg-[#0e1330]",
+            ? "border-[#A78BFA] bg-[#121212]"
+            : "border-[#292929] bg-[#0D0D0D] hover:border-[#3F3F46] hover:bg-[#121212]",
           isUploading && "pointer-events-none opacity-85"
         )}
       >
-        {/* Glow ambient background */}
-        <div className="absolute inset-0 bg-radial from-indigo-500/5 to-transparent pointer-events-none rounded-3xl" />
-
         {isUploading ? (
           <div className="flex flex-col items-center space-y-3 relative z-10">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-cyan-300">
-              <Loader2 className="h-8 w-8 animate-spin" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#121212] border border-[#292929] text-[#A78BFA]">
+              <Loader2 className="h-7 w-7 animate-spin" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-base font-bold text-white">
+              <h4 className="text-base font-bold text-[#F5F5F5]">
                 Reading and extracting {uploadFileName}...
               </h4>
-              <p className="text-xs text-cyan-300 animate-pulse">
+              <p className="text-xs text-[#A1A1AA]">
                 Parsing verified skills, projects, and computing real ATS score with AI...
               </p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center space-y-3 relative z-10 max-w-lg">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 group-hover:scale-110 group-hover:text-cyan-300 transition-all shadow-lg">
-              <Upload className="h-8 w-8" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#121212] border border-[#292929] text-[#A1A1AA] group-hover:text-[#F5F5F5] group-hover:border-[#3F3F46] transition-colors">
+              <Upload className="h-7 w-7" />
             </div>
 
             <div className="space-y-1">
-              <h4 className="text-base sm:text-lg font-bold text-white group-hover:text-cyan-200 transition-colors">
+              <h4 className="text-base sm:text-lg font-bold text-[#F5F5F5]">
                 {headline}
               </h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-[#71717A] leading-relaxed">
                 {description}
               </p>
             </div>
 
-            <div className="pt-2 flex items-center gap-3">
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 group-hover:from-indigo-500 group-hover:to-cyan-400 transition-all"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#F5F5F5] hover:bg-[#E4E4E7] px-5 py-2.5 text-xs font-semibold text-[#000000] transition-colors cursor-pointer"
               >
                 <FileText className="h-4 w-4" />
                 <span>Browse &amp; Upload File</span>
               </button>
-              <span className="text-[11px] text-slate-500">Supports PDF, DOCX, TXT (up to 10MB)</span>
+              <span className="text-[11px] text-[#71717A]">Supports PDF, DOCX, TXT (up to 10MB)</span>
             </div>
           </div>
         )}
@@ -242,8 +239,8 @@ export default function RealResumeUploader({
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 flex items-center gap-3 text-xs text-rose-300">
-          <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
+        <div className="rounded-xl border border-[#F43F5E]/25 bg-[#0D0D0D] p-4 flex items-center gap-3 text-xs text-[#F43F5E]">
+          <AlertCircle className="h-5 w-5 text-[#F43F5E] shrink-0" />
           <div className="flex-1">
             <span className="font-bold">Upload Failed: </span>
             <span>{errorMessage}</span>
@@ -253,14 +250,14 @@ export default function RealResumeUploader({
 
       {/* Success Notification */}
       {successData && (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 flex items-center justify-between gap-3 text-xs text-emerald-300 animate-in fade-in slide-in-from-top-2">
+        <div className="rounded-xl border border-[#10B981]/25 bg-[#0D0D0D] p-4 flex items-center justify-between gap-3 text-xs text-[#10B981] animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2.5">
-            <FileCheck className="h-5 w-5 text-emerald-400 shrink-0" />
+            <FileCheck className="h-5 w-5 text-[#10B981] shrink-0" />
             <div>
-              <p className="font-bold text-white">
+              <p className="font-bold text-[#F5F5F5]">
                 Successfully parsed {successData.fileName}!
               </p>
-              <p className="text-[11px] text-slate-300 mt-0.5">
+              <p className="text-[11px] text-[#71717A] mt-0.5">
                 Extracted {successData.skills.length} skills, {successData.projectsCount} projects • Initial ATS Score: {successData.atsScore}%
               </p>
             </div>
