@@ -20,49 +20,20 @@ function getSupabaseServerClient() {
   }
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
-    const apiKey = rawKey ? rawKey.trim().replace(/^["']|["']$/g, "") : "";
-    if (!apiKey || apiKey === "placeholder-gemini-key") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "GEMINI_API_KEY_MISSING: Add a valid GEMINI_API_KEY in .env.local to parse resume files.",
-        },
-        { status: 400 }
-      );
-    }
+async function parseResumeWithGemini(
+  pdfBase64: string,
+  mimeType: string,
+  targetRole: string = "Software Engineer"
+): Promise<any> {
+  const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
+  if (!apiKey || apiKey === "placeholder-gemini-key") {
+    const error: any = new Error("GEMINI_API_KEY_MISSING: Gemini API key not set (UNAVAILABLE)");
+    error.status = 503;
+    throw error;
+  }
 
-    const formData = await req.formData();
-    const uploadedFile = formData.get("file") as File | null;
-    const rawTargetRole = (formData.get("targetRole") as string | null) || "";
-    const passedUserId = (formData.get("userId") as string | null) || undefined;
-
-    if (!uploadedFile) {
-      return NextResponse.json(
-        { success: false, error: "NO_FILE_UPLOADED: Please attach a PDF or TXT resume file." },
-        { status: 400 }
-      );
-    }
-
-    if (!rawTargetRole.trim()) {
-      return NextResponse.json(
-        { success: false, error: "TARGET_ROLE_REQUIRED: Please select or enter your aspiring target role first." },
-        { status: 400 }
-      );
-    }
-
-    const targetRole = rawTargetRole.trim();
-    const { effectiveUserId, isGuest } = resolveEffectiveUserId(passedUserId);
-    const supabase = getSupabaseServerClient();
-
-    const arrayBuffer = await uploadedFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Data = buffer.toString("base64");
-    const mimeType = uploadedFile.type || (uploadedFile.name.endsWith(".pdf") ? "application/pdf" : "text/plain");
-
-    const extractionPrompt = `You are a strict Technical Resume Parser & Role Readiness Auditor.
+  const extractionPrompt = `You are a strict Technical Resume Parser & Role Readiness Auditor.
 The candidate is aspiring for the target role: "${targetRole}".
 
 Inspect the attached resume document and return ONLY a valid JSON object (no markdown fences) matching this exact structure:
@@ -112,55 +83,272 @@ STRICT RULES:
 - Extract ONLY skills, projects, and bullets that genuinely exist in the attached file.
 - Never invent fake companies, fake projects, or hardcoded skills.`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
+  const geminiRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { inlineData: { data: pdfBase64, mimeType } },
+              { text: extractionPrompt },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: "application/json",
+        },
+      }),
+    }
+  );
+
+  if (!geminiRes.ok) {
+    const errText = await geminiRes.text();
+    const error: any = new Error(
+      `GEMINI_PDF_PARSE_ERROR (HTTP ${geminiRes.status}): ${errText.slice(0, 300)}`
+    );
+    error.status = geminiRes.status;
+    throw error;
+  }
+
+  const geminiJson = await geminiRes.json();
+  const rawJsonText = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawJsonText) {
+    throw new Error("GEMINI_EMPTY_PARSE: Model returned empty extraction payload.");
+  }
+
+  const cleanedJsonText = rawJsonText
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  return JSON.parse(cleanedJsonText);
+}
+
+async function parseResumeWithGrok(pdfBase64: string, mimeType: string): Promise<any> {
+  const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Grok API key not set. Add XAI_API_KEY to .env.local");
+  }
+
+  const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "grok-2-vision-1212",
+      messages: [
+        {
+          role: "user",
+          content: [
             {
-              role: "user",
-              parts: [
-                { inlineData: { data: base64Data, mimeType } },
-                { text: extractionPrompt },
-              ],
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${pdfBase64}`,
+                detail: "high",
+              },
+            },
+            {
+              type: "text",
+              text: `Extract all information from this resume PDF and return a JSON object with exactly this structure:
+{
+  "name": "full name",
+  "email": "email",
+  "phone": "phone",
+  "summary": "professional summary",
+  "skills": ["skill1", "skill2"],
+  "experience": [
+    {
+      "company": "company name",
+      "role": "job title",
+      "duration": "start - end",
+      "bullets": ["achievement 1", "achievement 2"]
+    }
+  ],
+  "projects": [
+    {
+      "name": "project name",
+      "description": "what it does",
+      "tech": ["tech1", "tech2"],
+      "bullets": ["bullet 1"]
+    }
+  ],
+  "education": [
+    {
+      "institution": "school name",
+      "degree": "degree",
+      "year": "graduation year",
+      "gpa": "gpa if present"
+    }
+  ],
+  "certifications": ["cert1"],
+  "atsScore": 70
+}
+Return ONLY the JSON object, no markdown, no explanation.`,
             },
           ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
+        },
+      ],
+      max_tokens: 4000,
+      temperature: 0,
+    }),
+  });
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Grok API error: ${response.status} — ${err}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || "";
+
+  // Strip markdown code fences if present
+  const cleaned = content.replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error(`Grok returned invalid JSON: ${cleaned.slice(0, 200)}`);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = rawKey ? rawKey.trim().replace(/^["']|["']$/g, "") : "";
+    const grokKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+
+    if ((!apiKey || apiKey === "placeholder-gemini-key") && !grokKey) {
       return NextResponse.json(
         {
           success: false,
-          error: `GEMINI_PDF_PARSE_ERROR (HTTP ${geminiRes.status}): ${errText.slice(0, 300)}`,
+          error: "AI_KEY_MISSING: Add a valid GEMINI_API_KEY or XAI_API_KEY in .env.local to parse resume files.",
         },
-        { status: 502 }
+        { status: 400 }
       );
     }
 
-    const geminiJson = await geminiRes.json();
-    const rawJsonText = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawJsonText) {
+    const formData = await req.formData();
+    const uploadedFile = formData.get("file") as File | null;
+    const rawTargetRole = (formData.get("targetRole") as string | null) || "";
+    const passedUserId = (formData.get("userId") as string | null) || undefined;
+
+    if (!uploadedFile) {
       return NextResponse.json(
-        { success: false, error: "GEMINI_EMPTY_PARSE: Model returned empty extraction payload." },
-        { status: 502 }
+        { success: false, error: "NO_FILE_UPLOADED: Please attach a PDF or TXT resume file." },
+        { status: 400 }
       );
     }
 
-    const cleanedJsonText = rawJsonText
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/, "")
-      .trim();
-    const parsedResume = JSON.parse(cleanedJsonText);
+    if (!rawTargetRole.trim()) {
+      return NextResponse.json(
+        { success: false, error: "TARGET_ROLE_REQUIRED: Please select or enter your aspiring target role first." },
+        { status: 400 }
+      );
+    }
+
+    const targetRole = rawTargetRole.trim();
+    const { effectiveUserId, isGuest } = resolveEffectiveUserId(passedUserId);
+    const supabase = getSupabaseServerClient();
+
+    const arrayBuffer = await uploadedFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Data = buffer.toString("base64");
+    const mimeType = uploadedFile.type || (uploadedFile.name.endsWith(".pdf") ? "application/pdf" : "text/plain");
+
+    let parsedResume: any = null;
+    let parserUsed = "gemini";
+
+    // Try Gemini first
+    try {
+      parsedResume = await parseResumeWithGemini(base64Data, mimeType, targetRole);
+    } catch (geminiError: any) {
+      const isOverloaded =
+        geminiError?.status === 503 ||
+        geminiError?.status === 429 ||
+        geminiError?.message?.includes("503") ||
+        geminiError?.message?.includes("429") ||
+        geminiError?.message?.includes("UNAVAILABLE") ||
+        geminiError?.message?.includes("high demand") ||
+        geminiError?.message?.includes("unavailable") ||
+        geminiError?.message?.includes("overloaded");
+
+      if (isOverloaded) {
+        console.warn("[resume/parse] Gemini 503 — falling back to Grok");
+        try {
+          parsedResume = await parseResumeWithGrok(base64Data, mimeType);
+          parserUsed = "grok";
+        } catch (grokError: any) {
+          console.error("[resume/parse] Grok fallback also failed:", grokError.message);
+          return NextResponse.json(
+            {
+              error: "Both Gemini and Grok are unavailable. Please try again in 30 seconds.",
+              geminiError: geminiError.message,
+              grokError: grokError.message,
+            },
+            { status: 503 }
+          );
+        }
+      } else {
+        // Not a 503 — surface the real error
+        return NextResponse.json(
+          { error: `Resume parse failed: ${geminiError.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    console.log(`[resume/parse] Parsed with ${parserUsed}`);
+
+    // Normalize fields for downstream compatibility
+    if (!parsedResume.candidateName && parsedResume.name) {
+      parsedResume.candidateName = parsedResume.name;
+    }
+    if (!parsedResume.targetRole) {
+      parsedResume.targetRole = targetRole;
+    }
+    if (!parsedResume.extractedSkills && Array.isArray(parsedResume.skills)) {
+      parsedResume.extractedSkills = parsedResume.skills.map((s: any) => ({
+        name: typeof s === "string" ? s : s?.name || "",
+        claimedLevel: "HIGH" as const,
+        citation: "Extracted from resume",
+      }));
+    }
+    if (!parsedResume.skills && Array.isArray(parsedResume.extractedSkills)) {
+      parsedResume.skills = parsedResume.extractedSkills.map((s: any) =>
+        typeof s === "string" ? s : s.name
+      );
+    }
+    if (Array.isArray(parsedResume.projects)) {
+      parsedResume.projects = parsedResume.projects.map((p: any) => ({
+        ...p,
+        techStack: p.techStack || p.tech || [],
+        bullets: p.bullets || (p.description ? [p.description] : []),
+      }));
+    } else {
+      parsedResume.projects = [];
+    }
+    if (!Array.isArray(parsedResume.experience)) {
+      parsedResume.experience = [];
+    }
+    if (!Array.isArray(parsedResume.missingSkillsForTargetRole)) {
+      parsedResume.missingSkillsForTargetRole = [];
+    }
+    if (!Array.isArray(parsedResume.bulletImprovements)) {
+      parsedResume.bulletImprovements = [];
+    }
+    if (typeof parsedResume.atsScore !== "number") {
+      parsedResume.atsScore = 70;
+    }
+
     const now = new Date().toISOString();
 
     // 1. Persist parsed resume to Supabase `resumes` table
