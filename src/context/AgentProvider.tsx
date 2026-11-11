@@ -317,10 +317,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hasHydratedRef.current) return;
-    hasHydratedRef.current = true;
-
-    if (typeof window !== "undefined") {
+    const hydrateFromStorage = () => {
+      if (typeof window === "undefined") return;
       const savedRole = window.localStorage.getItem("copilot_selected_target_role");
       const savedParsed = window.localStorage.getItem("copilot_parsed_resume_v2");
       const savedFile = window.localStorage.getItem("copilot_uploaded_filename_v2");
@@ -332,9 +330,60 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         } catch {
           // Ignore invalid JSON
         }
+      } else {
+        const savedReal = window.localStorage.getItem("copilot_real_resume_v1");
+        if (savedReal) {
+          try {
+            const parsedReal = JSON.parse(savedReal);
+            if (parsedReal && typeof parsedReal === "object") {
+              setParsedResume({
+                candidateName: parsedReal.candidateName,
+                targetRole: parsedReal.targetRole || savedRole || "Software Engineer",
+                atsScore: parsedReal.atsScore || 70,
+                extractedSkills: (parsedReal.skills || []).map((s: any) => ({
+                  name: typeof s === "string" ? s : s?.name || "",
+                  claimedLevel: "HIGH",
+                  citation: "Verified from resume",
+                })),
+                projects: (parsedReal.projects || []).map((p: any) => ({
+                  name: p.name || p.title || "Project",
+                  techStack: p.techStack || [],
+                  bullets: typeof p.summary === "string" ? [p.summary] : p.bullets || [],
+                })),
+                experience: [],
+                missingSkillsForTargetRole: (parsedReal.missingRecommendedSkills || []).map((m: any) => ({
+                  skill: typeof m === "string" ? m : m.skill || "",
+                  priority: "HIGH",
+                  reason: typeof m === "string" ? "Recommended" : m.whyNeeded || "",
+                })),
+                bulletImprovements: (parsedReal.bulletImprovements || []).map((b: any) => ({
+                  originalBullet: b.originalBullet || "",
+                  proposedBullet: b.improvedBullet || "",
+                  verifiedSourceProject: b.projectName || "Projects",
+                })),
+              });
+              if (!savedFile && parsedReal.fileName) {
+                setUploadedFileName(parsedReal.fileName);
+              }
+            }
+          } catch {
+            // Ignore invalid JSON
+          }
+        }
       }
+    };
+
+    hydrateFromStorage();
+    if (typeof window !== "undefined") {
+      window.addEventListener("copilot-data-updated", hydrateFromStorage);
     }
     refreshAgentState();
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("copilot-data-updated", hydrateFromStorage);
+      }
+    };
   }, [refreshAgentState]);
 
   const uploadResumeForRole = useCallback(
@@ -389,13 +438,97 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           window.localStorage.setItem("copilot_real_resume_v1", JSON.stringify(legacyFormat));
 
           // Also write copilot_latest_resume_analysis so /resume studio works
+          const skillNames = (parsed.extractedSkills || []).map((s: any) =>
+            typeof s === "string" ? s : s?.name || ""
+          );
+          const missingNames = (parsed.missingSkillsForTargetRole || []).map((m: any) =>
+            typeof m === "string" ? m : m?.skill || ""
+          );
+
           const workspaceToStore = json.resumeWorkspace || {
-            editableResume: parsed,
             analysis: {
-              skills: (parsed as any).skills || parsed.extractedSkills || [],
-              score: parsed.atsScore || 0,
-              parsedResume: parsed,
+              matchScore: parsed.atsScore || 75,
+              atsScore: parsed.atsScore || 75,
+              jobTitle: cleanRole,
+              company: "Target Roles",
+              strengths: skillNames.slice(0, 5).map((name) => `${name}: Verified in resume`),
+              gaps: (parsed.missingSkillsForTargetRole || []).map(
+                (m: any) => `${m.skill || m}: ${m.reason || "Recommended"}`
+              ),
+              suggestions: (parsed.bulletImprovements || []).map((b: any, idx: number) => ({
+                id: `sug-${idx + 1}`,
+                section: "experience" as const,
+                original: String(b?.originalBullet || ""),
+                suggested: String(b?.proposedBullet || ""),
+                improved: String(b?.proposedBullet || ""),
+                impact: "high" as const,
+                reason: `Grounded in ${b?.verifiedSourceProject || "Projects"}`,
+                impactLevel: "high" as const,
+              })),
+              keywords: [
+                ...skillNames.map((w) => ({ word: w, present: true, importance: "high" as const })),
+                ...missingNames.map((w) => ({ word: w, present: false, importance: "high" as const })),
+              ],
+              sectionScores: {
+                format: parsed.atsScore || 80,
+                impact: 75,
+                style: 80,
+              },
+              skills: skillNames,
+              extractedSkills: skillNames,
+              projects: parsed.projects || [],
+              meta: {
+                fileName: file.name,
+                pageCount: 1,
+                bulletCount: (parsed.bulletImprovements || []).length,
+                hasQuantifiedMetrics: true,
+              },
             },
+            editableResume: {
+              fileName: file.name,
+              candidateName: parsed.candidateName || file.name.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " "),
+              email: "",
+              phone: "",
+              location: "Remote / Hybrid",
+              links: [],
+              summary: `Aspiring ${cleanRole} with technical background in ${skillNames.slice(0, 4).join(", ")}.`,
+              skillCategories: [{ category: "Technical Skills", skills: skillNames }],
+              skills: skillNames,
+              experience: (parsed.experience || []).map((e: any, i: number) => ({
+                id: `exp-${i + 1}`,
+                title: String(e?.role || "Software Engineer"),
+                subtitle: String(e?.company || "Company"),
+                dateRange: String(e?.duration || "Present"),
+                bullets: (Array.isArray(e?.bullets) ? e.bullets : []).map((text: any, bIdx: number) => ({
+                  id: `exp-b-${i}-${bIdx}`,
+                  text: String(text),
+                })),
+              })),
+              projects: (parsed.projects || []).map((p: any, i: number) => ({
+                id: `proj-${i + 1}`,
+                title: String(p?.name || "Technical Project"),
+                subtitle: Array.isArray(p?.techStack) ? p.techStack.join(", ") : "Technologies Used",
+                dateRange: "Recent",
+                bullets: (Array.isArray(p?.bullets) ? p.bullets : []).map((text: any, bIdx: number) => ({
+                  id: `proj-b-${i}-${bIdx}`,
+                  text: String(text),
+                })),
+              })),
+              education: [
+                {
+                  id: "edu-1",
+                  title: "Bachelor of Technology / Computer Science",
+                  subtitle: "University / Institute",
+                  dateRange: "2020 - 2024",
+                  bullets: [],
+                },
+              ],
+              customSections: [],
+              rawText: JSON.stringify(parsed.projects || []),
+            },
+            appliedSuggestionIds: [],
+            userId: null,
+            fileName: file.name,
             savedAt: new Date().toISOString(),
           };
 

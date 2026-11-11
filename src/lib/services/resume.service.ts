@@ -44,12 +44,78 @@ function readStoredWorkspace(): ResumeWorkspace | null {
   try {
     const raw: unknown = JSON.parse(window.localStorage.getItem(WORKSPACE_KEY) || "null");
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
-    const value = raw as Partial<ResumeWorkspace>;
+    const value = raw as Partial<ResumeWorkspace> & { fileName?: string };
     if (!value.analysis || typeof value.analysis !== "object") return null;
+
+    const rawAnalysis: any = value.analysis;
+    const skillsList: string[] = Array.isArray(rawAnalysis.extractedSkills)
+      ? rawAnalysis.extractedSkills
+      : Array.isArray(rawAnalysis.skills)
+      ? rawAnalysis.skills.map((s: any) => (typeof s === "string" ? s : s?.name || ""))
+      : [];
+
+    const normalizedAnalysis: ResumeAnalysis = {
+      matchScore:
+        typeof rawAnalysis.matchScore === "number"
+          ? rawAnalysis.matchScore
+          : rawAnalysis.atsScore || rawAnalysis.score || 70,
+      atsScore:
+        typeof rawAnalysis.atsScore === "number"
+          ? rawAnalysis.atsScore
+          : rawAnalysis.matchScore || rawAnalysis.score || 70,
+      jobTitle: rawAnalysis.jobTitle || rawAnalysis.targetRole || "Software Engineer",
+      company: rawAnalysis.company || "Target Roles",
+      strengths: Array.isArray(rawAnalysis.strengths) ? rawAnalysis.strengths : skillsList.slice(0, 5),
+      gaps: Array.isArray(rawAnalysis.gaps) ? rawAnalysis.gaps : [],
+      suggestions: Array.isArray(rawAnalysis.suggestions)
+        ? rawAnalysis.suggestions
+        : Array.isArray(rawAnalysis.improvements)
+        ? rawAnalysis.improvements.map((imp: any, i: number) => ({
+            id: `sug-${i + 1}`,
+            section: "experience" as const,
+            original: imp.original || "",
+            suggested: imp.improved || imp.suggested || "",
+            improved: imp.improved || imp.suggested || "",
+            impact: "high" as const,
+            reason: imp.section || "Grounded in resume",
+            impactLevel: "high" as const,
+          }))
+        : [],
+      keywords: Array.isArray(rawAnalysis.keywords)
+        ? rawAnalysis.keywords
+        : skillsList.map((sk) => ({ word: sk, present: true, importance: "high" as const })),
+      sectionScores:
+        rawAnalysis.sectionScores &&
+        typeof rawAnalysis.sectionScores === "object" &&
+        !Array.isArray(rawAnalysis.sectionScores)
+          ? rawAnalysis.sectionScores
+          : { format: rawAnalysis.atsScore || 75, impact: 75, style: 80 },
+      extractedSkills: skillsList,
+      meta: rawAnalysis.meta || { fileName: value.fileName || "Uploaded_Resume.pdf", pageCount: 1 },
+      rawText: rawAnalysis.rawText || "",
+    };
+
+    let editableResume =
+      value.editableResume && typeof value.editableResume === "object" ? value.editableResume : null;
+    if (editableResume) {
+      editableResume = {
+        ...editableResume,
+        links: Array.isArray(editableResume.links) ? editableResume.links : [],
+        education: Array.isArray(editableResume.education) ? editableResume.education : [],
+        experience: Array.isArray(editableResume.experience) ? editableResume.experience : [],
+        projects: Array.isArray(editableResume.projects) ? editableResume.projects : [],
+        skillCategories: Array.isArray(editableResume.skillCategories) ? editableResume.skillCategories : [],
+        skills: Array.isArray(editableResume.skills) ? editableResume.skills : skillsList,
+        customSections: Array.isArray(editableResume.customSections) ? editableResume.customSections : [],
+      };
+    }
+
     return {
-      analysis: value.analysis as ResumeAnalysis,
-      editableResume: value.editableResume && typeof value.editableResume === "object" ? value.editableResume : null,
-      appliedSuggestionIds: Array.isArray(value.appliedSuggestionIds) ? value.appliedSuggestionIds.filter((id): id is string => typeof id === "string") : [],
+      analysis: normalizedAnalysis,
+      editableResume,
+      appliedSuggestionIds: Array.isArray(value.appliedSuggestionIds)
+        ? value.appliedSuggestionIds.filter((id): id is string => typeof id === "string")
+        : [],
       userId: typeof value.userId === "string" ? value.userId : null,
     };
   } catch {

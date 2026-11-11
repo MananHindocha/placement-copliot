@@ -34,8 +34,8 @@ export const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
 const MAX_STEPS = 5;
 
 const GEMINI_MODELS = [
-  "gemini-2.0-flash-001",
   "gemini-2.5-flash",
+  "gemini-2.0-flash-001",
   "gemini-1.5-flash",
 ];
 

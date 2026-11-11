@@ -84,18 +84,29 @@ Schema:
   }
 ]`;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
-          }),
-          signal: AbortSignal.timeout(12000),
-        });
+        const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash-001", "gemini-1.5-flash"];
+        let res: Response | null = null;
+        for (const model of candidateModels) {
+          try {
+            const candidateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+              }),
+              signal: AbortSignal.timeout(12000),
+            });
+            if (candidateRes.ok) {
+              res = candidateRes;
+              break;
+            }
+          } catch {
+            // try next model
+          }
+        }
 
-        if (res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {

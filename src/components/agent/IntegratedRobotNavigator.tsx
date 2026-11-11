@@ -77,31 +77,102 @@ export function IntegratedRobotNavigator() {
         typeof m === "string" ? m : String(m?.skill || "")
       );
 
-      saveStoredResumeWorkspace({
+      const fullKeywords = [
+        ...skillNames.map((w: string) => ({ word: w, present: true, importance: "high" as const })),
+        ...missingNames.map((w: string) => ({ word: w, present: false, importance: "high" as const })),
+      ];
+
+      const fullAnalysis = {
+        matchScore: parsedResume.atsScore || 75,
+        atsScore: parsedResume.atsScore || 75,
+        jobTitle: targetRole || parsedResume.targetRole || "Software Engineer",
+        company: "Target Roles",
+        candidateName: parsedResume.candidateName || "Candidate",
+        strengths: skillNames.slice(0, 5).map((name: string) => `${name}: Verified in resume`),
+        gaps: (parsedResume.missingSkillsForTargetRole || []).map(
+          (m: any) => `${m.skill || m}: ${m.reason || "Recommended for " + (targetRole || "role")}`
+        ),
+        suggestions: (parsedResume.bulletImprovements || []).map((b: any, idx: number) => ({
+          id: `sug-${idx + 1}`,
+          section: "experience" as const,
+          original: String(b?.originalBullet || ""),
+          suggested: String(b?.proposedBullet || ""),
+          improved: String(b?.proposedBullet || ""),
+          impact: "high" as const,
+          reason: `Grounded in ${b?.verifiedSourceProject || "Projects"}`,
+          impactLevel: "high" as const,
+        })),
+        keywords: fullKeywords,
+        sectionScores: {
+          format: parsedResume.atsScore || 80,
+          impact: 75,
+          style: 80,
+        },
+        skills: skillNames,
+        extractedSkills: skillNames,
+        projects: parsedResume.projects || [],
+        meta: {
+          fileName: uploadedFileName || "Uploaded_Resume.pdf",
+          pageCount: 1,
+          bulletCount: (parsedResume.bulletImprovements || []).length,
+          hasQuantifiedMetrics: true,
+        },
+      };
+
+      const fullEditableResume = {
         fileName: uploadedFileName || "Uploaded_Resume.pdf",
-        uploadedAt: new Date().toISOString(),
-        rawText: JSON.stringify(parsedResume.projects || []),
-        targetRole: parsedResume.targetRole || targetRole || "Software Engineer",
-        analysis: {
-          atsScore: parsedResume.atsScore || 70,
-          matchScore: parsedResume.atsScore || 70,
-          candidateName: parsedResume.candidateName || "Candidate",
-          targetRole: parsedResume.targetRole || targetRole || "Software Engineer",
-          skills: skillNames,
-          extractedSkills: parsedResume.extractedSkills || [],
-          missingKeywords: missingNames,
-          strengths: skillNames.slice(0, 5),
-          improvements: (parsedResume.bulletImprovements || []).map((b: any) => ({
-            original: String(b?.originalBullet || ""),
-            improved: String(b?.proposedBullet || ""),
-            section: String(b?.verifiedSourceProject || "Projects"),
+        candidateName:
+          parsedResume.candidateName ||
+          (uploadedFileName || "Candidate").replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " "),
+        email: "",
+        phone: "",
+        location: "Remote / Hybrid",
+        links: [],
+        summary: `Aspiring ${targetRole || "Software Engineer"} with technical background in ${skillNames
+          .slice(0, 4)
+          .join(", ")}.`,
+        skillCategories: [{ category: "Technical Skills", skills: skillNames }],
+        skills: skillNames,
+        experience: (parsedResume.experience || []).map((e: any, i: number) => ({
+          id: `exp-${i + 1}`,
+          title: String(e?.role || "Software Engineer"),
+          subtitle: String(e?.company || "Company"),
+          dateRange: String(e?.duration || "Present"),
+          bullets: (Array.isArray(e?.bullets) ? e.bullets : []).map((text: any, bIdx: number) => ({
+            id: `exp-b-${i}-${bIdx}`,
+            text: String(text),
           })),
-          projects: parsedResume.projects || [],
-          sectionScores: [
-            { section: "Technical Skills", score: parsedResume.atsScore || 75, feedback: "Extracted from PDF" },
-            { section: "Projects", score: 80, feedback: `${(parsedResume.projects || []).length} projects analyzed` },
-          ],
-        } as any,
+        })),
+        projects: (parsedResume.projects || []).map((p: any, i: number) => ({
+          id: `proj-${i + 1}`,
+          title: String(p?.name || "Technical Project"),
+          subtitle: Array.isArray(p?.techStack) ? p.techStack.join(", ") : "Technologies Used",
+          dateRange: "Recent",
+          bullets: (Array.isArray(p?.bullets) ? p.bullets : []).map((text: any, bIdx: number) => ({
+            id: `proj-b-${i}-${bIdx}`,
+            text: String(text),
+          })),
+        })),
+        education: [
+          {
+            id: "edu-1",
+            title: "Bachelor of Technology / Computer Science",
+            subtitle: "University / Institute",
+            dateRange: "2020 - 2024",
+            bullets: [],
+          },
+        ],
+        customSections: [],
+        rawText: JSON.stringify(parsedResume.projects || []),
+      };
+
+      saveStoredResumeWorkspace({
+        analysis: fullAnalysis,
+        editableResume: fullEditableResume,
+        appliedSuggestionIds: [],
+        userId: null,
+        fileName: uploadedFileName || "Uploaded_Resume.pdf",
+        updatedAt: new Date().toISOString(),
       } as any);
     } catch {
       // Ignore storage quota errors
