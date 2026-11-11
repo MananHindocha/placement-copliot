@@ -76,45 +76,71 @@ function parseGitHubRepo(input?: string): { owner: string; repo: string } | null
 }
 
 function selectHighSignalSourceFiles(filePaths: string[], focusNotes: string): string[] {
-  const codeExtensions = /\.(ts|tsx|js|jsx|py|go|java|rs|cpp)$/i;
-  const ignorePatterns =
-    /(node_modules|\.next|dist|build|\.d\.ts|tailwind\.config|postcss|eslint|vite\.config|__tests__|\.spec\.|\.test\.)/i;
+  const codeExtensions = /\.(c|h|cpp|hpp|cc|cxx|ts|tsx|js|jsx|py|go|java|rs)$/i;
+  const buildManifests = /(?:^|\/)(Makefile|CMakeLists\.txt)$/i;
+  const hardIgnorePatterns =
+    /(node_modules|\.next|dist|build|vendor|\.min\.|\.d\.ts|tailwind\.config|postcss|eslint|vite\.config|package-lock|yarn\.lock)/i;
+  const lowPriorityTestPatterns =
+    /(?:^|\/)(tests?|__tests__|benchmarks?|e2e|fixtures?|mocks?)\/|(?:^|\/)(test_|slowtest|benchmark|ab\.py$)|_test\.|\.(spec|test)\./i;
 
   const candidateFiles = filePaths.filter(
-    (p) => codeExtensions.test(p) && !ignorePatterns.test(p)
+    (p) => (codeExtensions.test(p) || buildManifests.test(p)) && !hardIgnorePatterns.test(p)
   );
+
+  // Strictly skip tests/benchmarks whenever real source files exist in the repo
+  const nonTestCodeFiles = candidateFiles.filter(
+    (p) => codeExtensions.test(p) && !lowPriorityTestPatterns.test(p)
+  );
+  const poolToScore =
+    nonTestCodeFiles.length > 0
+      ? candidateFiles.filter((p) => !lowPriorityTestPatterns.test(p))
+      : candidateFiles;
 
   const focusKeywords = focusNotes
     .toLowerCase()
-    .split(/[^a-z0-9]+/)
+    .split(/[^a-z0-9_]+/)
     .filter((w) => w.length >= 3);
 
-  const scored = candidateFiles.map((filePath) => {
+  const scored = poolToScore.map((filePath) => {
     const lower = filePath.toLowerCase();
-    let score = 0;
-    if (lower.includes("api/") || lower.includes("route.") || lower.includes("controller")) score += 5;
+    const fileName = lower.split("/").pop() || lower;
+    let score = buildManifests.test(filePath) ? 2 : 15;
+
+    if (lowPriorityTestPatterns.test(lower)) score -= 80;
+    if (/\.(c|cpp|cc|cxx|rs|go)$/i.test(fileName)) score += 20;
+    if (/\.(h|hpp)$/i.test(fileName)) score += 12;
+    if (/\.(ts|tsx|py|java)$/i.test(fileName)) score += 8;
+
     if (
-      lower.includes("lib/") ||
-      lower.includes("service") ||
-      lower.includes("engine") ||
-      lower.includes("agent") ||
-      lower.includes("model") ||
-      lower.includes("graph")
+      /(dispatcher|worker|server|client|broker|engine|orchestrator|protocol|router|scheduler|queue|socket|net|thread|pool|core|main|app|index|graph|agent)/i.test(
+        fileName
+      )
     ) {
-      score += 6;
+      score += 24;
+    }
+    if (
+      lower.includes("api/") ||
+      lower.includes("route.") ||
+      lower.includes("controller") ||
+      lower.includes("lib/") ||
+      lower.includes("service")
+    ) {
+      score += 12;
     }
     if (lower.includes("context/") || lower.includes("store") || lower.includes("db") || lower.includes("schema")) {
-      score += 4;
+      score += 6;
     }
-    if (lower.startsWith("src/components/interview/")) score += 3;
+    if (lower.startsWith("src/") || !lower.includes("/")) {
+      score += 10;
+    }
     for (const kw of focusKeywords) {
-      if (lower.includes(kw)) score += 10;
+      if (lower.includes(kw)) score += 25;
     }
     return { filePath, score };
   });
 
   scored.sort((a, b) => b.score - a.score || a.filePath.localeCompare(b.filePath));
-  return scored.slice(0, 5).map((s) => s.filePath);
+  return scored.slice(0, 6).map((s) => s.filePath);
 }
 
 /**
@@ -203,7 +229,7 @@ export const executeSandboxCodeTool = new DynamicStructuredTool({
 export const inspectGitHubRepoTool = new DynamicStructuredTool({
   name: "inspect_github_repo_tool",
   description:
-    "Fetches live GitHub repository metadata, recursive file tree, package manifest, recent commits, README excerpt, and actual source code excerpts from up to 5 core implementation files.",
+    "Fetches live GitHub repository metadata, recursive file tree, package manifest, recent commits, README excerpt, and actual source code excerpts from up to 6 core implementation files.",
   schema: z.object({
     repoInput: z.string().describe("GitHub repository URL or owner/repo slug"),
     focusNotes: z
@@ -322,7 +348,7 @@ export const inspectGitHubRepoTool = new DynamicStructuredTool({
             const text = await fRes.text();
             inspectedSourceFiles.push({
               path: filePath,
-              codeExcerpt: text.slice(0, 1800),
+              codeExcerpt: text.slice(0, 3200),
             });
           }
         } catch {
@@ -345,7 +371,7 @@ export const inspectGitHubRepoTool = new DynamicStructuredTool({
       primaryLanguage: repoMeta.language || "Unknown",
       defaultBranch,
       stars: repoMeta.stargazers_count || 0,
-      filePaths: allBlobPaths.slice(0, 120),
+      filePaths: allBlobPaths.slice(0, 150),
       totalFilesScanned: allBlobPaths.length,
       readmeExcerpt,
       dependenciesManifest,

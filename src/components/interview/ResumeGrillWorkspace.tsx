@@ -166,6 +166,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
           followUps: [],
           keyConceptsToCover: gq.keyConcepts && gq.keyConcepts.length > 0 ? gq.keyConcepts : gq.referencedFiles,
           referencedFiles: gq.referencedFiles,
+          exactFunctionOrStruct: gq.exactFunctionOrStruct,
           codeExcerpt: gq.codeExcerpt,
           whyAskThis: gq.whatInterviewerLooksFor,
           isCustom: true,
@@ -213,7 +214,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
                 </span>
               </h3>
               <p className="text-xs text-[#71717A] mt-0.5">
-                Provide your project repo to analyze file trees, dependencies, and commit history for file-specific grilling on {roleMeta.title} architecture, trade-offs &amp; scale.
+                Provide your project repo to inspect real source code files (`.c`, `.h`, `.py`, `.ts`, `.go`, `.rs`), functions, and commits for file-specific grilling on {roleMeta.title} architecture &amp; trade-offs.
               </p>
             </div>
           </div>
@@ -226,7 +227,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
             </label>
             <input
               type="text"
-              placeholder="https://github.com/MananHindocha/placement-copliot or username/project-name"
+              placeholder="https://github.com/dawdameet/july or https://github.com/MananHindocha/placement-copliot"
               value={githubUrl}
               onChange={(e) => setGithubUrl(e.target.value)}
               className="w-full text-xs bg-[#080808] border border-[#1D1D1D] rounded-lg px-3 py-2.5 text-[#F5F5F5] placeholder-[#52525B] focus:outline-none focus:border-[#292929]"
@@ -234,6 +235,11 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
             <div className="flex items-center gap-1.5 flex-wrap mt-2">
               <span className="text-[10px] text-[#71717A] font-semibold uppercase">1-Click Test Repos:</span>
               {[
+                {
+                  name: "dawdameet/july",
+                  url: "https://github.com/dawdameet/july",
+                  focus: "Core C engine files, dispatcher, workers, thread synchronization",
+                },
                 {
                   name: "MananHindocha/placement-copliot",
                   url: "https://github.com/MananHindocha/placement-copliot",
@@ -243,11 +249,6 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
                   name: "vercel/next.js",
                   url: "https://github.com/vercel/next.js",
                   focus: "Server components, streaming SSR, App Router",
-                },
-                {
-                  name: "facebook/react",
-                  url: "https://github.com/facebook/react",
-                  focus: "Fiber reconciliation, hook queue, scheduling",
                 },
               ].map((demo) => (
                 <button
