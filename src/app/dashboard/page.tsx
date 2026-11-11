@@ -3,7 +3,6 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useAgent } from "@/context/AgentProvider";
-import { IntegratedRobotNavigator } from "@/components/agent/IntegratedRobotNavigator";
 
 function getSkillName(item: unknown): string {
   if (!item) return "";
@@ -54,95 +53,112 @@ export default function DashboardPage() {
   const hasRealData = skills.length > 0 || projects.length > 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
-      {/* 1. Single Integrated Robot Navigator */}
-      <IntegratedRobotNavigator />
-
-      {/* 2. Clean Empty State Before Resume Upload */}
+    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+      {/* Clean Empty State Before Resume Upload */}
       {!hasRealData ? (
-        <div className="rounded-2xl border border-slate-800/80 bg-[#0A0D1C]/70 p-10 text-center text-slate-400">
-          <p className="text-base font-semibold text-slate-200">
+        <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-10 text-center space-y-2">
+          <p className="text-base font-semibold text-[#F5F5F5]">
             Ready to Analyze Your Resume
           </p>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="text-sm text-[#A1A1AA] max-w-xl mx-auto leading-relaxed">
             Select your target role and upload your PDF resume in the Robot Agent above. Your extracted skills, projects, role gaps, and matched live jobs will appear here automatically.
           </p>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* 3. Authentic Candidate Summary KPI Strip */}
+          {/* Authentic Candidate Summary KPI Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Candidate Profile</p>
-              <p className="mt-2 text-xl font-bold text-white truncate">
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                Candidate Profile
+              </p>
+              <p className="mt-2 text-xl font-bold text-[#F5F5F5] truncate">
                 {candidateName || uploadedFileName || "Uploaded Resume"}
               </p>
-              <p className="mt-1 text-xs text-cyan-400">Target: {targetRole || "Software Engineer"}</p>
+              <p className="mt-1 text-xs text-[#A1A1AA] truncate">
+                Target: {targetRole || "Software Engineer"}
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Role-Targeted ATS Fit</p>
-              <p className="mt-2 text-3xl font-bold text-emerald-400">
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                Role-Targeted ATS Fit
+              </p>
+              <p className="mt-2 text-3xl font-bold text-[#10B981] tabular-nums">
                 {atsScore !== null ? `${atsScore}%` : "Scored"}
               </p>
-              <p className="mt-1 text-xs text-slate-400">Calibrated for {targetRole}</p>
+              <p className="mt-1 text-xs text-[#71717A]">Calibrated for {targetRole}</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Extracted Skills</p>
-              <p className="mt-2 text-3xl font-bold text-cyan-400">{skills.length}</p>
-              <p className="mt-1 text-xs text-slate-400">Verified from {uploadedFileName || "PDF"}</p>
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                Extracted Skills
+              </p>
+              <p className="mt-2 text-3xl font-bold text-[#F5F5F5] tabular-nums">{skills.length}</p>
+              <p className="mt-1 text-xs text-[#71717A] truncate">
+                Verified from {uploadedFileName || "PDF"}
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Extracted Projects</p>
-              <p className="mt-2 text-3xl font-bold text-purple-400">{projects.length}</p>
-              <p className="mt-1 text-xs text-slate-400">{missingSkills.length} role skill gaps detected</p>
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
+                Extracted Projects
+              </p>
+              <p className="mt-2 text-3xl font-bold text-[#F5F5F5] tabular-nums">{projects.length}</p>
+              <p className="mt-1 text-xs text-[#71717A]">{missingSkills.length} role skill gaps detected</p>
             </div>
           </div>
 
-          {/* 4. Extracted Skills vs. Missing Skills for Target Role */}
+          {/* Extracted Skills vs. Missing Skills for Target Role */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                Real Extracted Skills from {uploadedFileName || "Your Resume"} ({skills.length})
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5 space-y-3.5">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]" />
+                <span>
+                  Real Extracted Skills from {uploadedFileName || "Your Resume"} ({skills.length})
+                </span>
               </h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((s, idx) => (
                   <span
                     key={idx}
-                    className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#1D1D1D] bg-[#121212] px-3 py-1 text-xs font-medium text-[#F5F5F5]"
                   >
-                    {s.name} • {s.level}
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]" />
+                    <span>{s.name}</span>
+                    <span className="text-[#71717A]">• {s.level}</span>
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  Missing Skills for {targetRole || "Target Role"} ({missingSkills.length})
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5 space-y-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]" />
+                  <span>
+                    Missing Skills for {targetRole || "Target Role"} ({missingSkills.length})
+                  </span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => router.push("/readiness")}
-                  className="cursor-pointer text-xs font-semibold text-cyan-400 hover:underline"
+                  className="cursor-pointer shrink-0 text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
                 >
                   Open Study Plan →
                 </button>
               </div>
               {missingSkills.length === 0 ? (
-                <p className="text-xs text-slate-400">No major missing skills flagged for this role.</p>
+                <p className="text-xs text-[#71717A]">No major missing skills flagged for this role.</p>
               ) : (
                 <div className="space-y-2">
                   {missingSkills.map((m, idx) => (
                     <div
                       key={idx}
-                      className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs"
+                      className="rounded-lg border border-[#1D1D1D] bg-[#121212] px-3.5 py-2.5 text-xs leading-relaxed"
                     >
-                      <span className="font-semibold text-amber-300">{String(m.skill || "")}</span>{" "}
-                      <span className="text-slate-400">— {String(m.reason || "")}</span>
+                      <span className="font-semibold text-[#F59E0B]">{String(m.skill || "")}</span>{" "}
+                      <span className="text-[#A1A1AA]">— {String(m.reason || "")}</span>
                     </div>
                   ))}
                 </div>
@@ -150,22 +166,29 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 5. Extracted Resume Projects */}
+          {/* Extracted Resume Projects */}
           {projects.length > 0 && (
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5 space-y-3.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
                 Projects Extracted from Your Resume ({projects.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {projects.map((proj, idx) => (
-                  <div key={idx} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-[#1D1D1D] bg-[#121212] p-4 space-y-2 transition-colors hover:border-[#292929]"
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-white">{String(proj.name || "")}</span>
-                      <span className="text-xs text-cyan-400">
-                        {Array.isArray(proj.techStack) ? proj.techStack.map((t) => getSkillName(t)).join(", ") : ""}
+                      <span className="text-sm font-semibold text-[#F5F5F5]">
+                        {String(proj.name || "")}
+                      </span>
+                      <span className="text-xs font-mono text-[#A1A1AA]">
+                        {Array.isArray(proj.techStack)
+                          ? proj.techStack.map((t) => getSkillName(t)).join(", ")
+                          : ""}
                       </span>
                     </div>
-                    <ul className="list-disc list-inside text-xs text-slate-300 space-y-1">
+                    <ul className="list-disc list-inside text-xs text-[#A1A1AA] space-y-1 leading-relaxed">
                       {(Array.isArray(proj.bullets) ? proj.bullets : []).slice(0, 3).map((b, bIdx) => (
                         <li key={bIdx}>{String(b)}</li>
                       ))}
@@ -176,18 +199,30 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 6. Grounded Resume Bullet Improvements */}
+          {/* Grounded Resume Bullet Improvements */}
           {bulletImprovements.length > 0 && (
-            <div className="rounded-2xl border border-slate-800 bg-[#0A0D1C]/90 p-5 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-purple-400">
-                Suggested Bullet Rewrites for {targetRole} ({bulletImprovements.length})
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-5 space-y-3.5">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#A78BFA]" />
+                <span>
+                  Suggested Bullet Rewrites for {targetRole} ({bulletImprovements.length})
+                </span>
               </h3>
               <div className="space-y-3">
                 {bulletImprovements.map((b, idx) => (
-                  <div key={idx} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs space-y-1.5">
-                    <p className="text-slate-400 font-semibold">Source: {String(b.verifiedSourceProject || "")}</p>
-                    <p className="text-red-300 line-through">- {String(b.originalBullet || "")}</p>
-                    <p className="text-emerald-300 font-medium">+ {String(b.proposedBullet || "")}</p>
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-[#1D1D1D] bg-[#121212] p-4 text-xs space-y-1.5 leading-relaxed"
+                  >
+                    <p className="text-[#71717A] font-medium">
+                      Source: {String(b.verifiedSourceProject || "")}
+                    </p>
+                    <p className="text-[#F43F5E]/90 line-through">
+                      - {String(b.originalBullet || "")}
+                    </p>
+                    <p className="text-[#10B981] font-medium">
+                      + {String(b.proposedBullet || "")}
+                    </p>
                   </div>
                 ))}
               </div>

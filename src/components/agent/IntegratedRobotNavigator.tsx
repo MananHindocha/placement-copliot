@@ -392,18 +392,18 @@ export function IntegratedRobotNavigator() {
     <section
       ref={containerRef}
       data-robot-navigator="singleton"
-      className="w-full mb-6 rounded-2xl border border-cyan-500/30 bg-[#0A0D1C]/95 backdrop-blur-xl p-5 shadow-2xl text-slate-100"
+      className="w-full rounded-xl border border-[#1D1D1D] bg-[#080808] p-5 sm:p-6 text-[#F5F5F5]"
     >
       {agentError && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/50 bg-red-950/60 px-4 py-3 text-xs sm:text-sm text-red-200">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[#F43F5E]/30 bg-[#F43F5E]/10 px-4 py-3 text-xs sm:text-sm text-[#F5F5F5]">
           <div>
-            <span className="font-bold text-red-400">Agent Alert: </span>
+            <span className="font-semibold text-[#F43F5E]">Agent Alert: </span>
             <span>{agentError}</span>
           </div>
           <button
             type="button"
             onClick={clearAgentError}
-            className="ml-4 rounded-lg bg-red-900/60 px-3 py-1 text-xs font-medium text-red-100 hover:bg-red-800 cursor-pointer"
+            className="ml-4 shrink-0 rounded-lg border border-[#F43F5E]/30 bg-[#121212] px-3 py-1 text-xs font-medium text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
           >
             Dismiss
           </button>
@@ -411,12 +411,12 @@ export function IntegratedRobotNavigator() {
       )}
 
       {statusMessage && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2.5 text-xs text-emerald-200">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[#1D1D1D] bg-[#0D0D0D] px-4 py-2.5 text-xs text-[#A1A1AA]">
           <span>🤖 {statusMessage}</span>
           <button
             type="button"
             onClick={() => setStatusMessage(null)}
-            className="ml-3 text-emerald-400 hover:text-white cursor-pointer"
+            className="ml-3 text-[#71717A] hover:text-[#F5F5F5] transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -425,17 +425,29 @@ export function IntegratedRobotNavigator() {
 
       {/* Robot Header */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3.5">
           <div
-            className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${
+            className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border bg-[#121212] transition-colors ${
               isUploadingResume || isScoutingJobs
-                ? "border-amber-400 bg-amber-500/10 animate-pulse"
+                ? "border-[#F59E0B]/40 animate-pulse"
                 : hasExtractedResume
-                ? "border-emerald-400/60 bg-emerald-500/10"
-                : "border-cyan-400/60 bg-cyan-500/10"
+                ? "border-[#292929]"
+                : "border-[#292929]"
             }`}
           >
-            <svg className="h-8 w-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <svg
+              className={`h-6 w-6 ${
+                isUploadingResume || isScoutingJobs
+                  ? "text-[#F59E0B]"
+                  : hasExtractedResume
+                  ? "text-[#10B981]"
+                  : "text-[#A78BFA]"
+              }`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
               <rect x="3" y="7" width="18" height="13" rx="4" />
               <circle cx="9" cy="13" r="1.5" fill="currentColor" />
               <circle cx="15" cy="13" r="1.5" fill="currentColor" />
@@ -445,24 +457,24 @@ export function IntegratedRobotNavigator() {
             </svg>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
                 Autonomous Placement Agent
               </span>
               {targetRole && (
-                <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-cyan-300">
+                <span className="rounded-md border border-[#292929] bg-[#121212] px-2.5 py-0.5 text-xs font-medium text-[#F5F5F5]">
                   Target Role: {targetRole}
                 </span>
               )}
               {uploadedFileName && (
-                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                <span className="rounded-md border border-[#10B981]/25 bg-[#10B981]/10 px-2.5 py-0.5 text-xs font-medium text-[#10B981]">
                   Resume: {uploadedFileName}
                 </span>
               )}
             </div>
 
-            <p className="text-sm sm:text-base font-medium text-slate-100">
+            <p className="text-sm font-medium text-[#A1A1AA] leading-relaxed">
               {isUploadingResume
                 ? `Extracting skills & projects from your PDF for "${targetRole || customRoleInput}"...`
                 : isScoutingJobs
@@ -484,7 +496,7 @@ export function IntegratedRobotNavigator() {
               setStatusMessage(null);
               resetWorkspaceToZero();
             }}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-1.5 text-xs font-medium text-slate-300 hover:border-red-500/50 hover:text-red-300 cursor-pointer self-end lg:self-center"
+            className="rounded-lg border border-[#292929] bg-[#121212] px-3.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:border-[#3A3A3A] hover:bg-[#1A1A1A] hover:text-[#F5F5F5] transition-colors duration-150 cursor-pointer self-end lg:self-center shrink-0 focus:outline-none focus:ring-1 focus:ring-[#292929]"
           >
             Change Role / Upload New Resume
           </button>
@@ -493,33 +505,33 @@ export function IntegratedRobotNavigator() {
 
       {/* STEP 1: TARGET ROLE PICKER */}
       {!targetRole && (
-        <div className="mt-5 space-y-3 border-t border-slate-800/80 pt-4">
+        <div className="mt-5 space-y-3 border-t border-[#171717] pt-4">
           <div className="flex flex-wrap gap-2">
             {ROLE_PRESETS.map((role) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => handleSelectRole(role)}
-                className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-200"
+                className="cursor-pointer rounded-lg border border-[#1D1D1D] bg-[#0D0D0D] px-3.5 py-2 text-xs font-medium text-[#A1A1AA] transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] hover:text-[#F5F5F5] focus:outline-none focus:ring-1 focus:ring-[#292929]"
               >
                 {role}
               </button>
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col sm:flex-row gap-2.5">
             <input
               type="text"
               value={customRoleInput}
               onChange={(e) => setCustomRoleInput(e.target.value)}
               placeholder="Or type any custom role (e.g. Backend SDE, Data Analyst)..."
-              className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+              className="flex-1 rounded-lg border border-[#1D1D1D] bg-[#0D0D0D] px-3.5 py-2 text-sm text-[#F5F5F5] placeholder-[#71717A] transition-colors focus:border-[#292929] focus:bg-[#121212] focus:outline-none"
             />
             <button
               type="button"
               disabled={!customRoleInput.trim()}
               onClick={() => handleSelectRole(customRoleInput.trim())}
-              className="cursor-pointer rounded-xl bg-cyan-500 px-5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-40"
+              className="cursor-pointer rounded-lg border border-[#F5F5F5] bg-[#F5F5F5] px-4 py-2 text-sm font-semibold text-[#000000] transition-colors duration-150 hover:bg-[#E4E4E7] active:bg-[#D4D4D8] disabled:opacity-40 disabled:pointer-events-none shrink-0"
             >
               Set Target Role →
             </button>
@@ -529,7 +541,7 @@ export function IntegratedRobotNavigator() {
 
       {/* STEP 2: PDF RESUME UPLOAD */}
       {targetRole && !hasExtractedResume && (
-        <div className="mt-5 border-t border-slate-800/80 pt-4">
+        <div className="mt-5 border-t border-[#171717] pt-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -541,20 +553,20 @@ export function IntegratedRobotNavigator() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDropFile}
             onClick={() => !isUploadingResume && fileInputRef.current?.click()}
-            className={`cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition ${
+            className={`cursor-pointer rounded-xl border border-dashed p-6 text-center transition-colors duration-150 ${
               isUploadingResume
-                ? "border-amber-400/60 bg-amber-500/5"
-                : "border-cyan-500/40 bg-slate-900/50 hover:border-cyan-400 hover:bg-cyan-500/5"
+                ? "border-[#F59E0B]/50 bg-[#0D0D0D]"
+                : "border-[#292929] bg-[#0D0D0D] hover:border-[#3A3A3A] hover:bg-[#121212]"
             }`}
           >
-            <p className="text-sm font-semibold text-slate-100">
+            <p className="text-sm font-semibold text-[#F5F5F5]">
               {isUploadingResume
                 ? "Uploading & Extracting Your PDF Resume..."
                 : "Click to Upload Your Real PDF Resume (or Drag & Drop Here)"}
             </p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-[#A1A1AA]">
               Automatically syncs across Home, My Resume, Readiness Plan, and Job Discovery for{" "}
-              <span className="text-cyan-300 font-medium">{targetRole}</span>.
+              <span className="text-[#F5F5F5] font-medium">{targetRole}</span>.
             </p>
           </div>
         </div>
@@ -562,20 +574,21 @@ export function IntegratedRobotNavigator() {
 
       {/* STEP 3: 4 WORKING ACTION OPTIONS + INLINE SCOUTED JOBS */}
       {hasExtractedResume && (
-        <div className="mt-5 space-y-4 border-t border-slate-800/80 pt-4">
+        <div className="mt-5 space-y-4 border-t border-[#171717] pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button
               type="button"
               onClick={handleScoutSimilarJobsNow}
-              className="cursor-pointer flex flex-col items-start rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3.5 text-left transition hover:border-cyan-400 hover:bg-cyan-500/20"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#38BDF8]" />
                 Option 1 • Live Jobs
               </span>
-              <span className="mt-1 text-sm font-semibold text-white">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
                 {isScoutingJobs ? "Scouting Similar Jobs..." : "Scout & Fetch Similar Jobs →"}
               </span>
-              <span className="mt-1 text-xs text-slate-300">
+              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
                 Directly fetches live {targetRole} openings matched to your {extractedSkillsList.length} skills.
               </span>
             </button>
@@ -583,15 +596,16 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               onClick={handleBuildStudyPlanNow}
-              className="cursor-pointer flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 text-left transition hover:border-emerald-400 hover:bg-emerald-500/10"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]" />
                 Option 2 • Study Plan
               </span>
-              <span className="mt-1 text-sm font-semibold text-white">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
                 Cover {parsedResume?.missingSkillsForTargetRole?.length ?? 0} Missing Skills →
               </span>
-              <span className="mt-1 text-xs text-slate-400">
+              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
                 Adds your skill gaps to Study Plan & tracks your Readiness %.
               </span>
             </button>
@@ -599,15 +613,16 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               onClick={() => router.push("/interview")}
-              className="cursor-pointer flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 text-left transition hover:border-purple-400 hover:bg-purple-500/10"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#A78BFA]" />
                 Option 3 • Mock Interview
               </span>
-              <span className="mt-1 text-sm font-semibold text-white">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
                 Practice with AI Interviewer →
               </span>
-              <span className="mt-1 text-xs text-slate-400">
+              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
                 Live technical interview grilling your resume projects & weak spots.
               </span>
             </button>
@@ -615,15 +630,16 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               onClick={() => router.push("/tracker")}
-              className="cursor-pointer flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 text-left transition hover:border-amber-400 hover:bg-amber-500/10"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]" />
                 Option 4 • Deadlines
               </span>
-              <span className="mt-1 text-sm font-semibold text-white">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
                 Open Kanban Pipeline →
               </span>
-              <span className="mt-1 text-xs text-slate-400">
+              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
                 Track saved jobs, OA dates, and upcoming interview deadlines.
               </span>
             </button>
@@ -631,23 +647,23 @@ export function IntegratedRobotNavigator() {
 
           {/* Direct Inline Display of Fetched Similar Jobs when Option 1 is Clicked */}
           {scoutedJobs.length > 0 && (
-            <div className="rounded-xl border border-cyan-500/30 bg-slate-900/90 p-4 space-y-3">
+            <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
                   Live Similar Jobs Matched to Your Resume ({scoutedJobs.length} Found & Added to Kanban)
                 </h4>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={() => router.push("/jobs")}
-                    className="cursor-pointer text-xs font-semibold text-cyan-400 hover:underline"
+                    className="cursor-pointer text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
                   >
                     Open Full Job Discovery →
                   </button>
                   <button
                     type="button"
                     onClick={() => router.push("/tracker")}
-                    className="cursor-pointer text-xs font-semibold text-amber-300 hover:underline"
+                    className="cursor-pointer text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
                   >
                     View in Kanban Tracker →
                   </button>
@@ -658,27 +674,27 @@ export function IntegratedRobotNavigator() {
                 {scoutedJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="rounded-xl border border-slate-800 bg-slate-950/90 p-3.5 flex flex-col justify-between space-y-2"
+                    className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 flex flex-col justify-between space-y-2.5 transition-colors hover:border-[#292929]"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-xs font-bold text-cyan-400">{job.company}</p>
-                          <p className="text-sm font-semibold text-white leading-snug">{job.title}</p>
+                          <p className="text-xs font-medium text-[#A1A1AA]">{job.company}</p>
+                          <p className="text-sm font-semibold text-[#F5F5F5] leading-snug">{job.title}</p>
                         </div>
-                        <span className="shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-300">
+                        <span className="shrink-0 rounded-md border border-[#10B981]/25 bg-[#10B981]/10 px-2 py-0.5 text-[11px] font-semibold text-[#10B981]">
                           {job.matchScore}% Match
                         </span>
                       </div>
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        {job.location} • Deadline: <span className="text-amber-300">{job.deadlineDate}</span>
+                      <p className="mt-1 text-[11px] text-[#71717A]">
+                        {job.location} • Deadline: <span className="text-[#F59E0B]">{job.deadlineDate}</span>
                       </p>
                       {job.matchedSkills.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {job.matchedSkills.map((sk, i) => (
                             <span
                               key={i}
-                              className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300"
+                              className="rounded-md bg-[#121212] border border-[#1D1D1D] px-1.5 py-0.5 text-[10px] text-[#A1A1AA]"
                             >
                               ✓ {sk}
                             </span>
@@ -687,19 +703,19 @@ export function IntegratedRobotNavigator() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between pt-2.5 border-t border-[#171717]">
                       <a
                         href={job.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs font-semibold text-cyan-400 hover:text-cyan-300"
+                        className="text-xs font-medium text-[#F5F5F5] hover:text-[#A78BFA] transition-colors"
                       >
                         Apply Directly ↗
                       </a>
                       <button
                         type="button"
                         onClick={() => router.push("/tracker")}
-                        className="cursor-pointer rounded-lg bg-slate-800 hover:bg-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-200"
+                        className="cursor-pointer rounded-lg border border-[#292929] bg-[#121212] hover:bg-[#1A1A1A] px-2.5 py-1 text-[11px] font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
                       >
                         Tracked in Kanban ✓
                       </button>
