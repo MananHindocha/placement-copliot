@@ -33,6 +33,12 @@ import {
 export const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
 const MAX_STEPS = 5;
 
+const GEMINI_MODELS = [
+  "gemini-2.0-flash-001",
+  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+];
+
 export type { AgentRunPayload, AgentTraceStep };
 
 export interface StudentTwinContext {
@@ -710,24 +716,105 @@ Additional Metadata: ${JSON.stringify((payload as any).metadata || {})}`,
 
     while (stepCount <= maxSteps) {
       const llmStart = Date.now();
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents,
-            tools: [{ functionDeclarations: AGENT_FUNCTION_DECLARATIONS }],
-            toolConfig: { functionCallingConfig: { mode: "AUTO" } },
-            generationConfig: { temperature: 0.2 },
-          }),
-        }
-      );
+      let response: Response | null = null;
+      let lastErrText = "";
 
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`GEMINI_HTTP_${response.status}: ${errBody.slice(0, 300)}`);
+      for (const modelName of GEMINI_MODELS) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents,
+                tools: [{ functionDeclarations: AGENT_FUNCTION_DECLARATIONS }],
+                toolConfig: { functionCallingConfig: { mode: "AUTO" } },
+                generationConfig: { temperature: 0.2 },
+              }),
+            }
+          );
+
+          if (res.ok) {
+            response = res;
+            break;
+          } else {
+            lastErrText = await res.text();
+            console.warn(`[orchestrator] Gemini model ${modelName} returned HTTP ${res.status}, trying next...`);
+          }
+        } catch (e: any) {
+          lastErrText = e?.message || "Gemini fetch failure";
+        }
+      }
+
+      if (!response) {
+        // Fallback for focused actions so the UI is never blocked by Gemini deprecation/outage
+        if (payload.focusedAction === "jobs" || payload.focusedAction === "kanban") {
+          console.warn("[orchestrator] Gemini unavailable, executing auto_seed_kanban_pipeline directly");
+          const targetRole = (digitalTwin as any).targetRole || digitalTwin.profileSummary?.targetRole || "Software Engineer";
+          const skills = (digitalTwin.skills || []).map((s: any) => typeof s === "string" ? s : s.skill_name || s.skill || "");
+          const output = await auto_seed_kanban_pipeline(effectiveUserId, { targetRole, skills, limit: payload.focusedAction === "kanban" ? 10 : 6 }, supabase);
+          traceSteps.push({
+            step_number: stepCount,
+            timestamp: new Date().toISOString(),
+            tool_name: "auto_seed_kanban_pipeline",
+            input_summary: `targetRole=${targetRole}`,
+            output_summary: output.summary,
+            status: output.success ? "SUCCESS" : "ERROR",
+            latency_ms: Date.now() - llmStart,
+            data: output.data,
+          });
+          finalSummaryText = output.summary;
+          break;
+        } else if (payload.focusedAction === "readiness") {
+          console.warn("[orchestrator] Gemini unavailable, executing inject_readiness_sprint directly");
+          const targetRole = (digitalTwin as any).targetRole || digitalTwin.profileSummary?.targetRole || "Software Engineer";
+          const output = await inject_readiness_sprint(
+            effectiveUserId,
+            {
+              sprintTitle: `${targetRole} Readiness Sprint`,
+              tasks: [
+                {
+                  title: `Master core ${targetRole} architecture patterns`,
+                  category: "skills",
+                  priority: "HIGH",
+                  estimatedHours: 6,
+                  evidenceReason: `Required core competency for ${targetRole}`,
+                },
+                {
+                  title: "Review distributed system and scalability principles",
+                  category: "skills",
+                  priority: "HIGH",
+                  estimatedHours: 5,
+                  evidenceReason: "Frequently probed in technical screening",
+                },
+                {
+                  title: "Practice STAR mock technical behavioral questions",
+                  category: "interview",
+                  priority: "MEDIUM",
+                  estimatedHours: 4,
+                  evidenceReason: "Strengthen project storytelling and defense",
+                },
+              ],
+            },
+            supabase
+          );
+          traceSteps.push({
+            step_number: stepCount,
+            timestamp: new Date().toISOString(),
+            tool_name: "inject_readiness_sprint",
+            input_summary: `targetRole=${targetRole}`,
+            output_summary: output.summary,
+            status: output.success ? "SUCCESS" : "ERROR",
+            latency_ms: Date.now() - llmStart,
+            data: output.data,
+          });
+          finalSummaryText = output.summary;
+          break;
+        } else {
+          throw new Error(`GEMINI_ALL_MODELS_FAILED: ${lastErrText.slice(0, 300)}`);
+        }
       }
 
       const llmJson = await response.json();
