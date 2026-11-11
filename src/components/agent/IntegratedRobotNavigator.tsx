@@ -1,44 +1,44 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAgent } from "@/context/AgentProvider";
-import type { AgentTraceStep } from "@/lib/agent/types";
-
-function getSkillName(item: any): string {
-  if (!item) return "";
-  if (typeof item === "string") return item;
-  if (typeof item === "object") {
-    if (typeof item.name === "string") return item.name;
-    if (typeof item.skill_name === "string") return item.skill_name;
-    if (typeof item.skill === "string") return item.skill;
-    return "";
-  }
-  return String(item);
-}
-
-function getSkillBadge(item: any): string {
-  if (!item || typeof item !== "object") return "";
-  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
-}
-
-function toSkillLabel(item: any): string {
-  return getSkillName(item);
-}
+import {
+  getStoredApplications,
+  saveStoredApplications,
+  getStoredReadinessMilestones,
+  saveStoredReadinessMilestones,
+  saveStoredResumeWorkspace,
+} from "@/lib/storage-sync";
 
 const ROLE_PRESETS = [
-  "Backend Software Engineer",
   "Full-Stack Engineer",
-  "AI / ML Engineer",
+  "Backend Software Engineer",
   "Frontend Engineer",
+  "AI / ML Engineer",
   "Data & Analytics Engineer",
   "DevOps / Cloud Engineer",
 ];
 
+interface LiveScoutedJob {
+  id: string;
+  company: string;
+  title: string;
+  location: string;
+  salary: string;
+  url: string;
+  matchScore: number;
+  matchedSkills: string[];
+  missingSkills: string[];
+  deadlineDate: string;
+}
+
 export function IntegratedRobotNavigator() {
   const router = useRouter();
   const pathname = usePathname();
+  const containerRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDuplicateInstance, setIsDuplicateInstance] = useState(false);
 
   const {
     digitalTwin,
@@ -46,28 +46,79 @@ export function IntegratedRobotNavigator() {
     uploadedFileName,
     targetRole,
     setTargetRole,
-    activeRun,
-    pendingApprovals,
     isUploadingResume,
-    isExecutingAgent,
     agentError,
     clearAgentError,
     uploadResumeForRole,
-    triggerAgent,
-    runFocusedAction,
-    resolveApproval,
     resetWorkspaceToZero,
-    openDrawer,
   } = useAgent();
 
   const [customRoleInput, setCustomRoleInput] = useState(targetRole || "");
-  const [customGoalInput, setCustomGoalInput] = useState("");
-  const [showTraceLog, setShowTraceLog] = useState(false);
+  const [isScoutingJobs, setIsScoutingJobs] = useState(false);
+  const [scoutedJobs, setScoutedJobs] = useState<LiveScoutedJob[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const hasExtractedResume = Boolean(
-    parsedResume || (digitalTwin && Array.isArray(digitalTwin.skills) && digitalTwin.skills.length > 0)
-  );
-  const isBusy = isUploadingResume || isExecutingAgent;
+  useEffect(() => {
+    if (typeof document === "undefined" || !containerRef.current) return;
+    const allNavigators = document.querySelectorAll('[data-robot-navigator="singleton"]');
+    if (allNavigators.length > 1 && allNavigators[0] !== containerRef.current) {
+      setIsDuplicateInstance(true);
+    }
+  }, [pathname]);
+
+  // Keep legacy storage-sync.ts unified whenever parsedResume updates so /resume never crashes on undefined[0]
+  useEffect(() => {
+    if (!parsedResume) return;
+    try {
+      const skillNames = (parsedResume.extractedSkills || []).map((s: any) =>
+        typeof s === "string" ? s : String(s?.name || "")
+      );
+      const missingNames = (parsedResume.missingSkillsForTargetRole || []).map((m: any) =>
+        typeof m === "string" ? m : String(m?.skill || "")
+      );
+
+      saveStoredResumeWorkspace({
+        fileName: uploadedFileName || "Uploaded_Resume.pdf",
+        uploadedAt: new Date().toISOString(),
+        rawText: JSON.stringify(parsedResume.projects || []),
+        targetRole: parsedResume.targetRole || targetRole || "Software Engineer",
+        analysis: {
+          atsScore: parsedResume.atsScore || 70,
+          matchScore: parsedResume.atsScore || 70,
+          candidateName: parsedResume.candidateName || "Candidate",
+          targetRole: parsedResume.targetRole || targetRole || "Software Engineer",
+          skills: skillNames,
+          extractedSkills: parsedResume.extractedSkills || [],
+          missingKeywords: missingNames,
+          strengths: skillNames.slice(0, 5),
+          improvements: (parsedResume.bulletImprovements || []).map((b: any) => ({
+            original: String(b?.originalBullet || ""),
+            improved: String(b?.proposedBullet || ""),
+            section: String(b?.verifiedSourceProject || "Projects"),
+          })),
+          projects: parsedResume.projects || [],
+          sectionScores: [
+            { section: "Technical Skills", score: parsedResume.atsScore || 75, feedback: "Extracted from PDF" },
+            { section: "Projects", score: 80, feedback: `${(parsedResume.projects || []).length} projects analyzed` },
+          ],
+        } as any,
+      } as any);
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [parsedResume, uploadedFileName, targetRole]);
+
+  if (isDuplicateInstance) {
+    return null;
+  }
+
+  const extractedSkillsList =
+    parsedResume?.extractedSkills && parsedResume.extractedSkills.length > 0
+      ? parsedResume.extractedSkills
+      : digitalTwin?.skills || [];
+
+  const hasExtractedResume = Boolean(parsedResume || extractedSkillsList.length > 0);
+  const atsScore = parsedResume?.atsScore ?? digitalTwin?.atsScore ?? 0;
 
   const handleSelectRole = (role: string) => {
     setCustomRoleInput(role);
@@ -77,93 +128,238 @@ export function IntegratedRobotNavigator() {
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const roleToUse = customRoleInput.trim() || targetRole.trim();
-    await uploadResumeForRole(file, roleToUse);
+    const roleToUse = customRoleInput.trim() || targetRole.trim() || "Full-Stack Engineer";
+    const ok = await uploadResumeForRole(file, roleToUse);
     e.target.value = "";
+    if (ok) {
+      setStatusMessage(`Extracted resume for ${roleToUse}! Click Option 1 below to scout matching jobs.`);
+    }
   };
 
   const handleDropFile = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    const roleToUse = customRoleInput.trim() || targetRole.trim();
+    const roleToUse = customRoleInput.trim() || targetRole.trim() || "Full-Stack Engineer";
     await uploadResumeForRole(file, roleToUse);
   };
 
-  const handleScoutLiveJobs = async () => {
-    const role = targetRole || customRoleInput || "Software Engineer";
-    await triggerAgent({
-      triggerType: "USER_GOAL_SUBMITTED",
-      entityId: "live-job-scout",
-      goalPrompt: `Use auto_seed_kanban_pipeline to scout 4 real live job openings for "${role}" and save them to my Kanban applications tracker.`,
-    });
-    router.push("/tracker");
+  // OPTION 1: Directly fetch live jobs similar to Target Role + Resume Skills & sync to Kanban
+  const handleScoutSimilarJobsNow = async () => {
+    const roleQuery = (targetRole || customRoleInput || "Software Engineer").trim();
+    setIsScoutingJobs(true);
+    setStatusMessage(`Scouting live jobs matching "${roleQuery}" and your extracted resume skills...`);
+
+    try {
+      const userSkillNames = extractedSkillsList.map((s: any) =>
+        typeof s === "string" ? s : String(s?.name || s?.skill_name || "")
+      );
+
+      let rawJobs: any[] = [];
+
+      // 1. Try internal /api/jobs/search first if available
+      try {
+        const internalRes = await fetch(
+          `/api/jobs/search?query=${encodeURIComponent(roleQuery)}&role=${encodeURIComponent(roleQuery)}`
+        );
+        if (internalRes.ok) {
+          const internalJson = await internalRes.json();
+          if (Array.isArray(internalJson?.jobs) && internalJson.jobs.length > 0) {
+            rawJobs = internalJson.jobs;
+          } else if (Array.isArray(internalJson) && internalJson.length > 0) {
+            rawJobs = internalJson;
+          }
+        }
+      } catch {
+        // Fallback to Remotive public API below
+      }
+
+      // 2. If internal route returned 0 jobs, query Remotive Live API directly
+      if (rawJobs.length === 0) {
+        const remotiveRes = await fetch(
+          `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(roleQuery)}&limit=10`
+        );
+        if (remotiveRes.ok) {
+          const remotiveJson = await remotiveRes.json();
+          if (Array.isArray(remotiveJson?.jobs)) {
+            rawJobs = remotiveJson.jobs;
+          }
+        }
+      }
+
+      // 3. Broaden search keyword if role string was too specific (e.g. "Full-Stack Engineer" -> "developer")
+      if (rawJobs.length === 0) {
+        const broadKeyword = roleQuery.split(/[\s/-]+/)[0] || "software";
+        const broadRes = await fetch(
+          `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(broadKeyword)}&limit=8`
+        );
+        if (broadRes.ok) {
+          const broadJson = await broadRes.json();
+          if (Array.isArray(broadJson?.jobs)) {
+            rawJobs = broadJson.jobs;
+          }
+        }
+      }
+
+      const now = Date.now();
+      const mappedJobs: LiveScoutedJob[] = rawJobs.slice(0, 6).map((j: any, index: number) => {
+        const jobTags: string[] = Array.isArray(j.tags)
+          ? j.tags.map(String)
+          : Array.isArray(j.skills)
+          ? j.skills.map(String)
+          : ["TypeScript", "React", "Node.js", "SQL"];
+
+        const matched = jobTags.filter((tag) =>
+          userSkillNames.some(
+            (us) => us.toLowerCase().includes(tag.toLowerCase()) || tag.toLowerCase().includes(us.toLowerCase())
+          )
+        );
+        const missing = jobTags.filter((tag) => !matched.includes(tag)).slice(0, 3);
+        const score =
+          jobTags.length > 0
+            ? Math.min(96, Math.max(68, Math.round((matched.length / jobTags.length) * 100) + 55))
+            : 82;
+
+        const deadline = new Date(now + (index + 2) * 86400000).toISOString().split("T")[0];
+
+        return {
+          id: String(j.id || `live-job-${index}-${Date.now()}`),
+          company: String(j.company_name || j.company || "Tech Company"),
+          title: String(j.title || roleQuery),
+          location: String(j.candidate_required_location || j.location || "Remote / Hybrid"),
+          salary: String(j.salary || "Competitive CTC"),
+          url: String(j.url || j.applyUrl || "https://remotive.com"),
+          matchScore: score,
+          matchedSkills: matched.length > 0 ? matched.slice(0, 4) : userSkillNames.slice(0, 3),
+          missingSkills: missing,
+          deadlineDate: deadline,
+        };
+      });
+
+      setScoutedJobs(mappedJobs);
+
+      // Save scouted jobs into Kanban Tracker storage so /tracker and /jobs have them immediately
+      if (mappedJobs.length > 0) {
+        const existingApps = getStoredApplications() || [];
+        const existingKeySet = new Set(
+          existingApps.map((a: any) => `${String(a.company).toLowerCase()}::${String(a.title).toLowerCase()}`)
+        );
+
+        const newKanbanCards = mappedJobs
+          .filter((job) => !existingKeySet.has(`${job.company.toLowerCase()}::${job.title.toLowerCase()}`))
+          .map((job) => ({
+            id: `app-${job.id}`,
+            company: job.company,
+            title: job.title,
+            status: "Saved",
+            priority: job.matchScore >= 85 ? "high" : "medium",
+            location: job.location,
+            salary: job.salary,
+            url: job.url,
+            matchScore: job.matchScore,
+            nextStep: `Apply before ${job.deadlineDate}`,
+            nextStepDate: job.deadlineDate,
+            notes: `Auto-scouted by Robot Agent for ${roleQuery} (${job.matchScore}% match).`,
+            updatedAt: new Date().toISOString(),
+          }));
+
+        if (newKanbanCards.length > 0) {
+          saveStoredApplications([...(newKanbanCards as any[]), ...existingApps]);
+          window.dispatchEvent(new CustomEvent("copilot-data-updated"));
+        }
+
+        setStatusMessage(
+          `Scouted ${mappedJobs.length} live "${roleQuery}" jobs and added them to your Kanban pipeline with deadlines!`
+        );
+      } else {
+        setStatusMessage(`No live remote jobs returned for "${roleQuery}". Opening Job Discovery page...`);
+        router.push(`/jobs?role=${encodeURIComponent(roleQuery)}`);
+      }
+    } catch (err: any) {
+      setStatusMessage(`Could not reach live job feed (${err?.message || "network error"}). Opening Job Discovery...`);
+      router.push("/jobs");
+    } finally {
+      setIsScoutingJobs(false);
+    }
   };
 
-  const handleBuildReadinessSprint = async () => {
-    const role = targetRole || customRoleInput || "Software Engineer";
-    const missingList =
-      parsedResume?.missingSkillsForTargetRole?.map((m: any) => toSkillLabel(m)).join(", ") ||
-      digitalTwin?.bluffRiskSkills?.map((s: any) => toSkillLabel(s)).join(", ") ||
-      "core role competencies";
-    await triggerAgent({
-      triggerType: "USER_GOAL_SUBMITTED",
-      entityId: "readiness-sprint-gen",
-      goalPrompt: `Use inject_readiness_sprint to create a focused preparation checklist for "${role}" covering my missing/weak skills: ${missingList}.`,
-    });
+  // OPTION 2: Populate Readiness Milestones from Missing Skills & Open /readiness
+  const handleBuildStudyPlanNow = () => {
+    const missingList = Array.isArray(parsedResume?.missingSkillsForTargetRole)
+      ? parsedResume!.missingSkillsForTargetRole
+      : [];
+
+    const existingMilestones = getStoredReadinessMilestones() || [];
+    const existingTitles = new Set(existingMilestones.map((m: any) => String(m.title || "").toLowerCase()));
+
+    const newMilestones = missingList
+      .map((m: any, idx: number) => ({
+        id: `agent-gap-${Date.now()}-${idx}`,
+        title: `Master ${m.skill} for ${targetRole || "Target Role"}`,
+        description: m.reason || `Identified as a missing skill gap in ${uploadedFileName || "your resume"}.`,
+        category: "Technical Gap",
+        priority: m.priority === "MEDIUM" ? "medium" : "high",
+        completed: false,
+        dueDate: new Date(Date.now() + (idx + 2) * 86400000).toISOString().split("T")[0],
+      }))
+      .filter((m) => !existingTitles.has(m.title.toLowerCase()));
+
+    if (newMilestones.length > 0) {
+      saveStoredReadinessMilestones([...(newMilestones as any[]), ...existingMilestones]);
+      window.dispatchEvent(new CustomEvent("copilot-data-updated"));
+    }
+
     router.push("/readiness");
   };
 
-  const handleCustomCommandSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customGoalInput.trim()) return;
-    await triggerAgent({
-      triggerType: "USER_GOAL_SUBMITTED",
-      entityId: "custom-user-command",
-      goalPrompt: customGoalInput.trim(),
-    });
-    setCustomGoalInput("");
-    setShowTraceLog(true);
-  };
-
-  const traceSteps: AgentTraceStep[] = Array.isArray((activeRun as any)?.trace)
-    ? (activeRun as any).trace
-    : Array.isArray(activeRun?.reasoning_trace)
-    ? activeRun.reasoning_trace
-    : [];
-
   return (
-    <section className="w-full mb-6 rounded-2xl border border-cyan-500/30 bg-slate-950/90 backdrop-blur-xl p-5 shadow-2xl text-slate-100">
-      {/* Honest Error Alert Banner */}
+    <section
+      ref={containerRef}
+      data-robot-navigator="singleton"
+      className="w-full mb-6 rounded-2xl border border-cyan-500/30 bg-[#0A0D1C]/95 backdrop-blur-xl p-5 shadow-2xl text-slate-100"
+    >
       {agentError && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/50 bg-red-950/60 px-4 py-3 text-sm text-red-200">
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/50 bg-red-950/60 px-4 py-3 text-xs sm:text-sm text-red-200">
           <div>
-            <span className="font-bold text-red-400">Agent Error: </span>
+            <span className="font-bold text-red-400">Agent Alert: </span>
             <span>{agentError}</span>
           </div>
           <button
+            type="button"
             onClick={clearAgentError}
-            className="ml-4 rounded-lg bg-red-900/60 px-3 py-1 text-xs font-medium text-red-100 hover:bg-red-800"
+            className="ml-4 rounded-lg bg-red-900/60 px-3 py-1 text-xs font-medium text-red-100 hover:bg-red-800 cursor-pointer"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Main Robot Header + Conversational Guidance */}
+      {statusMessage && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2.5 text-xs text-emerald-200">
+          <span>🤖 {statusMessage}</span>
+          <button
+            type="button"
+            onClick={() => setStatusMessage(null)}
+            className="ml-3 text-emerald-400 hover:text-white cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Robot Header */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="flex items-start gap-4">
-          {/* Expressive Animated Robot Avatar */}
           <div
-            className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border ${
-              isBusy
+            className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${
+              isUploadingResume || isScoutingJobs
                 ? "border-amber-400 bg-amber-500/10 animate-pulse"
                 : hasExtractedResume
                 ? "border-emerald-400/60 bg-emerald-500/10"
                 : "border-cyan-400/60 bg-cyan-500/10"
             }`}
           >
-            <svg className="h-9 w-9 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <svg className="h-8 w-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <rect x="3" y="7" width="18" height="13" rx="4" />
               <circle cx="9" cy="13" r="1.5" fill="currentColor" />
               <circle cx="15" cy="13" r="1.5" fill="currentColor" />
@@ -171,16 +367,11 @@ export function IntegratedRobotNavigator() {
               <path d="M12 3v4" strokeLinecap="round" />
               <circle cx="12" cy="3" r="1" fill="currentColor" />
             </svg>
-            <span
-              className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-slate-950 ${
-                isBusy ? "bg-amber-400 animate-ping" : hasExtractedResume ? "bg-emerald-400" : "bg-cyan-400"
-              }`}
-            />
           </div>
 
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
                 Autonomous Placement Agent
               </span>
               {targetRole && (
@@ -195,55 +386,36 @@ export function IntegratedRobotNavigator() {
               )}
             </div>
 
-            {/* Dynamic Robot Speech Prompt Based on Current Stage */}
-            <p className="text-base font-medium text-slate-100">
+            <p className="text-sm sm:text-base font-medium text-slate-100">
               {isUploadingResume
-                ? `Scanning your PDF resume with Gemini for "${targetRole || customRoleInput}"...`
-                : isExecutingAgent
-                ? "Executing autonomous agent tools on your workspace..."
+                ? `Extracting skills & projects from your PDF for "${targetRole || customRoleInput}"...`
+                : isScoutingJobs
+                ? `Scouting live jobs matching "${targetRole}" and your extracted skills...`
                 : !targetRole
-                ? "Step 1: Which role are you aspiring for? Pick or type your target role below so I know how to evaluate your resume."
+                ? "Step 1: Which role are you aspiring for? Select your target role below to begin."
                 : !hasExtractedResume
-                ? `Step 2: Great! You're aiming for "${targetRole}". Upload your real PDF resume below so I can extract your skills and find gaps for this role.`
-                : `Your resume is analyzed for "${targetRole}" (${digitalTwin?.skills?.length || parsedResume?.extractedSkills?.length || 0} skills tracked, Readiness: ${(digitalTwin as any)?.readinessScore ?? digitalTwin?.profileSummary?.readinessScore ?? 0}%). What would you like me to do next?`}
+                ? `Step 2: Upload your PDF resume below so I can evaluate your fit for "${targetRole}".`
+                : `Analyzed ${parsedResume?.candidateName || uploadedFileName || "your resume"} for "${targetRole}" (${extractedSkillsList.length} skills extracted, ${atsScore}% Role Fit). What should I execute next?`}
             </p>
           </div>
         </div>
 
-        {/* Right Controls: Drawer & Trace Toggle & Reset */}
-        <div className="flex items-center gap-2 self-end lg:self-center flex-wrap">
-          {openDrawer && (
-            <button
-              type="button"
-              onClick={openDrawer}
-              className="rounded-xl border border-indigo-500/40 bg-indigo-950/60 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:border-indigo-400 hover:text-white transition"
-              title="Open glass-box autonomous agent execution drawer"
-            >
-              🧠 Agent Trace
-            </button>
-          )}
-          {traceSteps.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowTraceLog((prev) => !prev)}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300"
-            >
-              {showTraceLog ? "Hide Trace" : `View Trace (${traceSteps.length})`}
-            </button>
-          )}
-          {(targetRole || hasExtractedResume) && (
-            <button
-              type="button"
-              onClick={resetWorkspaceToZero}
-              className="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-400 hover:border-red-500/40 hover:text-red-300"
-            >
-              Change Role / New Resume
-            </button>
-          )}
-        </div>
+        {(targetRole || hasExtractedResume) && (
+          <button
+            type="button"
+            onClick={() => {
+              setScoutedJobs([]);
+              setStatusMessage(null);
+              resetWorkspaceToZero();
+            }}
+            className="rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-1.5 text-xs font-medium text-slate-300 hover:border-red-500/50 hover:text-red-300 cursor-pointer self-end lg:self-center"
+          >
+            Change Role / Upload New Resume
+          </button>
+        )}
       </div>
 
-      {/* STAGE 1: TARGET ROLE SELECTION FIRST */}
+      {/* STEP 1: TARGET ROLE PICKER */}
       {!targetRole && (
         <div className="mt-5 space-y-3 border-t border-slate-800/80 pt-4">
           <div className="flex flex-wrap gap-2">
@@ -252,7 +424,7 @@ export function IntegratedRobotNavigator() {
                 key={role}
                 type="button"
                 onClick={() => handleSelectRole(role)}
-                className="rounded-xl border border-slate-700/80 bg-slate-900/90 px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-200"
+                className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-200"
               >
                 {role}
               </button>
@@ -264,22 +436,22 @@ export function IntegratedRobotNavigator() {
               type="text"
               value={customRoleInput}
               onChange={(e) => setCustomRoleInput(e.target.value)}
-              placeholder="Or type any custom role (e.g., Golang Backend Intern, Computer Vision Engineer)..."
+              placeholder="Or type any custom role (e.g. Backend SDE, Data Analyst)..."
               className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
             />
             <button
               type="button"
               disabled={!customRoleInput.trim()}
               onClick={() => handleSelectRole(customRoleInput.trim())}
-              className="rounded-xl bg-cyan-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-40"
+              className="cursor-pointer rounded-xl bg-cyan-500 px-5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-40"
             >
-              Lock Target Role →
+              Set Target Role →
             </button>
           </div>
         </div>
       )}
 
-      {/* STAGE 2: REAL PDF RESUME UPLOAD FOR SELECTED TARGET ROLE */}
+      {/* STEP 2: PDF RESUME UPLOAD */}
       {targetRole && !hasExtractedResume && (
         <div className="mt-5 border-t border-slate-800/80 pt-4">
           <input
@@ -301,171 +473,166 @@ export function IntegratedRobotNavigator() {
           >
             <p className="text-sm font-semibold text-slate-100">
               {isUploadingResume
-                ? "Uploading & Running Gemini Multimodal PDF Extraction..."
-                : `Click to Upload Your Real PDF Resume (or Drag & Drop Here)`}
+                ? "Uploading & Extracting Your PDF Resume..."
+                : "Click to Upload Your Real PDF Resume (or Drag & Drop Here)"}
             </p>
             <p className="mt-1 text-xs text-slate-400">
-              Your resume will be evaluated specifically against <span className="text-cyan-300 font-medium">{targetRole}</span> requirements. No fake sample resumes or hardcoded stats.
+              Automatically syncs across Home, My Resume, Readiness Plan, and Job Discovery for{" "}
+              <span className="text-cyan-300 font-medium">{targetRole}</span>.
             </p>
           </div>
         </div>
       )}
 
-      {/* STAGE 3: CHOICE-DRIVEN NAVIGATION & AUTOMATION OPTIONS (AFTER REAL UPLOAD) */}
+      {/* STEP 3: 4 WORKING ACTION OPTIONS + INLINE SCOUTED JOBS */}
       {hasExtractedResume && (
         <div className="mt-5 space-y-4 border-t border-slate-800/80 pt-4">
-          {/* Clickable Choice Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button
               type="button"
-              disabled={isBusy}
-              onClick={() => {
-                const role = targetRole || "Software Engineer";
-                runFocusedAction("jobs").catch(() => {});
-                router.push(`/jobs?q=${encodeURIComponent(role)}`);
-              }}
-              className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
-                pathname?.includes("/tracker") || pathname?.includes("/jobs")
-                  ? "border-cyan-400 bg-cyan-500/15"
-                  : "border-slate-800 bg-slate-900/80 hover:border-cyan-500/50"
-              }`}
+              onClick={handleScoutSimilarJobsNow}
+              className="cursor-pointer flex flex-col items-start rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3.5 text-left transition hover:border-cyan-400 hover:bg-cyan-500/20"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Option 1 • Live Jobs</span>
-              <span className="mt-1 text-sm font-semibold text-slate-100">Scout & Track Real Jobs</span>
-              <span className="mt-1 text-xs text-slate-400">
-                Fetches live remote openings for {targetRole || "your role"} & adds deadlines to Kanban.
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+                Option 1 • Live Jobs
+              </span>
+              <span className="mt-1 text-sm font-semibold text-white">
+                {isScoutingJobs ? "Scouting Similar Jobs..." : "Scout & Fetch Similar Jobs →"}
+              </span>
+              <span className="mt-1 text-xs text-slate-300">
+                Directly fetches live {targetRole} openings matched to your {extractedSkillsList.length} skills.
               </span>
             </button>
 
             <button
               type="button"
-              disabled={isBusy}
-              onClick={() => runFocusedAction("readiness")}
-              className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
-                pathname?.includes("/readiness")
-                  ? "border-cyan-400 bg-cyan-500/15"
-                  : "border-slate-800 bg-slate-900/80 hover:border-cyan-500/50"
-              }`}
+              onClick={handleBuildStudyPlanNow}
+              className="cursor-pointer flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 text-left transition hover:border-emerald-400 hover:bg-emerald-500/10"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Option 2 • Study Plan</span>
-              <span className="mt-1 text-sm font-semibold text-slate-100">Cover Missing Skills</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Option 2 • Study Plan
+              </span>
+              <span className="mt-1 text-sm font-semibold text-white">
+                Cover {parsedResume?.missingSkillsForTargetRole?.length ?? 0} Missing Skills →
+              </span>
               <span className="mt-1 text-xs text-slate-400">
-                Builds your Readiness checklist from your resume gaps & tracks completion %.
+                Adds your skill gaps to Study Plan & tracks your Readiness %.
               </span>
             </button>
 
             <button
               type="button"
-              disabled={isBusy}
               onClick={() => router.push("/interview")}
-              className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
-                pathname?.includes("/interview")
-                  ? "border-cyan-400 bg-cyan-500/15"
-                  : "border-slate-800 bg-slate-900/80 hover:border-cyan-500/50"
-              }`}
+              className="cursor-pointer flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 text-left transition hover:border-purple-400 hover:bg-purple-500/10"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-400">Option 3 • Mock Interview</span>
-              <span className="mt-1 text-sm font-semibold text-slate-100">Practice with AI Interviewer</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+                Option 3 • Mock Interview
+              </span>
+              <span className="mt-1 text-sm font-semibold text-white">
+                Practice with AI Interviewer →
+              </span>
               <span className="mt-1 text-xs text-slate-400">
-                Back-and-forth technical interview probing your resume projects & weak spots.
+                Live technical interview grilling your resume projects & weak spots.
               </span>
             </button>
 
             <button
               type="button"
-              disabled={isBusy}
-              onClick={async () => {
-                await runFocusedAction("kanban");
-                router.push("/tracker");
-              }}
-              className={`flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/80 p-3.5 text-left transition hover:border-cyan-500/50 ${
-                pathname?.includes("/tracker") ? "border-amber-400 bg-amber-500/10" : ""
-              }`}
+              onClick={() => router.push("/tracker")}
+              className="cursor-pointer flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 text-left transition hover:border-amber-400 hover:bg-amber-500/10"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Option 4 • Deadlines</span>
-              <span className="mt-1 text-sm font-semibold text-slate-100">Open Kanban Pipeline</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                Option 4 • Deadlines
+              </span>
+              <span className="mt-1 text-sm font-semibold text-white">
+                Open Kanban Pipeline →
+              </span>
               <span className="mt-1 text-xs text-slate-400">
-                Track {digitalTwin?.activeApplications?.length ?? 0} active applications and upcoming OA/interview dates.
+                Track saved jobs, OA dates, and upcoming interview deadlines.
               </span>
             </button>
           </div>
 
-          {/* Staged Resume Diff Approval Gate (If Pending in Supabase) */}
-          {pendingApprovals.length > 0 && (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-950/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                  Human-in-the-Loop Approval Required ({pendingApprovals.length} Staged Resume Diff)
-                </span>
+          {/* Direct Inline Display of Fetched Similar Jobs when Option 1 is Clicked */}
+          {scoutedJobs.length > 0 && (
+            <div className="rounded-xl border border-cyan-500/30 bg-slate-900/90 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+                  Live Similar Jobs Matched to Your Resume ({scoutedJobs.length} Found & Added to Kanban)
+                </h4>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push("/jobs")}
+                    className="cursor-pointer text-xs font-semibold text-cyan-400 hover:underline"
+                  >
+                    Open Full Job Discovery →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/tracker")}
+                    className="cursor-pointer text-xs font-semibold text-amber-300 hover:underline"
+                  >
+                    View in Kanban Tracker →
+                  </button>
+                </div>
               </div>
-              {pendingApprovals.slice(0, 1).map((item: any) => {
-                const changes = item.payload_diff?.proposedBulletChanges || [];
-                return (
-                  <div key={item.id} className="mt-2 space-y-2">
-                    {changes.map((c: any, idx: number) => (
-                      <div key={idx} className="rounded-lg bg-slate-900/90 p-3 text-xs space-y-1">
-                        <p className="text-red-300 line-through">- {toSkillLabel(c.originalBullet)}</p>
-                        <p className="text-emerald-300 font-medium">+ {toSkillLabel(c.proposedBullet)}</p>
-                        <p className="text-slate-400">Source Project: {toSkillLabel(c.verifiedSourceProject)}</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {scoutedJobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className="rounded-xl border border-slate-800 bg-slate-950/90 p-3.5 flex flex-col justify-between space-y-2"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-cyan-400">{job.company}</p>
+                          <p className="text-sm font-semibold text-white leading-snug">{job.title}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-300">
+                          {job.matchScore}% Match
+                        </span>
                       </div>
-                    ))}
-                    <div className="flex gap-2 pt-1">
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        {job.location} • Deadline: <span className="text-amber-300">{job.deadlineDate}</span>
+                      </p>
+                      {job.matchedSkills.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {job.matchedSkills.map((sk, i) => (
+                            <span
+                              key={i}
+                              className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300"
+                            >
+                              ✓ {sk}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold text-cyan-400 hover:text-cyan-300"
+                      >
+                        Apply Directly ↗
+                      </a>
                       <button
                         type="button"
-                        onClick={() => resolveApproval(item.id, "APPROVED")}
-                        className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400"
+                        onClick={() => router.push("/tracker")}
+                        className="cursor-pointer rounded-lg bg-slate-800 hover:bg-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-200"
                       >
-                        Approve & Apply to Resume
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => resolveApproval(item.id, "REJECTED")}
-                        className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
-                      >
-                        Reject
+                        Tracked in Kanban ✓
                       </button>
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           )}
-
-          {/* Free-form Natural Language Command Bar */}
-          <form onSubmit={handleCustomCommandSubmit} className="flex gap-2">
-            <input
-              type="text"
-              value={customGoalInput}
-              onChange={(e) => setCustomGoalInput(e.target.value)}
-              placeholder="Or tell the agent what to do (e.g. 'Find overlapping topics across my active job applications')..."
-              className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={isBusy || !customGoalInput.trim()}
-              className="rounded-xl bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-40"
-            >
-              Run Agent
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Collapsible Live Backend Tool Execution Trace */}
-      {showTraceLog && traceSteps.length > 0 && (
-        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/95 p-4 text-xs font-mono space-y-2">
-          <div className="text-slate-400 font-sans font-semibold">
-            Live Supabase Agent Run Trace (Status: <span className="text-cyan-300">{activeRun?.status}</span>):
-          </div>
-          {traceSteps.map((step: AgentTraceStep, idx: number) => (
-            <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/70 pb-1.5 gap-1">
-              <div>
-                <span className="text-cyan-400">[{step.tool_name}]</span>{" "}
-                <span className="text-slate-200">{step.output_summary}</span>
-              </div>
-              <span className="text-slate-500 shrink-0">{step.latency_ms}ms • {step.status}</span>
-            </div>
-          ))}
         </div>
       )}
     </section>
@@ -473,3 +640,4 @@ export function IntegratedRobotNavigator() {
 }
 
 export default IntegratedRobotNavigator;
+

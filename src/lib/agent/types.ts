@@ -50,6 +50,7 @@ export interface SkillEvidenceItem {
 // ─── Career Digital Twin Snapshot ───────────────────────────────────────────
 export interface StudentDigitalTwinSnapshot {
   userId: string;
+  atsScore?: number;
   profileSummary: {
     fullName?: string;
     targetRole?: string;

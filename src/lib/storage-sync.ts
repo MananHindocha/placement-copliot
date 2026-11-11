@@ -130,6 +130,7 @@ export function setStoredApplications(cards: KanbanCard[]): void {
     console.warn("[storage-sync] Failed to save applications:", err);
   }
 }
+export const saveStoredApplications = setStoredApplications;
 
 // ─── Readiness Tasks Storage ─────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ export function setStoredReadinessMilestones(milestones: ReadinessMilestone[]): 
     console.warn("[storage-sync] Failed to save readiness milestones:", err);
   }
 }
+export const saveStoredReadinessMilestones = setStoredReadinessMilestones;
 
 // ─── Interview Sessions Storage ──────────────────────────────────────────────
 
@@ -215,6 +217,7 @@ export function setStoredResumeWorkspace(workspace: StoredResumeWorkspace): void
     console.warn("[storage-sync] Failed to save resume workspace:", err);
   }
 }
+export const saveStoredResumeWorkspace = setStoredResumeWorkspace as any;
 
 // ─── Activity Feed Storage & Logger ──────────────────────────────────────────
 
