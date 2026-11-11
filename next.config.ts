@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false,
   experimental: {
     cpus: 1,
   },
@@ -11,6 +12,19 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  webpack: (config) => {
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/.next/**",
+        "**/.interview-persistent-store.json",
+        "**/.agent-interview-store.json",
+      ],
+    };
+    return config;
   },
 };
 

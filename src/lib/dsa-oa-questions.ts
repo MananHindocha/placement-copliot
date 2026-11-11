@@ -23,9 +23,14 @@ export interface DsaTestCase {
 export interface DsaOaProblem {
   id: string;
   number: number;
+  displayRank?: number;
   title: string;
   difficulty: "Easy" | "Medium" | "Hard";
   topic: DsaTopic;
+  topicsList?: string[];
+  frequency?: number;
+  acceptanceRate?: number;
+  leetcodeUrl?: string;
   companyTags: string[];
   roles: string[];
   problemStatement: string;
@@ -106,6 +111,7 @@ export const COMPANY_DOMAINS: Record<string, string> = {
   Cisco: "cisco.com",
   Cloudflare: "cloudflare.com",
   Walmart: "walmart.com",
+  "Walmart Labs": "walmart.com",
   Juspay: "juspay.in",
   Samsung: "samsung.com",
   Visa: "visa.com",
@@ -130,6 +136,37 @@ export const COMPANY_DOMAINS: Record<string, string> = {
   Rubrik: "rubrik.com",
   "Tower Research": "tower-research.com",
 };
+
+export const LIQUIDSLR_COMPANIES: readonly string[] = [
+  "Google",
+  "Amazon OA",
+  "Microsoft",
+  "Meta",
+  "Apple",
+  "Netflix",
+  "Stripe",
+  "Uber",
+  "Goldman Sachs",
+  "Adobe",
+  "Atlassian",
+  "Confluent",
+  "Swiggy",
+  "Flipkart",
+  "Zomato",
+  "Razorpay",
+  "Paytm",
+  "Postman",
+  "Morgan Stanley",
+  "Media.net",
+  "Sprinklr",
+  "DE Shaw",
+  "Oracle",
+  "Salesforce",
+  "Cisco",
+  "Intuit",
+  "PhonePe",
+  "Walmart Labs",
+];
 
 export function getCompanyLogoUrl(companyName: string): string {
   const cleanName = companyName.trim();

@@ -1,51 +1,26 @@
-import fs from "fs";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  getOptionalSupabaseClient,
+  readLocalInterviewStore,
+  writeLocalInterviewStore,
+  resolveUserId,
+  computeNextConfidence,
+  extractJsonObject,
+  callInterviewLLM,
+  type ConfidenceTier,
+  type SkillEvidenceLogEntry,
+  type SkillEvidenceRow,
+  type LocalDsaSession,
+  type LocalInterviewStore,
+} from "@/lib/interview/server-helpers";
+import {
+  executeSandboxCodeTool,
+  type SandboxExecutionToolResult,
+} from "@/lib/interview-graph/langgraph-tools";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
-const LOCAL_STORE_PATH = path.join(process.cwd(), ".interview-persistent-store.json");
-
-type ConfidenceTier = "UNVERIFIED" | "LOW" | "MEDIUM" | "HIGH";
-const LADDER: ConfidenceTier[] = ["UNVERIFIED", "LOW", "MEDIUM", "HIGH"];
-
-interface SkillEvidenceLogEntry {
-  timestamp: string;
-  source: string;
-  verdict: "POSITIVE" | "NEGATIVE";
-  citation: string;
-}
-
-interface SkillEvidenceRow {
-  user_id?: string;
-  skill_name: string;
-  claimed_level?: "LOW" | "MEDIUM" | "HIGH";
-  verified_confidence?: ConfidenceTier;
-  bluff_risk?: boolean;
-  evidence_log?: SkillEvidenceLogEntry[];
-  updated_at?: string;
-}
-
-interface LocalDsaSession {
-  id: string;
-  user_id: string;
-  role: string;
-  topic: string;
-  score: number;
-  status: string;
-  transcript: Array<{ role: string; content: string }>;
-  created_at: string;
-}
-
-interface LocalInterviewStore {
-  sessions: Record<string, unknown>;
-  skillsByUser: Record<string, SkillEvidenceRow[]>;
-  tasksByUser: Record<string, unknown[]>;
-  dsaSessions?: LocalDsaSession[];
-}
 
 export interface DsaAgentReview {
   agentAction:
@@ -71,194 +46,6 @@ export interface FollowUpEvaluation {
   spokenInterviewerReaction: string;
   nextFollowUpQuestion: string | null;
   keyTakeaway: string;
-}
-
-const PISTON_LANGUAGE_MAP: Record<string, { language: string; version: string; fileName: string }> = {
-  python: { language: "python", version: "3.10.0", fileName: "main.py" },
-  "python 3.11": { language: "python", version: "3.10.0", fileName: "main.py" },
-  javascript: { language: "javascript", version: "18.15.0", fileName: "index.js" },
-  typescript: { language: "typescript", version: "5.0.3", fileName: "index.ts" },
-  cpp: { language: "c++", version: "10.2.0", fileName: "main.cpp" },
-  "c++": { language: "c++", version: "10.2.0", fileName: "main.cpp" },
-  java: { language: "java", version: "15.0.2", fileName: "Main.java" },
-};
-
-function getOptionalSupabaseClient(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  )?.trim();
-
-  if (!url || !key || url.includes("your-project-id") || key.includes("your-supabase")) {
-    return null;
-  }
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-function readLocalStore(): LocalInterviewStore {
-  try {
-    if (fs.existsSync(LOCAL_STORE_PATH)) {
-      const parsed = JSON.parse(fs.readFileSync(LOCAL_STORE_PATH, "utf-8")) as Partial<LocalInterviewStore>;
-      return {
-        sessions: parsed.sessions ?? {},
-        skillsByUser: parsed.skillsByUser ?? {},
-        tasksByUser: parsed.tasksByUser ?? {},
-        dsaSessions: parsed.dsaSessions ?? [],
-      };
-    }
-  } catch {
-    // Fallback cleanly if malformed
-  }
-  return { sessions: {}, skillsByUser: {}, tasksByUser: {}, dsaSessions: [] };
-}
-
-function writeLocalStore(store: LocalInterviewStore): void {
-  try {
-    fs.writeFileSync(LOCAL_STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
-  } catch {
-    // Non-fatal in read-only environments
-  }
-}
-
-function resolveUserId(rawUserId?: string): { userId: string; isGuest: boolean } {
-  const isUuid = Boolean(
-    rawUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId)
-  );
-  if (isUuid && rawUserId !== GUEST_PERSISTENT_UUID) {
-    return { userId: rawUserId!, isGuest: false };
-  }
-  return { userId: GUEST_PERSISTENT_UUID, isGuest: true };
-}
-
-function computeNextConfidence(
-  currentTier: ConfidenceTier,
-  verdict: "POSITIVE" | "NEGATIVE",
-  claimedLevel: "LOW" | "MEDIUM" | "HIGH"
-) {
-  const idx = Math.max(0, LADDER.indexOf(currentTier));
-  const nextIdx =
-    verdict === "POSITIVE"
-      ? Math.min(LADDER.length - 1, idx + 1)
-      : currentTier === "UNVERIFIED"
-      ? 1
-      : Math.max(1, idx - 1);
-  const nextTier = LADDER[nextIdx];
-  return {
-    previousTier: currentTier,
-    nextTier,
-    bluffRisk: claimedLevel === "HIGH" && nextTier === "LOW",
-  };
-}
-
-function extractJsonObject(rawText: string): string {
-  const cleaned = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-  if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
-    return cleaned;
-  }
-  const firstBrace = cleaned.indexOf("{");
-  const lastBrace = cleaned.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    return cleaned.slice(firstBrace, lastBrace + 1);
-  }
-  return cleaned;
-}
-
-function isUsableKey(val: string | undefined, placeholderPrefix: string): val is string {
-  if (!val) return false;
-  const trimmed = val.trim();
-  return Boolean(trimmed) && !trimmed.startsWith(placeholderPrefix) && !trimmed.includes("your_");
-}
-
-async function callDsaLLM(prompt: string): Promise<{ text: string; provider: "gemini" | "groq" }> {
-  const sanitize = (v: string | undefined) => (v ? v.trim().replace(/^["']|["']$/g, "").trim() : "");
-  const geminiKey = sanitize(process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY);
-  const groqKey = sanitize(process.env.GROQ_API_KEY);
-  const errors: string[] = [];
-
-  if (isUsableKey(geminiKey, "placeholder-")) {
-    const geminiModels = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
-    for (const model of geminiModels) {
-      try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(12000),
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-            }),
-          }
-        );
-
-        if (geminiRes.ok) {
-          const json = (await geminiRes.json()) as {
-            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-          };
-          const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return { text, provider: "gemini" };
-        } else {
-          errors.push(`gemini/${model}: HTTP ${geminiRes.status}`);
-        }
-      } catch (err) {
-        errors.push(`gemini/${model}: ${err instanceof Error ? err.message : "network error"}`);
-      }
-    }
-  }
-
-  if (isUsableKey(groqKey, "your_")) {
-    const groqModels = [
-      "openai/gpt-oss-120b",
-      "openai/gpt-oss-20b",
-      "qwen/qwen3.8-27b",
-      "llama-3.3-70b-versatile",
-    ];
-    for (const model of groqModels) {
-      try {
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqKey}`,
-          },
-          signal: AbortSignal.timeout(12000),
-          body: JSON.stringify({
-            model,
-            temperature: 0.2,
-            response_format: { type: "json_object" },
-            messages: [{ role: "user", content: prompt }],
-          }),
-        });
-
-        if (groqRes.ok) {
-          const json = (await groqRes.json()) as {
-            choices?: Array<{ message?: { content?: string } }>;
-          };
-          const text = json.choices?.[0]?.message?.content;
-          if (text) return { text, provider: "groq" };
-        } else {
-          const errBody = await groqRes.text();
-          errors.push(`groq/${model}: HTTP ${groqRes.status} ${errBody.slice(0, 120)}`);
-        }
-      } catch (err) {
-        errors.push(`groq/${model}: ${err instanceof Error ? err.message : "network error"}`);
-      }
-    }
-  }
-
-  if (errors.length > 0) {
-    throw new Error(`LLM_PROVIDER_ERROR: ${errors.join(" | ").slice(0, 350)}`);
-  }
-
-  throw new Error(
-    "AI_KEY_MISSING: Configure GEMINI_API_KEY (or GOOGLE_GENERATIVE_AI_API_KEY) or GROQ_API_KEY in .env.local."
-  );
 }
 
 async function persistSkillEvidenceMutation(params: {
@@ -389,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     const { userId, isGuest } = resolveUserId(rawUserId);
     const supabase = getOptionalSupabaseClient();
-    const localStore = readLocalStore();
+    const localStore = readLocalInterviewStore();
     const now = new Date().toISOString();
 
     // ------------------------------------------------------------------------
@@ -424,7 +211,11 @@ Return ONLY valid JSON:
   "keyTakeaway": "string (1-sentence diagnostic note for their Skill Evidence Matrix)"
 }`;
 
-      const { text: rawEval, provider } = await callDsaLLM(followUpPrompt);
+      const { text: rawEval, provider } = await callInterviewLLM({
+        userPrompt: followUpPrompt,
+        temperature: 0.2,
+        timeoutMs: 12000,
+      });
       const followUpEval = JSON.parse(extractJsonObject(rawEval)) as FollowUpEvaluation;
       const verdict: "POSITIVE" | "NEGATIVE" = followUpEval.verdict === "POSITIVE" ? "POSITIVE" : "NEGATIVE";
       const score = typeof followUpEval.followUpScore === "number" ? followUpEval.followUpScore : 0;
@@ -441,13 +232,16 @@ Return ONLY valid JSON:
         now,
       });
 
-      writeLocalStore(localStore);
+      writeLocalInterviewStore(localStore);
 
       return NextResponse.json({
         success: true,
         isGuest,
         userId,
         mode: "EVALUATE_FOLLOWUP",
+        engine: "LangChain.js Bar-Raiser Follow-up Agent",
+        toolsExecuted: ["skill_evidence_matrix_updater"],
+        langGraphTrace: ["followup_evaluator", "skill_evidence_matrix_updater"],
         storageMode: supabase ? "supabase" : "local_file",
         llmProvider: provider,
         evaluation: followUpEval,
@@ -456,7 +250,7 @@ Return ONLY valid JSON:
     }
 
     // ------------------------------------------------------------------------
-    // MODE B: Execute Code (Piston with graceful fallback) + AI Bar-Raiser Review
+    // MODE B: Execute Code (LangChain execute_sandbox_code_tool) + AI Review
     // ------------------------------------------------------------------------
     if (!code || !code.trim()) {
       return NextResponse.json(
@@ -465,60 +259,33 @@ Return ONLY valid JSON:
       );
     }
 
-    const langKey = String(language).toLowerCase().trim();
-    const pistonSpec = PISTON_LANGUAGE_MAP[langKey] || PISTON_LANGUAGE_MAP.python;
-    const executableSource = testRunnerSnippet ? `${code}\n\n${testRunnerSnippet}` : code;
-
-    const pistonStart = Date.now();
-    let stdout = "";
-    let stderr = "";
-    let exitCode = -1;
-    let sandboxAvailable = false;
-    let sandboxNote: string | null = null;
-
-    try {
-      const pistonEndpoint = process.env.PISTON_API_URL?.trim() || "https://emkc.org/api/v2/piston/execute";
-      const pistonRes = await fetch(pistonEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(6000),
-        body: JSON.stringify({
-          language: pistonSpec.language,
-          version: pistonSpec.version,
-          files: [{ name: pistonSpec.fileName, content: executableSource }],
-          run_timeout: 3000,
-        }),
-      });
-
-      if (pistonRes.ok) {
-        const pistonJson = (await pistonRes.json()) as {
-          run?: { stdout?: string; stderr?: string; code?: number };
-          compile?: { stderr?: string };
-        };
-        stdout = pistonJson.run?.stdout || "";
-        stderr = pistonJson.run?.stderr || pistonJson.compile?.stderr || "";
-        exitCode = typeof pistonJson.run?.code === "number" ? pistonJson.run.code : -1;
-        sandboxAvailable = true;
-      } else {
-        sandboxNote =
-          pistonRes.status === 401
-            ? "Remote Piston public sandbox is whitelist-only (HTTP 401); static trace & test telemetry active."
-            : `Remote Piston sandbox returned HTTP ${pistonRes.status}; static trace & test telemetry active.`;
-      }
-    } catch {
-      sandboxNote = "Remote Piston sandbox unreachable; static trace & test telemetry active.";
-    }
-
-    const executionLatencyMs = Date.now() - pistonStart;
+    const rawSandboxJson = await executeSandboxCodeTool.invoke({
+      language: String(language || "python"),
+      code,
+      testRunnerSnippet: testRunnerSnippet || undefined,
+    });
+    const sandboxResult = JSON.parse(rawSandboxJson) as SandboxExecutionToolResult;
+    const { sandboxAvailable, sandboxNote, sandboxExecution } = sandboxResult;
+    const {
+      language: resolvedLanguage,
+      version: resolvedVersion,
+      stdout,
+      stderr,
+      exitCode,
+      executionLatencyMs,
+    } = sandboxExecution;
 
     if (mode === "RUN_ONLY") {
       return NextResponse.json({
         success: true,
+        engine: "LangChain.js DynamicStructuredTool + Piston Sandbox",
+        toolsExecuted: [executeSandboxCodeTool.name],
+        langGraphTrace: [`tool:${executeSandboxCodeTool.name}`],
         sandboxAvailable,
         sandboxNote,
         sandboxExecution: {
-          language: pistonSpec.language,
-          version: pistonSpec.version,
+          language: resolvedLanguage,
+          version: resolvedVersion,
           stdout,
           stderr,
           exitCode,
@@ -545,7 +312,7 @@ CANDIDATE SUBMISSION & TELEMETRY:
 - Spoken Intuition Out Loud: "${spokenIntuition || "Candidate did not explain intuition aloud before coding."}"
 - Claimed Time Complexity: ${claimedTimeComplexity}
 - Claimed Space Complexity: ${claimedSpaceComplexity}
-- Language: ${pistonSpec.language}
+- Language: ${resolvedLanguage}
 - Submitted Code:
 \`\`\`
 ${code}
@@ -581,13 +348,17 @@ Return ONLY valid JSON:
   "evidenceCitation": "string (1-sentence diagnostic evidence)"
 }`;
 
-    const { text: rawReviewText, provider } = await callDsaLLM(dsaAgentPrompt);
+    const { text: rawReviewText, provider } = await callInterviewLLM({
+      userPrompt: dsaAgentPrompt,
+      temperature: 0.2,
+      timeoutMs: 12000,
+    });
     const parsedReview = JSON.parse(extractJsonObject(rawReviewText)) as Partial<DsaAgentReview>;
     const agentReview: DsaAgentReview = {
       agentAction: parsedReview.agentAction || "PROBE_SCALING_EDGE_CASE",
       spokenBarRaiserResponse:
         parsedReview.spokenBarRaiserResponse ||
-        `I reviewed your ${pistonSpec.language} implementation for ${problemTitle}. Let's test your understanding of its edge cases and complexity.`,
+        `I reviewed your ${resolvedLanguage} implementation for ${problemTitle}. Let's test your understanding of its edge cases and complexity.`,
       followUpQuestion:
         parsedReview.followUpQuestion ||
         `How would your ${problemTitle} implementation adapt if input volume increased 100x and could not fit cleanly in memory?`,
@@ -602,7 +373,7 @@ Return ONLY valid JSON:
       verdict: parsedReview.verdict === "POSITIVE" ? "POSITIVE" : "NEGATIVE",
       evidenceCitation:
         parsedReview.evidenceCitation ||
-        `Evaluated ${problemTitle} (${pistonSpec.language}) with ${parsedReview.actualTimeComplexity || claimedTimeComplexity}.`,
+        `Evaluated ${problemTitle} (${resolvedLanguage}) with ${parsedReview.actualTimeComplexity || claimedTimeComplexity}.`,
     };
 
     const targetSkillName = problemTopic || "Data Structures & Algorithms";
@@ -638,7 +409,7 @@ Return ONLY valid JSON:
     };
 
     localStore.dsaSessions = [dsaSessionRecord, ...(localStore.dsaSessions || [])].slice(0, 30);
-    writeLocalStore(localStore);
+    writeLocalInterviewStore(localStore);
 
     if (supabase) {
       try {
@@ -660,13 +431,21 @@ Return ONLY valid JSON:
       success: true,
       isGuest,
       userId,
+      engine: "LangChain.js DynamicStructuredTool + Bar-Raiser Reviewer",
+      toolsExecuted: [executeSandboxCodeTool.name, "skill_evidence_matrix_updater"],
+      langGraphTrace: [
+        `tool:${executeSandboxCodeTool.name}`,
+        "bar_raiser_code_reviewer",
+        "skill_evidence_matrix_updater",
+        "session_persister",
+      ],
       storageMode: supabase ? "supabase" : "local_file",
       llmProvider: provider,
       sandboxAvailable,
       sandboxNote,
       sandboxExecution: {
-        language: pistonSpec.language,
-        version: pistonSpec.version,
+        language: resolvedLanguage,
+        version: resolvedVersion,
         stdout,
         stderr,
         exitCode,

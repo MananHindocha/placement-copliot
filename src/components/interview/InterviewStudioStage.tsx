@@ -1750,6 +1750,42 @@ export default function InterviewStudioStage({
                       </div>
                     </div>
 
+                    {/* LangGraph.js StateGraph Execution Trace */}
+                    {(evalResult.langGraphTrace?.length || evalResult.engine) && (
+                      <div className="px-3.5 py-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <BrainCircuit className="w-3.5 h-3.5 text-[#A78BFA]" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA]">
+                              LangGraph.js Execution Trace
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-[#71717A]">
+                            {evalResult.engine && <span>{evalResult.engine}</span>}
+                            {evalResult.storageMode && (
+                              <span className="px-1.5 py-0.5 rounded bg-[#121212] border border-[#292929] text-[#A1A1AA]">
+                                {evalResult.storageMode === "supabase" ? "Supabase Sync" : "Local Store"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {evalResult.langGraphTrace && evalResult.langGraphTrace.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {evalResult.langGraphTrace.map((node, idx) => (
+                              <span key={`${node}-${idx}`} className="inline-flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#F5F5F5]">
+                                  {node}
+                                </span>
+                                {idx < evalResult.langGraphTrace!.length - 1 && (
+                                  <span className="text-[10px] text-[#52525B] font-mono">→</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* STAR Breakdown Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                       {(["situation", "task", "action", "result"] as const).map((step) => {

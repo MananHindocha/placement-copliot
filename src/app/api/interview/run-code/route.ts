@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callInterviewLLM, extractJsonObject } from "@/lib/interview/server-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,27 +54,6 @@ interface RunCodeResponse {
   compilerMessage?: string;
   testResults: TestResult[];
   codeReview?: CodeReview;
-}
-
-function sanitizeKey(key: string | undefined): string {
-  if (!key) return "";
-  return key.trim().replace(/^["']|["']$/g, "").trim();
-}
-
-function extractJsonObject(text: string): Record<string, unknown> | null {
-  if (!text) return null;
-  const cleaned = text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-  const firstBrace = cleaned.indexOf("{");
-  const lastBrace = cleaned.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
-  try {
-    const parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
 }
 
 // ─── Empty Starter Code Detection ───────────────────────────────────────────
@@ -187,16 +167,16 @@ function computeDeterministicExecution(
   };
 }
 
-// ─── Engine 1: Groq LLaMA 3.3 70B Code Verifier ─────────────────────────────
-async function verifyWithGroq(
+// ─── Shared Active-Model Code Verifier (Gemini + Groq Cascade) ──────────────
+async function evaluateCodeWithLLM(
   payload: RunCodePayload,
   activeCases: TestCaseRequest[]
 ): Promise<RunCodeResponse | null> {
-  const apiKey = sanitizeKey(process.env.GROQ_API_KEY);
-  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_")) return null;
-
   try {
-    const prompt = `You are a Principal Software Engineer and Competitive Programming Online Assessment (OA) Compiler / Test Engine for a Tier-1 tech company (Google, Amazon, Razorpay).
+    const systemPrompt =
+      "You are an automated high-precision LeetCode / HackerRank Online Assessment dry-run compiler and test evaluator. Output valid JSON only.";
+
+    const userPrompt = `You are a Principal Software Engineer and Competitive Programming Online Assessment (OA) Compiler / Test Engine for a Tier-1 tech company (Google, Amazon, Razorpay).
 Your job is to trace, verify, and grade the candidate's code submission against the problem statement and test cases.
 
 PROBLEM:
@@ -259,84 +239,21 @@ Return STRICTLY a JSON object matching this schema (no markdown outside the json
   }
 }`;
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: "You are an automated high-precision LeetCode / HackerRank Online Assessment dry-run compiler and test evaluator. Output valid JSON only.",
-          },
-          { role: "user", content: prompt },
-        ],
-      }),
+    const { text } = await callInterviewLLM({
+      systemPrompt,
+      userPrompt,
+      temperature: 0,
+      timeoutMs: 16000,
     });
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    const rawContent = data.choices?.[0]?.message?.content || "";
-    const parsed = extractJsonObject(rawContent);
-    if (!parsed) return null;
+    const parsed = JSON.parse(extractJsonObject(text)) as Partial<RunCodeResponse>;
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.testResults)) {
+      return null;
+    }
 
-    return parsed as unknown as RunCodeResponse;
+    return parsed as RunCodeResponse;
   } catch (err) {
-    console.warn("[Groq Run-Code Engine error]:", err);
-    return null;
-  }
-}
-
-// ─── Engine 2: Google Gemini 2.5 Flash Code Verifier (Backup) ────────────────
-async function verifyWithGemini(
-  payload: RunCodePayload,
-  activeCases: TestCaseRequest[]
-): Promise<RunCodeResponse | null> {
-  const apiKey = sanitizeKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-  if (!apiKey || apiKey.startsWith("your_") || apiKey.startsWith("demo_")) return null;
-
-  try {
-    const prompt = `You are a Principal Software Engineer and Competitive Programming Online Assessment (OA) Compiler / Test Engine for a Tier-1 tech company.
-Evaluate this ${payload.language} code for problem "${payload.problemTitle}".
-
-PROBLEM:
-${payload.problemStatement}
-
-CANDIDATE CODE:
-${payload.sourceCode}
-
-TEST CASES:
-${JSON.stringify(activeCases, null, 2)}
-
-Return a strict JSON object with status ("Accepted" | "Wrong Answer" | "Time Limit Exceeded" | "Compilation Error"), passedCount, totalCount, runtimeMs, memoryMb, testResults array, and codeReview object.`;
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const parsed = extractJsonObject(text);
-    if (!parsed) return null;
-
-    return parsed as unknown as RunCodeResponse;
-  } catch (err) {
-    console.warn("[Gemini Run-Code Engine error]:", err);
+    console.warn("[Shared Run-Code LLM warning]:", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -396,15 +313,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response);
     }
 
-    // 2. Try Groq LLaMA 3.3 70B (fastest, temperature: 0)
-    let result = await verifyWithGroq(payload, casesToTest);
+    // 2. Evaluate via shared Gemini / Groq active model cascade
+    let result = await evaluateCodeWithLLM(payload, casesToTest);
 
-    // 3. Fallback to Gemini 2.5 Flash
-    if (!result) {
-      result = await verifyWithGemini(payload, casesToTest);
-    }
-
-    // 4. Fallback to deterministic heuristic execution
+    // 3. Fallback to deterministic heuristic execution
     if (!result) {
       result = computeDeterministicExecution(payload, casesToTest);
     }

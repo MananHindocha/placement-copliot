@@ -1,9 +1,11 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
-const LOCAL_STORE_PATH = path.join(process.cwd(), ".interview-persistent-store.json");
+// Store runtime interview state outside process.cwd() so Next.js dev file watcher never triggers HMR/Compiling reloads
+const LOCAL_STORE_PATH = path.join(os.tmpdir(), "placement-copilot-interview-store.json");
 
 export type ConfidenceTier = "UNVERIFIED" | "LOW" | "MEDIUM" | "HIGH";
 const LADDER: ConfidenceTier[] = ["UNVERIFIED", "LOW", "MEDIUM", "HIGH"];

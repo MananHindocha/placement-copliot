@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import {
-  Flame,
   Search,
   Loader2,
   FileCode,
@@ -29,6 +28,8 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
   const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>(() =>
     getBaselineAsStudioQuestions(roleMeta.title, "grill")
   );
+  const [grillTrace, setGrillTrace] = useState<string[]>([]);
+  const [grillTools, setGrillTools] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Read detected resume from localStorage
@@ -126,6 +127,8 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
       }
 
       const data = await res.json();
+      if (Array.isArray(data.langGraphTrace)) setGrillTrace(data.langGraphTrace);
+      if (Array.isArray(data.toolsExecuted)) setGrillTools(data.toolsExecuted);
       if (data.analysis) {
         setGithubAnalysis(data.analysis as GitHubGrillAnalysis);
       }
@@ -284,10 +287,32 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
         {githubAnalysis && (
           <div className="mt-5 pt-4 border-t border-[#1D1D1D] space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-2">
-                <FileCode className="w-4 h-4 text-[#A78BFA]" />
-                Repository Intelligence: {githubAnalysis.owner}/{githubAnalysis.repoName}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-2">
+                  <FileCode className="w-4 h-4 text-[#A78BFA]" />
+                  Repository Intelligence: {githubAnalysis.owner}/{githubAnalysis.repoName}
+                </span>
+                {(grillTools.length > 0 || grillTrace.length > 0) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {grillTools.map((tool) => (
+                      <span
+                        key={tool}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#121212] text-[#10B981] border border-[#292929]"
+                      >
+                        Tool: {tool}
+                      </span>
+                    ))}
+                    {grillTrace.map((node) => (
+                      <span
+                        key={node}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#121212] text-[#A78BFA] border border-[#292929]"
+                      >
+                        {node}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {githubAnalysis.detectedStack.map((tech) => (
                   <span

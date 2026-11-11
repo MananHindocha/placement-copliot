@@ -6,7 +6,6 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import {
-  Code2,
   ChevronLeft,
   ChevronRight,
   Play,
@@ -130,6 +129,9 @@ export default function DsaProblemWorkspace({
     nextTier: string;
     bluffRisk: boolean;
   } | null>(null);
+  const [dsaGraphTrace, setDsaGraphTrace] = useState<string[]>([]);
+  const [dsaToolsExecuted, setDsaToolsExecuted] = useState<string[]>([]);
+  const [dsaEngineLabel, setDsaEngineLabel] = useState<string | null>(null);
   const followUpRecognitionRef = useRef<{ stop?: () => void } | null>(null);
 
   useEffect(() => {
@@ -173,10 +175,13 @@ export default function DsaProblemWorkspace({
 
   // Initialize language from preferences & code from storage
   useEffect(() => {
-    const prefLang = getPreferredDsaLanguage();
-    setSelectedLanguageState(prefLang);
-    const savedCode = getStoredDsaCode(problem.number, prefLang);
-    setCurrentDsaCode(savedCode || problem.starterCode[prefLang] || "");
+    const timer = window.setTimeout(() => {
+      const prefLang = getPreferredDsaLanguage();
+      setSelectedLanguageState(prefLang);
+      const savedCode = getStoredDsaCode(problem.number, prefLang);
+      setCurrentDsaCode(savedCode || problem.starterCode[prefLang] || "");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [problem]);
 
   const handleLanguageChange = (newLang: "cpp" | "java" | "python" | "typescript") => {
@@ -205,6 +210,9 @@ export default function DsaProblemWorkspace({
       setFollowUpResult(null);
       setFollowUpError(null);
       setFollowUpAnswer("");
+      setDsaGraphTrace([]);
+      setDsaToolsExecuted([]);
+      setDsaEngineLabel(null);
     }
 
     try {
@@ -262,6 +270,9 @@ export default function DsaProblemWorkspace({
           });
           const dsaData = (await dsaExecRes.json()) as {
             success?: boolean;
+            engine?: string;
+            toolsExecuted?: string[];
+            langGraphTrace?: string[];
             agentReview?: {
               agentAction?: string;
               spokenBarRaiserResponse?: string;
@@ -281,6 +292,9 @@ export default function DsaProblemWorkspace({
 
           if (dsaExecRes.ok && dsaData.success && dsaData.agentReview) {
             const ar = dsaData.agentReview;
+            if (dsaData.engine) setDsaEngineLabel(dsaData.engine);
+            if (Array.isArray(dsaData.toolsExecuted)) setDsaToolsExecuted(dsaData.toolsExecuted);
+            if (Array.isArray(dsaData.langGraphTrace)) setDsaGraphTrace(dsaData.langGraphTrace);
             setAgentActionPill(ar.agentAction || null);
             setSpokenBarRaiserReaction(ar.spokenBarRaiserResponse || null);
             const activePrompt =
@@ -415,6 +429,9 @@ export default function DsaProblemWorkspace({
       const json = (await res.json()) as {
         success?: boolean;
         error?: string;
+        engine?: string;
+        toolsExecuted?: string[];
+        langGraphTrace?: string[];
         evaluation?: {
           followUpScore: number;
           verdict: "POSITIVE" | "NEGATIVE";
@@ -435,6 +452,13 @@ export default function DsaProblemWorkspace({
         return;
       }
 
+      if (json.engine) setDsaEngineLabel(json.engine);
+      if (Array.isArray(json.toolsExecuted)) {
+        setDsaToolsExecuted((prev) => Array.from(new Set([...prev, ...json.toolsExecuted!])));
+      }
+      if (Array.isArray(json.langGraphTrace)) {
+        setDsaGraphTrace((prev) => Array.from(new Set([...prev, ...json.langGraphTrace!])));
+      }
       setFollowUpResult(json.evaluation);
       if (json.skillMatrixMutation) {
         setSkillMatrixBadge(json.skillMatrixMutation);
@@ -1236,6 +1260,37 @@ export default function DsaProblemWorkspace({
                             <span className="text-xs text-[#71717A]"> / 100</span>
                           </div>
                         </div>
+
+                        {/* LangChain Tool & Graph Execution Trace */}
+                        {(dsaGraphTrace.length > 0 || dsaToolsExecuted.length > 0 || dsaEngineLabel) && (
+                          <div className="p-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-1.5">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA] flex items-center gap-1.5">
+                                <Brain className="w-3 h-3" />
+                                {dsaEngineLabel || "LangChain.js DynamicStructuredTool"}
+                              </span>
+                              {dsaToolsExecuted.length > 0 && (
+                                <span className="text-[10px] font-mono text-[#10B981]">
+                                  Tools: {dsaToolsExecuted.join(", ")}
+                                </span>
+                              )}
+                            </div>
+                            {dsaGraphTrace.length > 0 && (
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {dsaGraphTrace.map((node, idx) => (
+                                  <span key={`${node}-${idx}`} className="inline-flex items-center gap-1">
+                                    <span className="px-1.5 py-0.5 rounded bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#F5F5F5]">
+                                      {node}
+                                    </span>
+                                    {idx < dsaGraphTrace.length - 1 && (
+                                      <span className="text-[10px] text-[#52525B] font-mono">→</span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Big-O Analysis Card */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callInterviewLLM, extractJsonObject } from "@/lib/interview/server-helpers";
 import type { InterviewQuestion, InterviewCategory } from "@/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface CustomJdRequestBody {
   targetCompany?: string;
   jobTitle?: string;
   jobDescription: string;
   count?: number;
+}
+
+interface RawJdQuestion {
+  role?: unknown;
+  category?: unknown;
+  difficulty?: unknown;
+  question?: unknown;
+  hint?: unknown;
+  idealAnswer?: unknown;
+  keyConceptsToCover?: unknown;
 }
 
 function generateDeterministicJdQuestions(
@@ -96,15 +110,12 @@ function generateDeterministicJdQuestions(
   ];
 }
 
-async function generateWithGroq(
+async function generateWithSharedLLM(
   company: string,
   role: string,
   jd: string,
   count: number = 8
-): Promise<InterviewQuestion[] | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.includes("your_groq")) return null;
-
+): Promise<{ provider: string; questions: InterviewQuestion[] } | null> {
   const systemPrompt = `You are a Principal Engineering Hiring Manager and Bar-Raiser at a top-tier tech company.
 Your task is to analyze the provided Job Description (JD) and produce an array of exactly ${count} highly targeted, challenging interview questions tailored specifically to the company, role, required tech stack, and responsibilities.
 
@@ -134,122 +145,33 @@ ${jd.slice(0, 4000)}
 """`;
 
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.3,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      signal: AbortSignal.timeout(12000),
+    const { text, provider } = await callInterviewLLM({
+      systemPrompt,
+      userPrompt,
+      temperature: 0.3,
+      timeoutMs: 14000,
     });
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) return null;
-
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(extractJsonObject(text)) as { questions?: RawJdQuestion[] };
     if (!Array.isArray(parsed.questions) || parsed.questions.length === 0) return null;
 
-    return parsed.questions.map((q: any, i: number) => ({
+    const questions: InterviewQuestion[] = parsed.questions.map((q, i) => ({
       id: `custom-jd-${Date.now()}-${i + 1}`,
-      role: role || q.role || "Software Engineer",
-      category: (q.category as InterviewCategory) || "core-technical",
-      difficulty: ["easy", "medium", "hard"].includes(q.difficulty) ? q.difficulty : "medium",
-      question: String(q.question),
+      role: role || (typeof q.role === "string" ? q.role : "Software Engineer"),
+      category: (typeof q.category === "string" ? q.category : "core-technical") as InterviewCategory,
+      difficulty:
+        typeof q.difficulty === "string" && ["easy", "medium", "hard"].includes(q.difficulty)
+          ? (q.difficulty as "easy" | "medium" | "hard")
+          : "medium",
+      question: String(q.question || ""),
       hint: String(q.hint || "Highlight practical real-world trade-offs."),
       idealAnswer: String(q.idealAnswer || ""),
       keyConceptsToCover: Array.isArray(q.keyConceptsToCover)
         ? q.keyConceptsToCover.slice(0, 5).map(String)
         : ["Architecture", "Trade-offs", "Production Scale"],
     }));
-  } catch {
-    return null;
-  }
-}
 
-async function generateWithGemini(
-  company: string,
-  role: string,
-  jd: string,
-  count: number = 8
-): Promise<InterviewQuestion[] | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey || apiKey.includes("your_gemini")) return null;
-
-  const prompt = `You are a Principal Engineering Hiring Manager.
-Analyze this Job Description and return a JSON object with exactly ${count} deep, tailored interview questions across core-technical, system-design, debugging, dsa, behavioral, and culture.
-
-Company: ${company || "Target Company"}
-Role: ${role || "Software Engineer"}
-Job Description:
-"""
-${jd.slice(0, 3500)}
-"""
-
-Respond ONLY with strictly valid JSON:
-{
-  "questions": [
-    {
-      "id": "jd-1",
-      "role": "${role}",
-      "category": "core-technical",
-      "difficulty": "medium",
-      "question": "string",
-      "hint": "string",
-      "idealAnswer": "string",
-      "keyConceptsToCover": ["concept1", "concept2"]
-    }
-  ]
-}`;
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 2048,
-          },
-        }),
-        signal: AbortSignal.timeout(12000),
-      }
-    );
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed.questions) || parsed.questions.length === 0) return null;
-
-    return parsed.questions.map((q: any, i: number) => ({
-      id: `custom-jd-${Date.now()}-${i + 1}`,
-      role: role || q.role || "Software Engineer",
-      category: (q.category as InterviewCategory) || "core-technical",
-      difficulty: ["easy", "medium", "hard"].includes(q.difficulty) ? q.difficulty : "medium",
-      question: String(q.question),
-      hint: String(q.hint || "Highlight practical trade-offs."),
-      idealAnswer: String(q.idealAnswer || ""),
-      keyConceptsToCover: Array.isArray(q.keyConceptsToCover)
-        ? q.keyConceptsToCover.slice(0, 5).map(String)
-        : ["Architecture", "Trade-offs"],
-    }));
+    return { provider, questions };
   } catch {
     return null;
   }
@@ -271,27 +193,17 @@ export async function POST(req: NextRequest) {
     const jd = body.jobDescription.trim();
     const count = Math.min(15, Math.max(5, body.count || 8));
 
-    // 1. Try Groq Llama 3.3 70B
-    const groqQuestions = await generateWithGroq(company, role, jd, count);
-    if (groqQuestions && groqQuestions.length > 0) {
+    // 1. Try unified Gemini / Groq active model cascade via shared server-helpers
+    const llmResult = await generateWithSharedLLM(company, role, jd, count);
+    if (llmResult && llmResult.questions.length > 0) {
       return NextResponse.json({
         success: true,
-        source: "groq-llama-3.3-70b",
-        questions: groqQuestions,
+        source: `${llmResult.provider}-active`,
+        questions: llmResult.questions,
       });
     }
 
-    // 2. Try Gemini 2.0 Flash
-    const geminiQuestions = await generateWithGemini(company, role, jd, count);
-    if (geminiQuestions && geminiQuestions.length > 0) {
-      return NextResponse.json({
-        success: true,
-        source: "gemini-2.0-flash",
-        questions: geminiQuestions,
-      });
-    }
-
-    // 3. Deterministic Heuristic Fallback
+    // 2. Deterministic Heuristic Fallback when keys are unconfigured or providers are unavailable
     const fallbackQuestions = generateDeterministicJdQuestions(company, role, jd);
     return NextResponse.json({
       success: true,

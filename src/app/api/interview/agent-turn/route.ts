@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -8,7 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
-const LOCAL_STORE_PATH = path.join(process.cwd(), ".interview-persistent-store.json");
+// Store runtime interview state outside process.cwd() so Next.js dev file watcher never triggers HMR/Compiling reloads
+const LOCAL_STORE_PATH = path.join(os.tmpdir(), "placement-copilot-interview-store.json");
 
 type ConfidenceTier = "UNVERIFIED" | "LOW" | "MEDIUM" | "HIGH";
 const LADDER: ConfidenceTier[] = ["UNVERIFIED", "LOW", "MEDIUM", "HIGH"];
@@ -85,6 +87,15 @@ interface RemedialTaskInput {
   evidenceReason: string;
 }
 
+interface GapDetectedStudyTask {
+  hasGap?: boolean;
+  title?: string;
+  category?: "CORE_CS" | "SYSTEM_DESIGN" | "DSA" | "PROJECT_DEEP_DIVE";
+  priority?: "HIGH" | "MEDIUM";
+  estimatedHours?: number;
+  evidenceReason?: string;
+}
+
 interface TurnDecision {
   interviewerAction:
     | "OPENING_QUESTION"
@@ -101,6 +112,7 @@ interface TurnDecision {
     verdict?: "POSITIVE" | "NEGATIVE";
     evidenceCitation?: string;
   };
+  gapDetectedStudyTask?: GapDetectedStudyTask;
   finalReport?: {
     isComplete?: boolean;
     overallScore?: number;
@@ -164,6 +176,65 @@ function resolveUserId(rawUserId?: string): { userId: string; isGuest: boolean }
     return { userId: rawUserId!, isGuest: false };
   }
   return { userId: GUEST_PERSISTENT_UUID, isGuest: true };
+}
+
+function normalizeScore0To100(rawScore: unknown, fallback = 65): number {
+  if (rawScore === null || rawScore === undefined || rawScore === "") {
+    return fallback;
+  }
+  const num = Number(rawScore);
+  if (Number.isNaN(num) || num < 0) return fallback;
+  // Normalize decimal 0..1 LLM outputs (e.g. 0.6 -> 60, 0.45 -> 45) onto a 0..100 integer scale
+  if (num > 0 && num <= 1) {
+    return Math.round(num * 100);
+  }
+  return Math.min(100, Math.round(num));
+}
+
+async function persistNewStudyPlanTasks(params: {
+  tasks: LocalReadinessTask[];
+  userId: string;
+  localStore: LocalInterviewStore;
+  supabase: SupabaseClient | null;
+}): Promise<LocalReadinessTask[]> {
+  const { tasks, userId, localStore, supabase } = params;
+  if (tasks.length === 0) return [];
+
+  const prevTasks = localStore.tasksByUser[userId] || [];
+  const existingTitles = new Set(prevTasks.map((t) => t.title.trim().toLowerCase()));
+  const uniqueTasks: LocalReadinessTask[] = [];
+
+  for (const task of tasks) {
+    const normalizedTitle = task.title.trim().toLowerCase();
+    if (!normalizedTitle || existingTitles.has(normalizedTitle)) continue;
+    existingTitles.add(normalizedTitle);
+    uniqueTasks.push(task);
+  }
+
+  if (uniqueTasks.length === 0) return [];
+
+  localStore.tasksByUser[userId] = [...uniqueTasks, ...prevTasks].slice(0, 50);
+
+  if (supabase) {
+    try {
+      await supabase.from("readiness_tasks").insert(
+        uniqueTasks.map((r) => ({
+          user_id: r.user_id,
+          title: r.title,
+          category: r.category,
+          priority: r.priority,
+          estimated_hours: r.estimated_hours,
+          description: r.description,
+          completed: r.completed,
+          created_at: r.created_at,
+        }))
+      );
+    } catch (dbErr) {
+      console.warn("[agent-turn] Supabase tasks insert warning:", dbErr);
+    }
+  }
+
+  return uniqueTasks;
 }
 
 function computeNextConfidence(
@@ -311,6 +382,8 @@ export async function POST(req: NextRequest) {
       targetCompany?: string;
       history?: InterviewMessageTurn[];
       candidateMessage?: string;
+      requestType?: "STANDARD_TURN" | "REQUEST_SMALL_HINT";
+      currentQuestionText?: string;
       maxTurns?: number;
       resumeProjects?: ResumeProjectContext[];
       trackedSkills?: SkillEvidenceRow[];
@@ -323,6 +396,8 @@ export async function POST(req: NextRequest) {
       targetCompany = "",
       history = [],
       candidateMessage = "",
+      requestType = "STANDARD_TURN",
+      currentQuestionText = "",
       maxTurns = 6,
       resumeProjects: bodyProjects,
       trackedSkills: bodySkills,
@@ -330,6 +405,58 @@ export async function POST(req: NextRequest) {
 
     const { userId, isGuest } = resolveUserId(rawUserId);
     const supabase = getOptionalSupabaseClient();
+
+    // Branch 1: Candidate accepted the 30-second proactive hint offer or clicked Ask for Hint
+    if (requestType === "REQUEST_SMALL_HINT") {
+      const latestInterviewerMsg =
+        currentQuestionText.trim() ||
+        [...history].reverse().find((m) => m.role === "interviewer")?.content ||
+        `Core technical question for ${targetRole}`;
+
+      const hintSystemPrompt = `You are a supportive Technical Interviewer Agent for "${targetRole}".
+The candidate paused on your active question and requested a small hint.
+Provide a concise, encouraging 1-to-2 sentence conceptual nudge pointing them in the right architectural direction WITHOUT spoiling the answer, plus 2 to 3 crisp clue keywords.
+
+Return ONLY valid JSON:
+{
+  "spokenHint": "string (1-2 warm, natural spoken sentences giving a small directional hint)",
+  "clueKeywords": ["string (keyword 1)", "string (keyword 2)", "string (keyword 3)"]
+}`;
+
+      const { text: hintRawText, provider: hintProvider } = await callInterviewLLM(
+        hintSystemPrompt,
+        `Active Interview Question:\n"${latestInterviewerMsg}"\n\nGenerate a small directional hint now.`
+      );
+      const hintDecision = JSON.parse(extractJsonObject(hintRawText)) as {
+        spokenHint?: string;
+        clueKeywords?: unknown[];
+      };
+
+      const activeStorageMode = supabase ? "supabase" : "local_file";
+      const hintGraphNodes = await executeLiveTurnTraceGraph({
+        sessionId: sessionId || `hint-${Date.now()}`,
+        hasCandidateMessage: false,
+        interviewerAction: "GIVE_HINT",
+        storageMode: activeStorageMode,
+      });
+
+      return NextResponse.json({
+        success: true,
+        isHintResponse: true,
+        engine: "LangGraph.js + LangChain.js Stateful Interviewer",
+        llmProvider: hintProvider,
+        langGraphNodesExecuted: hintGraphNodes,
+        interviewerAction: "GIVE_HINT",
+        spokenHint:
+          hintDecision.spokenHint?.trim() ||
+          "Think carefully about state consistency, failure recovery modes, and latency trade-offs under peak load.",
+        clueKeywords: Array.isArray(hintDecision.clueKeywords)
+          ? hintDecision.clueKeywords.slice(0, 4).map(String)
+          : ["Failure Modes", "Latency vs Consistency", "Backpressure"],
+      });
+    }
+
+    // Branch 2: Standard Multi-Turn Interview Evaluation & Action Routing
     const localStore = readLocalStore();
 
     let candidateProjects: ResumeProjectContext[] = Array.isArray(bodyProjects) ? bodyProjects : [];
@@ -389,6 +516,8 @@ HOW YOU MUST BEHAVE AS AN AUTONOMOUS INTERVIEWER:
    - "GIVE_HINT": Candidate explicitly stalled or asked for a hint — give a short nudge and let them continue.
    - "NEXT_TOPIC_AND_LOG_EVIDENCE": Record a "POSITIVE" or "NEGATIVE" verdict for the skill just tested and transition smoothly to the next topic.
    - "CONCLUDE_INTERVIEW": ${shouldForceConclude ? "You MUST choose CONCLUDE_INTERVIEW now because maxTurns is reached." : "Select only when at least 4 candidate turns are complete and key skills have been evaluated."}
+3. IMPORTANT SCORE RULE: "turnScore" and "overallScore" MUST ALWAYS be integers between 0 and 100 (e.g. 60, 75, 45 — NEVER decimals like 0.6 or 0.45).
+4. REAL-TIME STUDY PLAN GAP REMEDIATION: Whenever the candidate's answer reveals a conceptual gap (turnScore < 70 or verdict === "NEGATIVE"), populate "gapDetectedStudyTask" with hasGap: true and a concrete study plan task so it is added to their Study Plan immediately.
 
 Return ONLY valid JSON matching this exact schema:
 {
@@ -397,13 +526,21 @@ Return ONLY valid JSON matching this exact schema:
   "skillEvaluatedOnLastTurn": {
     "evaluated": boolean,
     "skillName": "string",
-    "turnScore": number,
+    "turnScore": number (INTEGER 0 to 100, e.g. 68),
     "verdict": "POSITIVE" | "NEGATIVE",
     "evidenceCitation": "string (1 sentence explaining what they got right or missed)"
   },
+  "gapDetectedStudyTask": {
+    "hasGap": boolean (true if the candidate missed an important concept or scored < 70 on this turn),
+    "title": "string (Concrete study task title, e.g. 'Master Flink Watermarks & Exactly-Once Checkpointing')",
+    "category": "CORE_CS" | "SYSTEM_DESIGN" | "DSA" | "PROJECT_DEEP_DIVE",
+    "priority": "HIGH" | "MEDIUM",
+    "estimatedHours": number,
+    "evidenceReason": "string (1 sentence explaining what gap was spotted in this interview turn)"
+  },
   "finalReport": {
     "isComplete": boolean,
-    "overallScore": number,
+    "overallScore": number (INTEGER 0 to 100, e.g. 72),
     "strengths": ["string"],
     "weaknesses": ["string"],
     "remedialTasks": [
@@ -442,7 +579,7 @@ Return ONLY valid JSON matching this exact schema:
 
     const now = new Date().toISOString();
     let skillMatrixMutation: SkillMatrixMutation | null = null;
-    let injectedTasksCount = 0;
+    const newlyAddedStudyPlanTasks: LocalReadinessTask[] = [];
 
     if (
       turnDecision.skillEvaluatedOnLastTurn?.evaluated &&
@@ -457,11 +594,12 @@ Return ONLY valid JSON matching this exact schema:
 
       const currentTier: ConfidenceTier = existingSkill?.verified_confidence || "UNVERIFIED";
       const claimedLevel: "LOW" | "MEDIUM" | "HIGH" = existingSkill?.claimed_level || "HIGH";
-      const verdict: "POSITIVE" | "NEGATIVE" = evalBlock.verdict === "POSITIVE" ? "POSITIVE" : "NEGATIVE";
+      const turnScore = normalizeScore0To100(evalBlock.turnScore, 60);
+      const verdict: "POSITIVE" | "NEGATIVE" =
+        evalBlock.verdict === "POSITIVE" && turnScore >= 60 ? "POSITIVE" : "NEGATIVE";
       const { previousTier, nextTier, bluffRisk } = computeNextConfidence(currentTier, verdict, claimedLevel);
 
       const prevLog = Array.isArray(existingSkill?.evidence_log) ? existingSkill.evidence_log : [];
-      const turnScore = typeof evalBlock.turnScore === "number" ? evalBlock.turnScore : 0;
       const citation = evalBlock.evidenceCitation || `Scored ${turnScore}/100 in live interview turn`;
       const updatedLog: SkillEvidenceLogEntry[] = [
         {
@@ -513,6 +651,48 @@ Return ONLY valid JSON matching this exact schema:
       };
     }
 
+    // Real-time Study Plan gap task injection whenever a knowledge gap or low turn score (<70) is spotted
+    const hasExplicitGapTask = Boolean(
+      turnDecision.gapDetectedStudyTask?.hasGap && turnDecision.gapDetectedStudyTask.title?.trim()
+    );
+    const hasTurnScoreGap = Boolean(
+      skillMatrixMutation && (skillMatrixMutation.verdict === "NEGATIVE" || skillMatrixMutation.turnScore < 70)
+    );
+
+    if (candidateMessage.trim().length > 0 && (hasExplicitGapTask || hasTurnScoreGap)) {
+      const gapInput = turnDecision.gapDetectedStudyTask;
+      const fallbackSkill = skillMatrixMutation?.skillName || `${targetRole} Architecture`;
+      const taskTitle =
+        gapInput?.title?.trim() || `Strengthen ${fallbackSkill} Depth & Production Edge Cases`;
+      const taskReason =
+        gapInput?.evidenceReason?.trim() ||
+        skillMatrixMutation?.citation ||
+        `Gap detected during live ${targetRole} interview probe.`;
+
+      const inserted = await persistNewStudyPlanTasks({
+        tasks: [
+          {
+            id: `study-gap-${Date.now()}`,
+            user_id: userId,
+            title: taskTitle,
+            category: gapInput?.category || "SYSTEM_DESIGN",
+            priority: gapInput?.priority || "HIGH",
+            estimated_hours:
+              typeof gapInput?.estimatedHours === "number" && gapInput.estimatedHours > 0
+                ? gapInput.estimatedHours
+                : 2,
+            description: `[Interview Gap Identified • ${targetRole}] ${taskReason}`,
+            completed: false,
+            created_at: now,
+          },
+        ],
+        userId,
+        localStore,
+        supabase,
+      });
+      newlyAddedStudyPlanTasks.push(...inserted);
+    }
+
     const completeTranscript: InterviewMessageTurn[] = [
       ...updatedHistory,
       {
@@ -527,6 +707,10 @@ Return ONLY valid JSON matching this exact schema:
     const isComplete = Boolean(
       turnDecision.interviewerAction === "CONCLUDE_INTERVIEW" || turnDecision.finalReport?.isComplete
     );
+    const normalizedFinalScore = isComplete
+      ? normalizeScore0To100(turnDecision.finalReport?.overallScore, 65)
+      : null;
+
     let persistedSessionId = sessionId || `local-${Date.now()}`;
     const existingLocal = localStore.sessions[persistedSessionId];
     localStore.sessions[persistedSessionId] = {
@@ -535,7 +719,7 @@ Return ONLY valid JSON matching this exact schema:
       role: targetRole,
       company: targetCompany || null,
       status: isComplete ? "COMPLETED" : "IN_PROGRESS",
-      score: isComplete ? turnDecision.finalReport?.overallScore ?? null : null,
+      score: normalizedFinalScore,
       transcript: completeTranscript,
       created_at: existingLocal?.created_at || now,
       updated_at: now,
@@ -548,7 +732,7 @@ Return ONLY valid JSON matching this exact schema:
             .from("interview_sessions")
             .update({
               transcript: completeTranscript,
-              score: isComplete ? turnDecision.finalReport?.overallScore ?? null : null,
+              score: normalizedFinalScore,
               status: isComplete ? "COMPLETED" : "IN_PROGRESS",
               updated_at: now,
             })
@@ -561,7 +745,7 @@ Return ONLY valid JSON matching this exact schema:
               role: targetRole,
               company: targetCompany || null,
               status: isComplete ? "COMPLETED" : "IN_PROGRESS",
-              score: isComplete ? turnDecision.finalReport?.overallScore ?? null : null,
+              score: normalizedFinalScore,
               transcript: completeTranscript,
               created_at: now,
             })
@@ -581,51 +765,42 @@ Return ONLY valid JSON matching this exact schema:
       Array.isArray(turnDecision.finalReport?.remedialTasks) &&
       turnDecision.finalReport.remedialTasks.length > 0
     ) {
-      const rowsToInsert: LocalReadinessTask[] = turnDecision.finalReport.remedialTasks.map((t, idx) => ({
-        id: `task-${Date.now()}-${idx}`,
-        user_id: userId,
-        title: t.title,
-        category: t.category || "CORE_CS",
-        priority: t.priority || "HIGH",
-        estimated_hours: 2,
-        description: `[Interview Diagnostic: ${targetRole}] ${t.evidenceReason}`,
-        completed: false,
-        created_at: now,
-      }));
-
-      const prevTasks = localStore.tasksByUser[userId] || [];
-      localStore.tasksByUser[userId] = [...rowsToInsert, ...prevTasks].slice(0, 50);
-      injectedTasksCount = rowsToInsert.length;
-
-      if (supabase) {
-        try {
-          await supabase.from("readiness_tasks").insert(
-            rowsToInsert.map((r) => ({
-              user_id: r.user_id,
-              title: r.title,
-              category: r.category,
-              priority: r.priority,
-              estimated_hours: r.estimated_hours,
-              description: r.description,
-              completed: r.completed,
-              created_at: r.created_at,
-            }))
-          );
-        } catch (dbErr) {
-          console.warn("[agent-turn] Supabase tasks insert warning:", dbErr);
-        }
-      }
+      const insertedFinalTasks = await persistNewStudyPlanTasks({
+        tasks: turnDecision.finalReport.remedialTasks.map((t, idx) => ({
+          id: `study-final-${Date.now()}-${idx}`,
+          user_id: userId,
+          title: t.title,
+          category: t.category || "CORE_CS",
+          priority: t.priority || "HIGH",
+          estimated_hours: 2,
+          description: `[Interview Diagnostic • ${targetRole}] ${t.evidenceReason}`,
+          completed: false,
+          created_at: now,
+        })),
+        userId,
+        localStore,
+        supabase,
+      });
+      newlyAddedStudyPlanTasks.push(...insertedFinalTasks);
     }
 
     writeLocalStore(localStore);
 
     const activeStorageMode = supabase ? "supabase" : "local_file";
-    const langGraphNodesExecuted = await executeLiveTurnTraceGraph({
+    const baseGraphNodes = await executeLiveTurnTraceGraph({
       sessionId: persistedSessionId,
       hasCandidateMessage: Boolean(candidateMessage),
       interviewerAction: turnDecision.interviewerAction,
       storageMode: activeStorageMode,
     });
+    const langGraphNodesExecuted =
+      newlyAddedStudyPlanTasks.length > 0
+        ? [
+            ...baseGraphNodes.slice(0, -1),
+            "inject_study_plan_remediation",
+            ...baseGraphNodes.slice(-1),
+          ]
+        : baseGraphNodes;
 
     return NextResponse.json({
       success: true,
@@ -640,11 +815,13 @@ Return ONLY valid JSON matching this exact schema:
       interviewerAction: turnDecision.interviewerAction,
       spokenResponse: turnDecision.spokenResponse,
       skillMatrixMutation,
+      newlyAddedStudyPlanTasks,
       finalReport: isComplete
         ? {
             ...turnDecision.finalReport,
+            overallScore: normalizedFinalScore ?? 65,
             isComplete: true,
-            injectedReadinessTasksCount: injectedTasksCount,
+            injectedReadinessTasksCount: newlyAddedStudyPlanTasks.length,
           }
         : null,
       history: completeTranscript,

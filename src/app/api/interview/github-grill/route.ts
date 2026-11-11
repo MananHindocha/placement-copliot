@@ -11,6 +11,10 @@ import {
   getRoleBaselineQuestions,
   type RoleInterviewQuestion,
 } from "@/lib/interview/role-baseline-questions";
+import {
+  inspectGitHubRepoTool,
+  type GitHubRepoToolResult,
+} from "@/lib/interview-graph/langgraph-tools";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,11 +24,6 @@ interface SkillMatrixRow {
   claimed_level?: string;
   verified_confidence?: string;
   bluff_risk?: boolean;
-}
-
-interface GitTreeItem {
-  type?: string;
-  path?: string;
 }
 
 interface GeneratedGrillQuestion {
@@ -47,87 +46,6 @@ interface GrillPlan {
   detectedArchitectureRisks?: string[];
   openingInterviewerStatement?: string;
   questions?: GeneratedGrillQuestion[];
-}
-
-function parseGitHubRepo(input?: string): { owner: string; repo: string } | null {
-  if (!input || typeof input !== "string") return null;
-  const cleaned = input.trim().replace(/\.git$/, "").replace(/\/$/, "");
-  const matchUrl = cleaned.match(/github\.com\/([^/]+)\/([^/]+)/i);
-  if (matchUrl) return { owner: matchUrl[1], repo: matchUrl[2] };
-  const parts = cleaned.split("/");
-  if (parts.length === 2 && parts[0] && parts[1]) {
-    return { owner: parts[0], repo: parts[1] };
-  }
-  return null;
-}
-
-async function fetchLiveGitHubRepoContext(repoInput?: string) {
-  const parsed = parseGitHubRepo(repoInput);
-  if (!parsed) return null;
-
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "Placement-Copilot-Agent",
-  };
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  }
-
-  const repoRes = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`, {
-    headers,
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!repoRes.ok) {
-    throw new Error(
-      `GITHUB_API_ERROR: Could not fetch repo ${parsed.owner}/${parsed.repo} (HTTP ${repoRes.status}). Make sure the repository is public.`
-    );
-  }
-  const repoMeta = (await repoRes.json()) as {
-    default_branch?: string;
-    description?: string;
-    language?: string;
-    stargazers_count?: number;
-  };
-  const defaultBranch = repoMeta.default_branch || "main";
-
-  const [treeRes, readmeRes] = await Promise.all([
-    fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/trees/${defaultBranch}?recursive=1`, {
-      headers,
-      signal: AbortSignal.timeout(10000),
-    }),
-    fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, {
-      headers,
-      signal: AbortSignal.timeout(10000),
-    }),
-  ]);
-
-  let filePaths: string[] = [];
-  if (treeRes.ok) {
-    const treeJson = (await treeRes.json()) as { tree?: GitTreeItem[] };
-    filePaths = (treeJson.tree || [])
-      .filter((item) => item.type === "blob" && typeof item.path === "string")
-      .map((item) => item.path!)
-      .slice(0, 80);
-  }
-
-  let readmeExcerpt = "";
-  if (readmeRes.ok) {
-    const readmeJson = (await readmeRes.json()) as { content?: string };
-    if (readmeJson.content) {
-      readmeExcerpt = Buffer.from(readmeJson.content, "base64").toString("utf-8").slice(0, 2500);
-    }
-  }
-
-  return {
-    owner: parsed.owner,
-    repo: parsed.repo,
-    fullName: `${parsed.owner}/${parsed.repo}`,
-    description: repoMeta.description || "",
-    primaryLanguage: repoMeta.language || "Unknown",
-    stars: repoMeta.stargazers_count || 0,
-    filePaths,
-    readmeExcerpt,
-  };
 }
 
 function mapGrillCategory(category?: string): GitHubGrillQuestion["category"] {
@@ -253,10 +171,16 @@ export async function POST(req: NextRequest) {
       trackedSkills = (store.skillsByUser[userId] || []) as SkillMatrixRow[];
     }
 
-    let githubContext: Awaited<ReturnType<typeof fetchLiveGitHubRepoContext>> = null;
+    const toolsExecuted: string[] = [];
+    const langGraphTrace: string[] = ["context_loader"];
+
+    let githubContext: GitHubRepoToolResult | null = null;
     if (repoUrl) {
       try {
-        githubContext = await fetchLiveGitHubRepoContext(repoUrl);
+        const rawRepoJson = await inspectGitHubRepoTool.invoke({ repoInput: repoUrl });
+        githubContext = JSON.parse(rawRepoJson) as GitHubRepoToolResult;
+        toolsExecuted.push(inspectGitHubRepoTool.name);
+        langGraphTrace.push(`tool:${inspectGitHubRepoTool.name}`);
       } catch (ghErr) {
         const msg = ghErr instanceof Error ? ghErr.message : "Failed to inspect GitHub repository";
         return NextResponse.json({ success: false, error: msg }, { status: 400 });
@@ -269,6 +193,7 @@ export async function POST(req: NextRequest) {
 
     // Zero-crash baseline path when running Demo Mode without GitHub repo or Supabase resume
     if (!hasCustomContext) {
+      langGraphTrace.push("baseline_calibration_pack");
       const projectAudited = selectedProjectName || `${targetRole} Baseline Defense`;
       const detectedRisks = [
         `Calibrating ${targetRole} architecture fundamentals before live repository cross-examination`,
@@ -291,6 +216,9 @@ export async function POST(req: NextRequest) {
         success: true,
         isGuest,
         userId,
+        engine: "LangChain.js DynamicStructuredTool + Role Calibration",
+        toolsExecuted,
+        langGraphTrace,
         storageMode,
         llmProvider: "baseline",
         targetRole,
@@ -416,6 +344,9 @@ Cite exact repository file paths or resume project bullets wherever available. R
         success: true,
         isGuest,
         userId,
+        engine: "LangChain.js DynamicStructuredTool + Deep-Grill LLM",
+        toolsExecuted,
+        langGraphTrace: [...langGraphTrace, "llm_grill_synthesizer"],
         storageMode,
         llmProvider: llmResult.provider,
         targetRole,
@@ -462,6 +393,9 @@ Cite exact repository file paths or resume project bullets wherever available. R
         success: true,
         isGuest,
         userId,
+        engine: "LangChain.js DynamicStructuredTool + Role Calibration Fallback",
+        toolsExecuted,
+        langGraphTrace: [...langGraphTrace, "baseline_fallback_router"],
         storageMode,
         llmProvider: "baseline_fallback",
         targetRole,

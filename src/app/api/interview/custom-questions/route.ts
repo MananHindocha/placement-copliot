@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  callInterviewLLM,
+  extractJsonObject,
+  getOptionalSupabaseClient,
+  readLocalInterviewStore,
+  resolveUserId,
+  writeLocalInterviewStore,
+} from "@/lib/interview/server-helpers";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
+interface ResumeRecordRow {
+  parsed_data?: { projects?: unknown[]; experience?: unknown[]; skills?: unknown[] };
+  file_name?: string;
+}
 
 interface SkillMatrixRow {
   skill_name: string;
@@ -30,45 +40,8 @@ interface SynthesizedBlueprint {
   questions: SynthesizedQuestion[];
 }
 
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  )?.trim();
-  if (!url || !key || url.includes("your-project-id") || key.includes("your-supabase")) {
-    throw new Error(
-      "SUPABASE_CONFIG_MISSING: Configure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_ANON_KEY in .env.local."
-    );
-  }
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-function resolveUserId(rawUserId?: string): { userId: string; isGuest: boolean } {
-  const isUuid = Boolean(
-    rawUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId)
-  );
-  if (isUuid && rawUserId !== GUEST_PERSISTENT_UUID) {
-    return { userId: rawUserId!, isGuest: false };
-  }
-  return { userId: GUEST_PERSISTENT_UUID, isGuest: true };
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "").trim();
-    if (!apiKey || apiKey === "placeholder-gemini-key" || apiKey.startsWith("your_")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "GEMINI_API_KEY_MISSING: Configure GEMINI_API_KEY in .env.local to synthesize Resume & JD interview questions.",
-        },
-        { status: 400 }
-      );
-    }
-
     const body = (await req.json()) as {
       userId?: string;
       targetRole?: string;
@@ -80,6 +53,8 @@ export async function POST(req: NextRequest) {
       jobRequirement?: string;
       count?: number;
       resumeContext?: {
+        candidateName?: string;
+        skills?: unknown[];
         projects?: unknown[];
         experience?: unknown[];
       };
@@ -113,29 +88,45 @@ export async function POST(req: NextRequest) {
     }
 
     const { userId, isGuest } = resolveUserId(rawUserId);
-    const supabase = getSupabaseClient();
+    const supabase = getOptionalSupabaseClient();
+    const localStore = readLocalInterviewStore();
 
-    // 1. Fetch candidate's real uploaded resume and skill evidence matrix from Supabase
-    const [{ data: resumeRow }, { data: skillRows }] = await Promise.all([
-      supabase
-        .from("resumes")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase.from("skill_evidence_matrix").select("*").eq("user_id", userId),
-    ]);
+    let resumeRow: ResumeRecordRow | null = null;
+    let trackedSkills: SkillMatrixRow[] = (localStore.skillsByUser[userId] || []) as SkillMatrixRow[];
+
+    if (supabase) {
+      try {
+        const [{ data: fetchedResume }, { data: skillRows }] = await Promise.all([
+          supabase
+            .from("resumes")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase.from("skill_evidence_matrix").select("*").eq("user_id", userId),
+        ]);
+        if (fetchedResume) {
+          resumeRow = fetchedResume as ResumeRecordRow;
+        }
+        if (Array.isArray(skillRows) && skillRows.length > 0) {
+          trackedSkills = skillRows as SkillMatrixRow[];
+        }
+      } catch (dbErr) {
+        console.warn("[custom-questions] Supabase context fetch skipped, using local/body context:", dbErr);
+      }
+    }
 
     const parsedResume =
-      (resumeRow as { parsed_data?: { projects?: unknown[]; experience?: unknown[] }; file_name?: string } | null)
-        ?.parsed_data ||
-      body.resumeContext ||
-      null;
-    const resumeFileName = (resumeRow as { file_name?: string } | null)?.file_name || null;
+      (resumeRow as ResumeRecordRow | null)?.parsed_data || body.resumeContext || null;
+    const resumeFileName = (resumeRow as ResumeRecordRow | null)?.file_name || null;
     const resumeProjects = Array.isArray(parsedResume?.projects) ? parsedResume.projects : [];
     const resumeExperience = Array.isArray(parsedResume?.experience) ? parsedResume.experience : [];
-    const trackedSkills = (skillRows as SkillMatrixRow[] | null) || [];
+    const resumeSkills = Array.isArray(body.resumeContext?.skills)
+      ? body.resumeContext.skills
+      : Array.isArray(parsedResume?.skills)
+      ? parsedResume.skills
+      : [];
 
     const synthesisPrompt = `You are a Dual-Synthesizer Technical Interview Architect Agent.
 Synthesize a tailored Bar-Raiser Interview Blueprint that bridges the candidate's REAL uploaded resume with the target company's Job Description.
@@ -146,13 +137,14 @@ TARGET INTERVIEW PARAMETERS:
 - Difficulty Bar: ${difficulty}
 - Focus Areas: ${Array.isArray(effectiveFocusAreas) ? effectiveFocusAreas.join(", ") : "Core Technical"}
 - Job Description & Requirements:
-${effectiveJd}
+${effectiveJd || `Standard ${targetRole} engineering bar`}
 
-CANDIDATE'S REAL SUPABASE RESUME DATA:
-- Uploaded Resume File: ${resumeFileName || "None in DB"}
-- Extracted Projects: ${resumeProjects.length > 0 ? JSON.stringify(resumeProjects) : "No projects uploaded yet"}
+CANDIDATE'S RESUME & SKILL EVIDENCE DATA:
+- Uploaded Resume File: ${resumeFileName || (body.resumeContext ? "Client Local Resume Context" : "None yet")}
+- Extracted Projects: ${resumeProjects.length > 0 ? JSON.stringify(resumeProjects) : "No projects provided yet"}
 - Work Experience: ${resumeExperience.length > 0 ? JSON.stringify(resumeExperience) : "None"}
-- Skill Evidence Matrix: ${trackedSkills.map((s) => `${s.skill_name} (Verified: ${s.verified_confidence}, BluffRisk:${s.bluff_risk})`).join(", ") || "No skills verified yet"}
+- Resume Skills: ${resumeSkills.length > 0 ? JSON.stringify(resumeSkills) : "None"}
+- Skill Evidence Matrix: ${trackedSkills.map((s) => `${s.skill_name} (Verified: ${s.verified_confidence || "UNVERIFIED"}, BluffRisk:${Boolean(s.bluff_risk)})`).join(", ") || "No skills verified yet"}
 
 Generate ${Math.min(Number(count) || 8, 12)} high-signal interview questions. At least half of the questions MUST directly connect a specific project or skill from the candidate's resume to a requirement in the Job Description.
 
@@ -175,48 +167,24 @@ Return ONLY a valid JSON object matching this exact schema:
   ]
 }`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: synthesisPrompt }] }],
-          generationConfig: {
-            temperature: 0.25,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
-
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      return NextResponse.json(
-        {
-          success: false,
-          error: `GEMINI_JD_SYNTHESIS_ERROR (HTTP ${geminiRes.status}): ${errText.slice(0, 300)}`,
-        },
-        { status: 502 }
-      );
+    let rawJson: string;
+    let llmProvider: "gemini" | "groq";
+    try {
+      const llmResult = await callInterviewLLM({
+        userPrompt: synthesisPrompt,
+        temperature: 0.25,
+        timeoutMs: 18000,
+      });
+      rawJson = llmResult.text;
+      llmProvider = llmResult.provider;
+    } catch (llmErr) {
+      const msg = llmErr instanceof Error ? llmErr.message : "LLM synthesis failed";
+      const status = msg.startsWith("AI_KEY_MISSING") ? 400 : 502;
+      return NextResponse.json({ success: false, error: msg }, { status });
     }
 
-    const geminiJson = (await geminiRes.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const rawJson = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawJson) {
-      return NextResponse.json(
-        { success: false, error: "GEMINI_EMPTY_SYNTHESIS: Model returned empty output." },
-        { status: 502 }
-      );
-    }
-
-    const cleanedJson = rawJson
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/, "")
-      .trim();
-    const synthesized = JSON.parse(cleanedJson) as SynthesizedBlueprint;
+    const synthesized = JSON.parse(extractJsonObject(rawJson)) as SynthesizedBlueprint;
+    const now = new Date().toISOString();
 
     const normalizedQuestions = (synthesized.questions || []).map((q, idx) => ({
       ...q,
@@ -229,30 +197,55 @@ Return ONLY a valid JSON object matching this exact schema:
       followUps: q.followUpProbe ? [q.followUpProbe] : [],
     }));
 
-    // 2. Persist the synthesized blueprint session in Supabase `interview_sessions`
-    const { data: sessionRecord } = await supabase
-      .from("interview_sessions")
-      .insert({
-        user_id: userId,
-        role: targetRole,
-        company: targetCompany || null,
-        topic: "Custom Resume + JD Synthesis",
-        status: "READY",
-        transcript: normalizedQuestions,
-        created_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
+    let sessionId = `local-custom-${Date.now()}`;
+    localStore.sessions[sessionId] = {
+      id: sessionId,
+      user_id: userId,
+      role: targetRole,
+      company: targetCompany || null,
+      topic: "Custom Resume + JD Synthesis",
+      status: "READY",
+      score: null,
+      transcript: normalizedQuestions,
+      created_at: now,
+      updated_at: now,
+    };
+    writeLocalInterviewStore(localStore);
+
+    if (supabase) {
+      try {
+        const { data: sessionRecord } = await supabase
+          .from("interview_sessions")
+          .insert({
+            user_id: userId,
+            role: targetRole,
+            company: targetCompany || null,
+            topic: "Custom Resume + JD Synthesis",
+            status: "READY",
+            transcript: normalizedQuestions,
+            created_at: now,
+          })
+          .select("id")
+          .single();
+        if ((sessionRecord as { id?: string } | null)?.id) {
+          sessionId = (sessionRecord as { id: string }).id;
+        }
+      } catch (dbErr) {
+        console.warn("[custom-questions] Supabase insert warning:", dbErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,
       isGuest,
       userId,
-      sessionId: (sessionRecord as { id?: string } | null)?.id || null,
+      storageMode: supabase ? "supabase" : "local_file",
+      llmProvider,
+      sessionId,
       resumeLoadedFromSupabase: Boolean(resumeRow),
       resumeFileName,
       projectsCount: resumeProjects.length,
-      skillsCount: trackedSkills.length,
+      skillsCount: Math.max(trackedSkills.length, resumeSkills.length),
       synthesisSummary: synthesized.synthesisSummary,
       criticalSkillGapsDetected: synthesized.criticalSkillGapsDetected || [],
       questions: normalizedQuestions,

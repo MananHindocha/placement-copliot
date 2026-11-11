@@ -321,6 +321,10 @@ export interface InterviewEvaluationResponse {
   codeReviewCritique?: string;
   adaptiveDecision?: "LEVEL_UP_HARDER_QUESTION" | "PROBE_CURRENT_LEVEL" | "CALIBRATE_FOUNDATION";
   nextLevel?: 1 | 2 | 3;
+  engine?: string;
+  storageMode?: string;
+  langGraphTrace?: string[];
+  toolsExecuted?: string[];
   adaptiveNextQuestion?: {
     id: string;
     role: string;
