@@ -10,7 +10,9 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import InterviewStudioStage from "@/components/interview/InterviewStudioStage";
+import LiveProjectGrillRoom, {
+  type RepoSummaryInfo,
+} from "@/components/interview/LiveProjectGrillRoom";
 import { GithubIcon, type StudioQuestion } from "@/components/interview/interview-common";
 import type { GitHubGrillAnalysis } from "@/types";
 import type { InterviewRoleMeta } from "@/lib/interview-roles";
@@ -24,6 +26,8 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
   const [githubFocusNotes, setGithubFocusNotes] = useState("");
   const [isAnalyzingRepo, setIsAnalyzingRepo] = useState(false);
   const [githubAnalysis, setGithubAnalysis] = useState<GitHubGrillAnalysis | null>(null);
+  const [repoSummary, setRepoSummary] = useState<RepoSummaryInfo | null>(null);
+  const [analysisRunId, setAnalysisRunId] = useState(0);
   const [inspectedFiles, setInspectedFiles] = useState<string[]>([]);
   const [totalFilesScanned, setTotalFilesScanned] = useState<number>(0);
   const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>([]);
@@ -97,6 +101,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
     setIsAnalyzingRepo(true);
     setError(null);
     setGithubAnalysis(null);
+    setRepoSummary(null);
     setInspectedFiles([]);
     setTotalFilesScanned(0);
     setGrillQuestions([]);
@@ -134,6 +139,9 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
       const data = await res.json();
       if (Array.isArray(data.langGraphTrace)) setGrillTrace(data.langGraphTrace);
       if (Array.isArray(data.toolsExecuted)) setGrillTools(data.toolsExecuted);
+      if (data.githubRepoSummary) {
+        setRepoSummary(data.githubRepoSummary as RepoSummaryInfo);
+      }
       if (Array.isArray(data.githubRepoSummary?.inspectedFiles)) {
         setInspectedFiles(data.githubRepoSummary.inspectedFiles);
       }
@@ -143,6 +151,7 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
       if (data.analysis) {
         setGithubAnalysis(data.analysis as GitHubGrillAnalysis);
       }
+      setAnalysisRunId((prev) => prev + 1);
 
       if (Array.isArray(data.questions) && data.questions.length > 0) {
         const richQuestions: StudioQuestion[] = data.questions.map((q: StudioQuestion) => ({
@@ -396,30 +405,17 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
   );
 
   return (
-    <InterviewStudioStage
-      mode="grill"
-      initialRole={roleMeta.title}
-      initialCategory="resume-grill"
-      initialQuestions={grillQuestions}
+    <LiveProjectGrillRoom
+      key={analysisRunId}
+      roleMeta={roleMeta}
+      githubUrl={githubUrl}
+      githubAnalysis={githubAnalysis}
+      repoSummary={repoSummary}
+      questions={grillQuestions}
+      isAnalyzingRepo={isAnalyzingRepo}
+      langGraphTrace={grillTrace}
       backHref="/interview/resume-grill"
-      pageTitle={`${roleMeta.title} Project Grill`}
-      pageSubtitle={`Experience an in-depth technical interview based on your ${roleMeta.title} projects, architecture, implementation decisions, and engineering trade-offs.`}
-      badgeLabel="🔥 Deep Grill Mode"
-      badgeVariant="amber"
-      showRoleSelector={false}
-      showCategoryFilters={false}
-      requireManualStart={true}
-      startCardIcon="flame"
-      startCardTitle="Ready for Your Technical Grill?"
-      startCardDescription="Your AI interviewer is ready to challenge your engineering decisions, architecture, and implementation choices."
-      startCardIndicators={[
-        { label: "AI Technical Interviewer", dotColor: "bg-[#F59E0B]" },
-        { label: "Repository-Aware Questions", dotColor: "bg-[#10B981]" },
-        { label: "Voice & Video Analysis", dotColor: "bg-[#A78BFA]" },
-        { label: "Architecture Trade-offs", dotColor: "bg-[#38BDF8]" },
-      ]}
       headerSlot={headerSlot}
-      onQuestionsChange={(qs) => setGrillQuestions(qs)}
     />
   );
 }
