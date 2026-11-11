@@ -2,27 +2,70 @@
  * Placement Co-pilot Agent Orchestrator (Track 3)
  *
  * Implements the core autonomous AI agent loop:
- * - 5-minute deterministic SHA-256 Idempotency Guard (prevents double-runs on rapid Kanban drags)
- * - Step 0 Context Hydration (Digital Twin context injection)
- * - Bounded while-loop (MAX_STEPS = 4) using Gemini 2.0 Flash Function Calling
- * - Security Invariant: Server-verified userId injection (never trusts LLM arguments)
- * - Real-time trace recording in agent_runs table / Guest fallback store
- * - Human-in-the-loop approval gating for resume modifications
- * - Automatic failover to Deterministic Fallback Engine on API failure/rate limit
+ * - Dynamic Function Calling using Gemini 2.0 Flash
+ * - Real Supabase / Persistent DB state recording
+ * - Honest error logging (no fake silent fallbacks)
+ * - Grounded resume context injection into LLM prompt
+ * - Autonomous tool planning based on trigger events and live tool observations
  */
 
-import { createHash } from "crypto";
-import { z } from "zod";
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type {
+  AgentRunPayload,
+  AgentTraceStep,
+  StudentDigitalTwinSnapshot,
+} from "./types";
+import { getAgentToolRegistry } from "./tool-registry";
 import {
-  executeDeterministicFallback,
-  type AgentRunPayload,
-  type StudentTwinContext,
-  type AgentTraceStep,
-  type StagedResumeDiff,
-} from "./fallback-engine";
+  auto_seed_kanban_pipeline,
+  update_skill_evidence,
+  inject_readiness_sprint,
+  stage_resume_diff,
+} from "./tools-write";
+import {
+  get_student_twin_context,
+  analyze_job_gap,
+  optimize_multi_company_overlap,
+} from "./tools-read";
 
-export type { AgentRunPayload, StudentTwinContext, AgentTraceStep, StagedResumeDiff };
+export const GUEST_PERSISTENT_UUID = "00000000-0000-0000-0000-000000000001";
+const MAX_STEPS = 5;
+
+export type { AgentRunPayload, AgentTraceStep };
+
+export interface StudentTwinContext {
+  userId: string;
+  targetRole: string;
+  readinessScore: number;
+  activeApplicationsCount: number;
+  skills: Array<{
+    skill: string;
+    verified: boolean;
+    confidence: number;
+    bluffRisk?: boolean;
+    evidenceSource?: string;
+    lastUpdated?: string;
+  }>;
+  bluffRisks: string[];
+  recentMilestones: string[];
+  lastActiveAt: string;
+}
+
+export interface StagedResumeDiff {
+  id: string;
+  userId: string;
+  applicationId?: string;
+  roleTarget: string;
+  summary: string;
+  suggestedAdditions: string[];
+  suggestedKeywords: string[];
+  highlightedProjects: string[];
+  requiresApproval: boolean;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+}
 
 export interface AgentRunRecord {
   id: string;
@@ -33,6 +76,7 @@ export interface AgentRunRecord {
   status: "RUNNING" | "COMPLETED" | "COMPLETED_WITH_FALLBACK" | "AWAITING_APPROVAL" | "FAILED";
   requires_approval: boolean;
   approval_id?: string;
+  goal?: string;
   goal_prompt?: string;
   reasoning_trace: AgentTraceStep[];
   final_summary?: string;
@@ -45,33 +89,249 @@ export interface AgentRunRecord {
 export interface AgentApprovalRecord {
   id: string;
   user_id: string;
-  run_id: string;
+  run_id?: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
-  role_target: string;
-  summary: string;
-  suggested_additions: string[];
-  suggested_keywords: string[];
-  highlighted_projects: string[];
+  action_type?: string;
+  target_entity_id?: string;
+  payload_diff?: any;
+  role_target?: string;
+  summary?: string;
+  suggested_additions?: string[];
+  suggested_keywords?: string[];
+  highlighted_projects?: string[];
   created_at: string;
   resolved_at?: string;
 }
 
-// ─── In-Memory Fallback Stores for Guest/Demo Mode ───────────────────────────
 export const mockAgentRuns: AgentRunRecord[] = [];
 export const mockAgentApprovals: AgentApprovalRecord[] = [];
 
-// ─── Dynamic Module Loaders (for Track 1 & 2 Parallel Development) ───────────
-// Uses dynamic variable string paths so TypeScript won't emit TS2307 if files aren't merged yet
-const TOOLS_READ_PATH = "./tools-read";
-const TOOLS_WRITE_PATH = "./tools-write";
-const APPROVAL_HANDLER_PATH = "./approval-handler";
+// ─── Persistent Fallback Database Query Engine (Demo Mode) ───────────────────
+interface MemoryStoreState {
+  agent_runs: any[];
+  agent_approvals: any[];
+  skill_evidence_matrix: any[];
+  applications: any[];
+  readiness_tasks: any[];
+  resumes: any[];
+  profiles: any[];
+  interview_sessions: any[];
+  job_listings: any[];
+}
 
-async function safeImportModule(modulePath: string): Promise<Record<string, any> | null> {
-  try {
-    return await import(/* webpackIgnore: true */ `${modulePath}`);
-  } catch {
-    return null;
+const globalForDb = globalThis as unknown as {
+  __persistentAgentDb?: MemoryStoreState;
+};
+
+function getMemoryStore(): MemoryStoreState {
+  if (!globalForDb.__persistentAgentDb) {
+    globalForDb.__persistentAgentDb = {
+      agent_runs: [],
+      agent_approvals: [],
+      skill_evidence_matrix: [],
+      applications: [],
+      readiness_tasks: [],
+      resumes: [],
+      profiles: [],
+      interview_sessions: [],
+      job_listings: [],
+    };
   }
+  return globalForDb.__persistentAgentDb;
+}
+
+class MemoryQueryBuilder {
+  private table: string;
+  private isInsert = false;
+  private isUpdate = false;
+  private isUpsert = false;
+  private updateData: any = null;
+  private insertData: any[] = [];
+  private onConflictKey = "";
+  private filters: Array<(row: any) => boolean> = [];
+  private sortFn: ((a: any, b: any) => number) | null = null;
+  private limitN: number | null = null;
+
+  constructor(table: string) {
+    this.table = table;
+    const store = getMemoryStore();
+    if (!store[table as keyof MemoryStoreState]) {
+      (store as any)[table] = [];
+    }
+  }
+
+  select(_columns = "*") {
+    return this;
+  }
+
+  insert(data: any | any[]) {
+    this.isInsert = true;
+    this.insertData = Array.isArray(data) ? data : [data];
+    return this;
+  }
+
+  upsert(data: any | any[], options?: { onConflict?: string }) {
+    this.isUpsert = true;
+    this.insertData = Array.isArray(data) ? data : [data];
+    this.onConflictKey = options?.onConflict || "id";
+    return this;
+  }
+
+  update(data: any) {
+    this.isUpdate = true;
+    this.updateData = data;
+    return this;
+  }
+
+  delete() {
+    return this;
+  }
+
+  eq(col: string, val: any) {
+    this.filters.push((row: any) => String(row[col]) === String(val));
+    return this;
+  }
+
+  in(col: string, vals: any[]) {
+    const valSet = new Set(vals.map(String));
+    this.filters.push((row: any) => valSet.has(String(row[col])));
+    return this;
+  }
+
+  ilike(col: string, pattern: string) {
+    const cleanPattern = pattern.toLowerCase().replace(/%/g, "");
+    this.filters.push((row: any) => String(row[col] || "").toLowerCase().includes(cleanPattern));
+    return this;
+  }
+
+  order(col: string, options?: { ascending?: boolean }) {
+    const asc = options?.ascending ?? true;
+    this.sortFn = (a, b) => {
+      const va = a[col] || "";
+      const vb = b[col] || "";
+      if (va < vb) return asc ? -1 : 1;
+      if (va > vb) return asc ? 1 : -1;
+      return 0;
+    };
+    return this;
+  }
+
+  limit(n: number) {
+    this.limitN = n;
+    return this;
+  }
+
+  private execute(): { data: any; error: any } {
+    const store = getMemoryStore();
+    const rows = (store as any)[this.table] as any[];
+
+    if (this.isInsert) {
+      const insertedWithIds = this.insertData.map((item) => ({
+        id: item.id || `${this.table}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        created_at: item.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...item,
+      }));
+      rows.unshift(...insertedWithIds);
+      return { data: insertedWithIds.length === 1 ? insertedWithIds[0] : insertedWithIds, error: null };
+    }
+
+    if (this.isUpsert) {
+      const conflictCols = this.onConflictKey.split(",").map((s) => s.trim());
+      const upserted: any[] = [];
+      for (const item of this.insertData) {
+        const existingIdx = rows.findIndex((r) =>
+          conflictCols.every((col) => String(r[col] || "").toLowerCase() === String(item[col] || "").toLowerCase())
+        );
+        const record = {
+          id: existingIdx >= 0 ? rows[existingIdx].id : item.id || `${this.table}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          created_at: existingIdx >= 0 ? rows[existingIdx].created_at : new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          ...item,
+        };
+        if (existingIdx >= 0) {
+          rows[existingIdx] = record;
+        } else {
+          rows.unshift(record);
+        }
+        upserted.push(record);
+      }
+      return { data: upserted, error: null };
+    }
+
+    if (this.isUpdate) {
+      let lastUpdated: any = null;
+      for (let i = 0; i < rows.length; i++) {
+        const match = this.filters.every((fn) => fn(rows[i]));
+        if (match) {
+          rows[i] = { ...rows[i], ...this.updateData, updated_at: new Date().toISOString() };
+          lastUpdated = rows[i];
+        }
+      }
+      return { data: lastUpdated, error: null };
+    }
+
+    let filtered = rows.filter((r) => this.filters.every((fn) => fn(r)));
+    if (this.sortFn) {
+      filtered.sort(this.sortFn);
+    }
+    if (this.limitN !== null && this.limitN > 0) {
+      filtered = filtered.slice(0, this.limitN);
+    }
+    return { data: filtered, error: null };
+  }
+
+  async single() {
+    const res = this.execute();
+    const data = Array.isArray(res.data) ? res.data[0] || null : res.data;
+    return { data, error: data ? null : { message: "Row not found" } };
+  }
+
+  async maybeSingle() {
+    const res = this.execute();
+    const data = Array.isArray(res.data) ? res.data[0] || null : res.data;
+    return { data, error: null };
+  }
+
+  then<TResult1 = any, TResult2 = never>(
+    onfulfilled?: ((value: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
+  ): Promise<TResult1 | TResult2> {
+    return Promise.resolve(this.execute()).then(onfulfilled, onrejected);
+  }
+}
+
+export function createPersistentFallbackDbClient() {
+  return {
+    from: (table: string) => new MemoryQueryBuilder(table),
+  };
+}
+
+export function getPersistentSupabaseClient(passedClient?: any) {
+  if (passedClient && isSupabaseConfigured()) return passedClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (url && key && isSupabaseConfigured()) {
+    try {
+      return createClient(url, key, { auth: { persistSession: false } });
+    } catch {
+      return createPersistentFallbackDbClient();
+    }
+  }
+
+  return createPersistentFallbackDbClient();
+}
+
+export function resolveEffectiveUserId(userId?: string): { effectiveUserId: string; isGuest: boolean } {
+  const isUuid = Boolean(userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId));
+  if (isUuid && userId !== GUEST_PERSISTENT_UUID) {
+    return { effectiveUserId: userId!, isGuest: false };
+  }
+  return { effectiveUserId: GUEST_PERSISTENT_UUID, isGuest: true };
 }
 
 // ─── Gemini 2.0 Flash Function Calling Tool Declarations ──────────────────────
@@ -82,11 +342,15 @@ export const AGENT_FUNCTION_DECLARATIONS = [
     parameters: {
       type: "OBJECT",
       properties: {
-        applicationId: { type: "STRING", description: "ID of the target job application" },
-        company: { type: "STRING", description: "Target company name (e.g. Google, Amazon, Stripe)" },
-        role: { type: "STRING", description: "Target job title (e.g. SDE-1, Backend Engineer)" },
+        jobId: { type: "STRING", description: "ID of the target job application" },
+        jobDescription: { type: "STRING", description: "Optional raw job description text" },
+        requiredSkills: {
+          type: "ARRAY",
+          items: { type: "STRING" },
+          description: "Optional list of required skills",
+        },
       },
-      required: ["company"],
+      required: ["jobId"],
     },
   },
   {
@@ -95,24 +359,25 @@ export const AGENT_FUNCTION_DECLARATIONS = [
     parameters: {
       type: "OBJECT",
       properties: {
-        title: { type: "STRING", description: "Sprint title (e.g. Interview Prep: Stripe Backend)" },
-        durationDays: { type: "NUMBER", description: "Sprint length in days (typically 2-4)" },
+        sprintTitle: { type: "STRING", description: "Sprint title (e.g. Interview Prep: Backend SDE)" },
+        linkedJobId: { type: "STRING", description: "Optional linked job ID" },
         tasks: {
           type: "ARRAY",
           items: {
             type: "OBJECT",
             properties: {
-              day: { type: "NUMBER", description: "Day number (1, 2, 3...)" },
               title: { type: "STRING", description: "Specific task title" },
-              skill: { type: "STRING", description: "Target skill" },
-              reason: { type: "STRING", description: "Why this task is critical" },
+              category: { type: "STRING", description: "Category (CORE_CS, SYSTEM_DESIGN, DSA)" },
+              priority: { type: "STRING", description: "HIGH, MEDIUM, or LOW" },
+              estimatedHours: { type: "NUMBER", description: "Estimated completion hours" },
+              evidenceReason: { type: "STRING", description: "Why this task is critical" },
             },
-            required: ["day", "title", "skill", "reason"],
+            required: ["title", "category", "priority", "estimatedHours", "evidenceReason"],
           },
           description: "List of actionable daily preparation tasks",
         },
       },
-      required: ["title", "tasks"],
+      required: ["sprintTitle", "tasks"],
     },
   },
   {
@@ -121,26 +386,28 @@ export const AGENT_FUNCTION_DECLARATIONS = [
     parameters: {
       type: "OBJECT",
       properties: {
-        applicationId: { type: "STRING", description: "Optional application ID" },
-        roleTarget: { type: "STRING", description: "Target role title and company" },
-        summary: { type: "STRING", description: "Executive summary of changes" },
-        suggestedAdditions: {
+        jobId: { type: "STRING", description: "Target job application ID" },
+        targetRole: { type: "STRING", description: "Target role title and company" },
+        proposedBulletChanges: {
           type: "ARRAY",
-          items: { type: "STRING" },
-          description: "List of project bullet or accomplishment enhancements",
-        },
-        suggestedKeywords: {
-          type: "ARRAY",
-          items: { type: "STRING" },
-          description: "Industry keywords to emphasize based on verified skills",
-        },
-        highlightedProjects: {
-          type: "ARRAY",
-          items: { type: "STRING" },
-          description: "Candidate projects that should be prioritized",
+          items: {
+            type: "OBJECT",
+            properties: {
+              originalBullet: { type: "STRING", description: "Exact original bullet from student resume" },
+              proposedBullet: { type: "STRING", description: "Rewritten bullet with measurable impact" },
+              verifiedSourceProject: { type: "STRING", description: "Existing student project grounding this bullet" },
+              keywordsAdded: {
+                type: "ARRAY",
+                items: { type: "STRING" },
+                description: "Skills or keywords highlighted",
+              },
+            },
+            required: ["originalBullet", "proposedBullet", "verifiedSourceProject"],
+          },
+          description: "List of proposed bullet improvements",
         },
       },
-      required: ["roleTarget", "summary", "suggestedKeywords"],
+      required: ["jobId", "targetRole", "proposedBulletChanges"],
     },
   },
   {
@@ -149,12 +416,12 @@ export const AGENT_FUNCTION_DECLARATIONS = [
     parameters: {
       type: "OBJECT",
       properties: {
-        skill: { type: "STRING", description: "Skill name to calibrate" },
-        confidence: { type: "NUMBER", description: "New confidence score (0-100)" },
-        score: { type: "NUMBER", description: "Test/evaluation score achieved" },
-        evidenceSource: { type: "STRING", description: "Source description (e.g. Mock Interview Telemetry)" },
+        skillName: { type: "STRING", description: "Skill name to calibrate" },
+        verdict: { type: "STRING", description: "POSITIVE or NEGATIVE" },
+        source: { type: "STRING", description: "MOCK_INTERVIEW or READINESS_DRILL" },
+        evidenceCitation: { type: "STRING", description: "Citation details or assessment metric" },
       },
-      required: ["skill", "confidence"],
+      required: ["skillName", "verdict", "source", "evidenceCitation"],
     },
   },
   {
@@ -163,531 +430,502 @@ export const AGENT_FUNCTION_DECLARATIONS = [
     parameters: {
       type: "OBJECT",
       properties: {
-        activeApplicationsCount: { type: "NUMBER", description: "Number of active applications to compare" },
+        activeApplicationIds: {
+          type: "ARRAY",
+          items: { type: "STRING" },
+          description: "Optional list of application IDs to compare",
+        },
       },
     },
   },
   {
     name: "sync_digital_twin_from_resume",
-    description: "Extracts skills from uploaded resume into skill_evidence_matrix, marking core verified skills and flagging unverified claims as bluff risks.",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        fileName: { type: "STRING", description: "Uploaded resume filename" },
-        atsScore: { type: "NUMBER", description: "Calculated ATS match score" },
-      },
-    },
-  },
-  {
-    name: "auto_seed_kanban_pipeline",
-    description: "Automatically shortlists and seeds the top 4 matched placements into the Kanban Application Tracker.",
+    description: "Extracts skills from uploaded resume into skill_evidence_matrix.",
     parameters: {
       type: "OBJECT",
       properties: {
         targetRole: { type: "STRING", description: "Target role title" },
+        skills: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              name: { type: "STRING", description: "Skill name" },
+              claimedLevel: { type: "STRING", description: "LOW, MEDIUM, or HIGH" },
+              citation: { type: "STRING", description: "Evidence citation" },
+            },
+            required: ["name"],
+          },
+          description: "Extracted skills from resume",
+        },
+      },
+      required: ["skills"],
+    },
+  },
+  {
+    name: "auto_seed_kanban_pipeline",
+    description: "Automatically scouts live remote jobs matching target role and seeds them into the Kanban Application Tracker.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        targetRole: { type: "STRING", description: "Target role title" },
+        skills: {
+          type: "ARRAY",
+          items: { type: "STRING" },
+          description: "Optional list of student skills to filter",
+        },
+        limit: { type: "NUMBER", description: "Maximum jobs to scout (default: 4)" },
       },
     },
   },
 ];
 
-// ─── Zod Schemas for Runtime Argument Validation ─────────────────────────────
-const ToolSchemas = {
-  analyze_job_gap: z.object({
-    applicationId: z.string().optional(),
-    company: z.string().default("Target Company"),
-    role: z.string().optional(),
-  }),
-  inject_readiness_sprint: z.object({
-    title: z.string(),
-    durationDays: z.number().default(3),
-    tasks: z.array(
-      z.object({
-        day: z.number(),
-        title: z.string(),
-        skill: z.string(),
-        reason: z.string(),
-      })
-    ),
-  }),
-  stage_resume_diff: z.object({
-    applicationId: z.string().optional(),
-    roleTarget: z.string(),
-    summary: z.string(),
-    suggestedAdditions: z.array(z.string()).default([]),
-    suggestedKeywords: z.array(z.string()).default([]),
-    highlightedProjects: z.array(z.string()).default([]),
-  }),
-  update_skill_evidence: z.object({
-    skill: z.string(),
-    confidence: z.number().min(0).max(100),
-    score: z.number().optional(),
-    evidenceSource: z.string().optional(),
-  }),
-  optimize_multi_company_overlap: z.object({
-    activeApplicationsCount: z.number().optional(),
-  }),
-  sync_digital_twin_from_resume: z.object({
-    fileName: z.string().optional(),
-    atsScore: z.number().optional(),
-  }),
-  auto_seed_kanban_pipeline: z.object({
-    targetRole: z.string().optional(),
-  }),
-};
+function buildAutonomousSystemPrompt(digitalTwin: StudentDigitalTwinSnapshot, resumeContext: any): string {
+  const skillsList =
+    digitalTwin.skills && digitalTwin.skills.length > 0
+      ? digitalTwin.skills
+          .map((s: any) => `${s.skill_name || s.skill} [Claimed: ${s.claimed_level || "N/A"}, Verified: ${s.verified_confidence || "UNVERIFIED"}, BluffRisk: ${Boolean(s.bluff_risk)}]`)
+          .join("; ")
+      : "NONE_EXTRACTED_YET (User has not uploaded a resume)";
 
-// ─── Step 0 Context Hydration (Digital Twin Loader) ──────────────────────────
-export async function getStudentTwinContext(
-  userId: string,
-  supabaseClient?: any
-): Promise<StudentTwinContext> {
-  const toolsRead = await safeImportModule(TOOLS_READ_PATH);
-  if (toolsRead && typeof toolsRead.get_student_twin_context === "function") {
-    try {
-      return await toolsRead.get_student_twin_context(userId, supabaseClient);
-    } catch (e) {
-      console.warn("[Orchestrator] tools-read get_student_twin_context threw, using fallback twin:", e);
-    }
-  }
+  const bluffList =
+    digitalTwin.bluffRiskSkills && digitalTwin.bluffRiskSkills.length > 0
+      ? digitalTwin.bluffRiskSkills.join(", ")
+      : "None";
 
-  // Built-in calibrated twin fallback
-  return {
-    userId,
-    targetRole: "Full Stack / Software Development Engineer",
-    readinessScore: 74,
-    activeApplicationsCount: 4,
-    skills: [
-      { skill: "Data Structures & Algorithms", verified: true, confidence: 82 },
-      { skill: "React & Next.js", verified: true, confidence: 88 },
-      { skill: "TypeScript", verified: true, confidence: 85 },
-      { skill: "Node.js & Express", verified: true, confidence: 79 },
-      { skill: "PostgreSQL & Database Design", verified: true, confidence: 72 },
-      { skill: "Distributed Caching (Redis)", verified: false, confidence: 54, bluffRisk: true },
-      { skill: "System Design Trade-offs", verified: false, confidence: 48, bluffRisk: true },
-      { skill: "Kafka & Event-Driven Architecture", verified: false, confidence: 40, bluffRisk: true },
-    ],
-    bluffRisks: [
-      "Distributed Caching (Redis) - Listed on resume but unverified in mock assessments",
-      "System Design Trade-offs - Requires architectural diagram and trade-off justification",
-      "Kafka & Event-Driven Architecture - Needs evidence of consumer group & partition handling",
-    ],
-    recentMilestones: [
-      "Completed 45 LeetCode Mediums",
-      "Built Full-Stack E-Commerce Platform",
-      "Passed STAR Behavioral Assessment",
-    ],
-    lastActiveAt: new Date().toISOString(),
-  };
+  const parsedProjects =
+    resumeContext?.projects && Array.isArray(resumeContext.projects) && resumeContext.projects.length > 0
+      ? JSON.stringify(resumeContext.projects)
+      : "No parsed resume projects available in database.";
+
+  const parsedExperience =
+    resumeContext?.experience && Array.isArray(resumeContext.experience) && resumeContext.experience.length > 0
+      ? JSON.stringify(resumeContext.experience)
+      : "No parsed work experience available in database.";
+
+  const targetRole = (digitalTwin as any).targetRole || digitalTwin.profileSummary?.targetRole || "Not selected yet";
+  const rawScore = (digitalTwin as any).readinessScore ?? digitalTwin.profileSummary?.readinessScore;
+  const readinessText = typeof rawScore === "number" ? `${rawScore}%` : "0% (No verified data yet)";
+
+  return `You are the Placement Co-pilot Autonomous Career Agent.
+You have access to tools that inspect the student's state and mutate their placement workspace in Supabase.
+
+CURRENT VERIFIED STUDENT STATE:
+- Target Role: ${targetRole}
+- Computed Readiness Score: ${readinessText}
+- Tracked Skills in Database: ${skillsList}
+- Active Bluff Risks: ${bluffList}
+- Active Job Applications Count: ${digitalTwin.activeApplications?.length ?? 0}
+- Parsed Resume Projects: ${parsedProjects}
+- Parsed Resume Experience: ${parsedExperience}
+
+AUTONOMOUS REASONING RULES:
+1. Decide which tool(s) to invoke based strictly on the user's Trigger Event, Goal Prompt, and the observations returned by previous tools. Do NOT follow a blind script if data is missing.
+2. If the student has no tracked skills and no resume uploaded, do NOT invent fake skills or fake resume diffs. Instead, inform the student that a real resume upload is required first.
+3. When staging resume diffs (stage_resume_diff), you MUST only rewrite bullets using real projects present in Parsed Resume Projects above. Never fabricate metrics or companies.
+4. When scouting jobs (auto_seed_kanban_pipeline), pass the student's actual Target Role and real extracted skills.
+5. Stop calling tools once the goal is satisfied and provide a clear, factual summary of the database mutations performed.`;
 }
 
-// ─── Core Tool Execution Dispatcher ──────────────────────────────────────────
-async function executeToolCall(
-  toolName: string,
-  rawArgs: any,
-  serverUserId: string,
-  supabaseClient?: any
-): Promise<{ output: any; requiresApproval?: boolean; stagedDiff?: StagedResumeDiff }> {
-  // Validate schema
-  const schema = (ToolSchemas as Record<string, z.ZodSchema>)[toolName];
-  const validatedArgs = schema ? schema.parse(rawArgs || {}) : rawArgs;
+export async function runPlacementAgent(payload: AgentRunPayload, passedSupabase?: any) {
+  const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
+  const supabase = getPersistentSupabaseClient(passedSupabase);
+  const { effectiveUserId, isGuest } = resolveEffectiveUserId(payload.userId);
+  const toolRegistry = getAgentToolRegistry();
 
-  // Try Manan's tools-write first
-  const toolsWrite = await safeImportModule(TOOLS_WRITE_PATH);
-  if (toolsWrite && typeof toolsWrite[toolName] === "function") {
-    try {
-      const res = await toolsWrite[toolName](serverUserId, validatedArgs, supabaseClient);
-      const isDiff = toolName === "stage_resume_diff";
-      return {
-        output: res,
-        requiresApproval: isDiff,
-        stagedDiff: isDiff ? res : undefined,
-      };
-    } catch (err) {
-      console.warn(`[Orchestrator] toolsWrite.${toolName} failed, executing inline fallback:`, err);
-    }
-  }
+  const bucket = Math.floor(Date.now() / (1000 * 60 * 2));
+  const idempotencyKey = crypto
+    .createHash("sha256")
+    .update(`${effectiveUserId}:${payload.triggerType}:${payload.entityId || "none"}:${payload.goalPrompt || ""}:${bucket}`)
+    .digest("hex");
 
-  // Try Pratham's tools-read
-  const toolsRead = await safeImportModule(TOOLS_READ_PATH);
-  if (toolsRead && typeof toolsRead[toolName] === "function") {
-    try {
-      const res = await toolsRead[toolName](serverUserId, validatedArgs, supabaseClient);
-      return { output: res };
-    } catch (err) {
-      console.warn(`[Orchestrator] toolsRead.${toolName} failed, executing inline fallback:`, err);
-    }
-  }
+  const { data: existingRun } = await supabase
+    .from("agent_runs")
+    .select("*")
+    .eq("idempotency_key", idempotencyKey)
+    .in("status", ["RUNNING", "COMPLETED", "AWAITING_APPROVAL"])
+    .maybeSingle();
 
-  // Inline Deterministic Tool Execution Handler
-  if (toolName === "analyze_job_gap") {
-    return {
-      output: {
-        company: validatedArgs.company,
-        role: validatedArgs.role || "Software Engineer",
-        identifiedGaps: ["System Design Trade-offs", "Distributed Caching (Redis)", "Concurrent Execution"],
-        bluffRisksDetected: ["Distributed Caching (Redis)"],
-        matchScore: 78,
-      },
+  if (existingRun) {
+    const runObj: AgentRunRecord = {
+      id: existingRun.id,
+      user_id: existingRun.user_id || effectiveUserId,
+      idempotency_key: idempotencyKey,
+      trigger_type: existingRun.trigger_type || payload.triggerType,
+      entity_id: existingRun.entity_id || payload.entityId,
+      status: existingRun.status,
+      requires_approval: existingRun.requires_approval || false,
+      goal: existingRun.goal || payload.goalPrompt,
+      goal_prompt: existingRun.goal_prompt || payload.goalPrompt,
+      reasoning_trace: existingRun.reasoning_trace || [],
+      final_summary: existingRun.final_summary || existingRun.summary,
+      created_at: existingRun.created_at,
+      updated_at: existingRun.updated_at,
     };
-  }
-
-  if (toolName === "inject_readiness_sprint") {
-    return {
-      output: {
-        success: true,
-        sprintTitle: validatedArgs.title,
-        durationDays: validatedArgs.durationDays,
-        tasksCreated: validatedArgs.tasks.length,
-      },
-    };
-  }
-
-  if (toolName === "stage_resume_diff") {
-    const diff: StagedResumeDiff = {
-      id: `diff-${Date.now()}`,
-      userId: serverUserId,
-      applicationId: validatedArgs.applicationId,
-      roleTarget: validatedArgs.roleTarget,
-      summary: validatedArgs.summary,
-      suggestedAdditions: validatedArgs.suggestedAdditions,
-      suggestedKeywords: validatedArgs.suggestedKeywords,
-      highlightedProjects: validatedArgs.highlightedProjects,
-      requiresApproval: true,
-      status: "PENDING",
-      createdAt: new Date().toISOString(),
-    };
-
-    // Save to in-memory approvals store
-    mockAgentApprovals.push({
-      id: diff.id,
-      user_id: serverUserId,
-      run_id: `run-${Date.now()}`,
-      status: "PENDING",
-      role_target: diff.roleTarget,
-      summary: diff.summary,
-      suggested_additions: diff.suggestedAdditions,
-      suggested_keywords: diff.suggestedKeywords,
-      highlighted_projects: diff.highlightedProjects,
-      created_at: diff.createdAt,
-    });
 
     return {
-      output: { diffId: diff.id, status: "AWAITING_APPROVAL", summary: diff.summary },
-      requiresApproval: true,
-      stagedDiff: diff,
+      deduplicated: true,
+      isGuest,
+      status: existingRun.status,
+      summary: existingRun.final_summary,
+      trace: existingRun.reasoning_trace || [],
+      runId: existingRun.id,
+      run: runObj,
     };
   }
 
-  if (toolName === "update_skill_evidence") {
-    return {
-      output: {
-        skill: validatedArgs.skill,
-        confidence: validatedArgs.confidence,
-        updated: true,
-      },
-    };
+  const traceSteps: AgentTraceStep[] = [];
+  const { data: createdRun, error: insertRunErr } = await supabase
+    .from("agent_runs")
+    .insert({
+      user_id: effectiveUserId,
+      idempotency_key: idempotencyKey,
+      trigger_type: payload.triggerType,
+      entity_id: payload.entityId || "global",
+      goal: payload.goalPrompt || payload.triggerType,
+      status: "RUNNING",
+      reasoning_trace: [],
+    })
+    .select("*")
+    .single();
+
+  if (insertRunErr || !createdRun) {
+    throw new Error(`SUPABASE_AGENT_RUN_INSERT_FAILED: ${insertRunErr?.message || "Unknown DB error"}`);
   }
 
-  if (toolName === "optimize_multi_company_overlap") {
-    return {
-      output: {
-        commonSkills: ["System Design", "Microservices", "PostgreSQL Optimization"],
-        highYieldFocus: "Distributed Systems & Caching",
-      },
-    };
-  }
-
-  if (toolName === "sync_digital_twin_from_resume") {
-    return {
-      output: {
-        skillsExtracted: 8,
-        coreVerified: ["TypeScript", "React & Next.js", "Data Structures & Algorithms", "REST API Design"],
-        bluffRisksFlagged: ["PostgreSQL & Database Design", "Redis & Distributed Caching"],
-        unverifiedClaims: ["System Design Trade-offs"],
-        status: "CALIBRATED",
-      },
-    };
-  }
-
-  if (toolName === "auto_seed_kanban_pipeline") {
-    return {
-      output: {
-        seededRolesCount: 0,
-        placements: [],
-        pipelineStatus: "INITIALIZED",
-      },
-    };
-  }
-
-  return { output: { executed: true, tool: toolName } };
-}
-
-// ─── Main Orchestrator Brain ─────────────────────────────────────────────────
-export async function runPlacementAgent(
-  payload: AgentRunPayload,
-  supabaseClient?: any
-): Promise<{ deduplicated: boolean; run: AgentRunRecord }> {
-  // ─── STEP A: 5-Minute Deterministic SHA-256 Idempotency Guard ──────────────
-  const fiveMinuteBucket = Math.floor(Date.now() / (1000 * 60 * 5));
-  const rawKey = `${payload.userId}:${payload.triggerType}:${payload.entityId || "default"}:${fiveMinuteBucket}`;
-  const idempotencyKey = createHash("sha256").update(rawKey).digest("hex");
-
-  // Check in-memory store
-  const existingMemoryRun = mockAgentRuns.find(
-    (r) =>
-      r.idempotency_key === idempotencyKey &&
-      r.user_id === payload.userId &&
-      ["RUNNING", "COMPLETED", "COMPLETED_WITH_FALLBACK", "AWAITING_APPROVAL"].includes(r.status)
-  );
-
-  if (existingMemoryRun) {
-    console.log(`[Orchestrator] Idempotency match found in memory (${idempotencyKey.slice(0, 8)}). Deduplicating.`);
-    return { deduplicated: true, run: existingMemoryRun };
-  }
-
-  // Check Supabase if live
-  if (isSupabaseConfigured() && supabaseClient) {
-    try {
-      const { data: existingDbRun } = await supabaseClient
-        .from("agent_runs")
-        .select("*")
-        .eq("idempotency_key", idempotencyKey)
-        .eq("user_id", payload.userId)
-        .in("status", ["RUNNING", "COMPLETED", "COMPLETED_WITH_FALLBACK", "AWAITING_APPROVAL"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existingDbRun) {
-        console.log(`[Orchestrator] Idempotency match found in Supabase (${idempotencyKey.slice(0, 8)}). Deduplicating.`);
-        return { deduplicated: true, run: existingDbRun };
-      }
-    } catch (err) {
-      console.warn("[Orchestrator] Failed checking idempotency in Supabase, continuing:", err);
-    }
-  }
-
-  // ─── STEP B: Initialize Run Record ─────────────────────────────────────────
-  const runId = `run-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const runRecord: AgentRunRecord = {
-    id: runId,
-    user_id: payload.userId,
-    idempotency_key: idempotencyKey,
-    trigger_type: payload.triggerType,
-    entity_id: payload.entityId,
-    status: "RUNNING",
-    requires_approval: false,
-    goal_prompt: payload.goalPrompt || `Triggered by ${payload.triggerType}`,
-    reasoning_trace: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  mockAgentRuns.unshift(runRecord);
-
-  // ─── STEP C: Step 0 Context Hydration (Digital Twin) ───────────────────────
-  const twinStart = Date.now();
-  const digitalTwin = await getStudentTwinContext(payload.userId, supabaseClient);
-  const twinLatency = Date.now() - twinStart;
-
-  const step0Trace: AgentTraceStep = {
-    step_number: 0,
-    timestamp: new Date().toISOString(),
-    tool_name: "get_student_twin_context",
-    input_summary: `Hydrated Digital Twin for candidate [${payload.userId}]`,
-    output_summary: `Loaded ${digitalTwin.skills.length} skills (Readiness: ${digitalTwin.readinessScore}%). Flagged ${digitalTwin.bluffRisks.length} unverified bluff risks.`,
-    status: "SUCCESS",
-    latency_ms: twinLatency,
-    data: {
-      targetRole: digitalTwin.targetRole,
-      readinessScore: digitalTwin.readinessScore,
-      bluffRisksCount: digitalTwin.bluffRisks.length,
-    },
-  };
-
-  runRecord.reasoning_trace.push(step0Trace);
-
-  // ─── STEP D: Bounded Loop (MAX_STEPS = 4) with Gemini 2.0 Flash ────────────
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  // If API key is missing, execute deterministic fallback immediately
+  // Fail honestly and loudly if GEMINI_API_KEY is missing — NEVER run a fake silent fallback
   if (!apiKey || apiKey === "placeholder-gemini-key") {
-    console.warn("[Orchestrator] GEMINI_API_KEY is not set. Executing Deterministic Fallback Engine.");
-    const fallbackRes = await executeDeterministicFallback(payload, digitalTwin, undefined, "Missing GEMINI_API_KEY");
+    const honestError =
+      "GEMINI_API_KEY_MISSING: Configure GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY in .env.local to run the autonomous agent.";
+    await supabase
+      .from("agent_runs")
+      .update({
+        status: "FAILED",
+        final_summary: honestError,
+        reasoning_trace: [
+          {
+            step_number: 0,
+            timestamp: new Date().toISOString(),
+            tool_name: "agent_preflight_check",
+            input_summary: "Checking LLM credentials",
+            output_summary: honestError,
+            status: "ERROR",
+            latency_ms: 1,
+          },
+        ],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", createdRun.id);
 
-    runRecord.reasoning_trace.push(...fallbackRes.traceSteps);
-    runRecord.status = fallbackRes.status;
-    runRecord.requires_approval = fallbackRes.requiresApproval;
-    runRecord.final_summary = fallbackRes.finalSummary;
-    runRecord.staged_diff = fallbackRes.stagedResumeDiff;
-    runRecord.updated_at = new Date().toISOString();
+    const runObj: AgentRunRecord = {
+      id: createdRun.id,
+      user_id: effectiveUserId,
+      idempotency_key: idempotencyKey,
+      trigger_type: payload.triggerType,
+      entity_id: payload.entityId || "global",
+      status: "FAILED",
+      requires_approval: false,
+      goal: payload.goalPrompt || payload.triggerType,
+      goal_prompt: payload.goalPrompt || payload.triggerType,
+      reasoning_trace: [],
+      final_summary: honestError,
+      created_at: createdRun.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    return { deduplicated: false, run: runRecord };
+    return {
+      deduplicated: false,
+      isGuest,
+      status: "FAILED",
+      error: honestError,
+      summary: honestError,
+      trace: [],
+      runId: createdRun.id,
+      run: runObj,
+    };
   }
 
   try {
-    const systemInstruction = `You are the autonomous AI Agent brain of Placement Co-pilot.
-Your goal is to strategically accelerate the candidate's career readiness without bluffing.
-Target Role: ${digitalTwin.targetRole}
-Current Readiness Score: ${digitalTwin.readinessScore}%
-Candidate Skills: ${digitalTwin.skills.map((s) => `${s.skill} (${s.confidence}%, verified=${s.verified})`).join(", ")}
-Identified Bluff Risks / Unverified Claims: ${digitalTwin.bluffRisks.join(" | ")}
+    // Step 0: Hydrate real database state (returns empty arrays and 0% if no resume exists)
+    const t0 = Date.now();
+    const twinResult = await toolRegistry.get_student_twin_context(effectiveUserId, {}, supabase);
+    const digitalTwin: StudentDigitalTwinSnapshot = twinResult.data;
 
-GUIDELINES:
-1. Always analyze job gaps and address unverified skills or bluff risks.
-2. For Kanban interview movements: analyze job gaps, inject a 3-day targeted sprint, and stage an evidence-grounded resume diff for human approval.
-3. For mock interview results: calibrate skill confidence damped by session score, and inject a remedial sprint if score < 65%.
-4. NEVER apply resume modifications directly; always use stage_resume_diff.
-5. Maximize evidence grounding and concise actionable sprint tasks.
-6. For RESUME_UPLOADED_BOOTSTRAP: calibrate digital twin, inject 4 remedial milestones to address bluff risks, scout and seed top 4 matched placements into Kanban, and stage a grounded resume diff.`;
+    // Fetch latest parsed resume row from Supabase resumes table if not passed in metadata
+    const { data: latestResumeRow } = await supabase
+      .from("resumes")
+      .select("*")
+      .eq("user_id", effectiveUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
+    const resumeContext =
+      (payload as any).metadata?.resumeContext ||
+      latestResumeRow?.parsed_data ||
+      latestResumeRow ||
+      null;
+
+    traceSteps.push({
+      step_number: 0,
+      timestamp: new Date().toISOString(),
+      tool_name: "get_student_twin_context",
+      input_summary: `userId=${effectiveUserId} (isGuest=${isGuest})`,
+      output_summary: twinResult.summary,
+      status: "SUCCESS",
+      latency_ms: Date.now() - t0,
+    });
+
+    await supabase
+      .from("agent_runs")
+      .update({ reasoning_trace: traceSteps, updated_at: new Date().toISOString() })
+      .eq("id", createdRun.id);
+
+    const systemPrompt = buildAutonomousSystemPrompt(digitalTwin, resumeContext);
     const contents: any[] = [
       {
         role: "user",
         parts: [
           {
-            text: `Event Trigger: ${payload.triggerType}
+            text: `Trigger Event: ${payload.triggerType}
 Entity ID: ${payload.entityId || "N/A"}
-Goal: ${payload.goalPrompt || "Optimize candidate preparation"}
-Context Metadata: ${JSON.stringify(payload.metadata || {})}`,
+User Goal: ${payload.goalPrompt || "Evaluate my current placement state and execute the most helpful next step."}
+Additional Metadata: ${JSON.stringify((payload as any).metadata || {})}`,
           },
         ],
       },
     ];
 
     let stepCount = 1;
-    const MAX_STEPS = 4;
-    let requiresApproval = false;
-    let finalSummary = "";
-    let stagedResumeDiff: StagedResumeDiff | undefined;
+    let awaitingApproval = false;
+    let finalSummaryText = "";
 
     while (stepCount <= MAX_STEPS) {
-      const stepStart = Date.now();
-
-      const requestBody = {
-        contents,
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        tools: [{ functionDeclarations: AGENT_FUNCTION_DECLARATIONS }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 1024,
-        },
-      };
-
+      const llmStart = Date.now();
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents,
+            tools: [{ functionDeclarations: AGENT_FUNCTION_DECLARATIONS }],
+            toolConfig: { functionCallingConfig: { mode: "AUTO" } },
+            generationConfig: { temperature: 0.2 },
+          }),
         }
       );
 
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gemini API Error (HTTP ${response.status}): ${errText}`);
+        const errBody = await response.text();
+        throw new Error(`GEMINI_HTTP_${response.status}: ${errBody.slice(0, 300)}`);
       }
 
-      const data = await response.json();
-      const candidate = data.candidates?.[0];
+      const llmJson = await response.json();
+      const candidate = llmJson.candidates?.[0];
       const modelContent = candidate?.content;
 
-      if (!modelContent) {
-        break;
+      if (!modelContent || !Array.isArray(modelContent.parts)) {
+        throw new Error("GEMINI_EMPTY_RESPONSE: Model returned no content parts.");
       }
 
-      // Append model turn to conversation history
-      contents.push(modelContent);
-
-      // Check for function calls
-      const parts = modelContent.parts || [];
-      const functionCalls = parts
+      const functionCalls = modelContent.parts
         .filter((p: any) => p.functionCall)
         .map((p: any) => p.functionCall);
 
       if (functionCalls.length === 0) {
-        // Plain text completion reached
-        const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text);
-        finalSummary = textParts.join("\n").trim() || "Agent execution concluded successfully.";
+        finalSummaryText = modelContent.parts
+          .filter((p: any) => typeof p.text === "string")
+          .map((p: any) => p.text)
+          .join("\n")
+          .trim();
         break;
       }
 
-      // Execute each function call
+      contents.push(modelContent);
+
       for (const call of functionCalls) {
-        const toolName = call.name;
+        const toolName = call.name as string;
         const toolArgs = call.args || {};
+        const stepStart = Date.now();
 
-        // SECURITY INVARIANT: Always inject server-verified userId
-        const { output, requiresApproval: toolApproval, stagedDiff } = await executeToolCall(
-          toolName,
-          toolArgs,
-          payload.userId,
-          supabaseClient
-        );
-
-        if (toolApproval) {
-          requiresApproval = true;
-          if (stagedDiff) stagedResumeDiff = stagedDiff;
+        const toolHandlers: Record<string, any> = {
+          ...toolRegistry,
+          auto_seed_kanban_pipeline,
+          update_skill_evidence,
+          inject_readiness_sprint,
+          stage_resume_diff,
+          get_student_twin_context,
+          analyze_job_gap,
+          optimize_multi_company_overlap,
+        };
+        const handler = toolHandlers[toolName];
+        if (!handler) {
+          throw new Error(`UNKNOWN_TOOL_CALLED: Gemini requested non-existent tool "${toolName}"`);
         }
 
-        const latency = Date.now() - stepStart;
-        const traceStep: AgentTraceStep = {
+        const output = await handler(effectiveUserId, { ...toolArgs, runId: createdRun.id }, supabase);
+        if (toolName === "stage_resume_diff" && output.success) {
+          awaitingApproval = true;
+        }
+
+        traceSteps.push({
           step_number: stepCount,
           timestamp: new Date().toISOString(),
           tool_name: toolName,
-          input_summary: `Invoked ${toolName} with args: ${JSON.stringify(toolArgs).slice(0, 120)}`,
-          output_summary: typeof output === "object" ? JSON.stringify(output).slice(0, 160) : String(output),
-          status: "SUCCESS",
-          latency_ms: latency,
-          data: output,
-        };
+          input_summary: JSON.stringify(toolArgs).slice(0, 200),
+          output_summary: output.summary,
+          status: output.success ? "SUCCESS" : "ERROR",
+          latency_ms: Date.now() - stepStart + (Date.now() - llmStart),
+        });
 
-        runRecord.reasoning_trace.push(traceStep);
+        await supabase
+          .from("agent_runs")
+          .update({
+            status: awaitingApproval ? "AWAITING_APPROVAL" : "RUNNING",
+            reasoning_trace: traceSteps,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", createdRun.id);
 
-        // Feed function response back to Gemini
         contents.push({
           role: "user",
           parts: [
             {
               functionResponse: {
                 name: toolName,
-                response: output,
+                response: { success: output.success, summary: output.summary, data: output.data },
               },
             },
           ],
         });
-      }
 
-      stepCount++;
+        stepCount++;
+        if (stepCount > MAX_STEPS) break;
+      }
     }
 
-    runRecord.status = requiresApproval ? "AWAITING_APPROVAL" : "COMPLETED";
-    runRecord.requires_approval = requiresApproval;
-    runRecord.final_summary =
-      finalSummary ||
-      `Autonomous agent successfully coordinated ${runRecord.reasoning_trace.length - 1} actions for ${payload.triggerType}. ${requiresApproval ? "A staged resume diff is awaiting human approval." : "All actions completed."}`;
-    runRecord.staged_diff = stagedResumeDiff;
-    runRecord.updated_at = new Date().toISOString();
+    const finalStatus = awaitingApproval ? "AWAITING_APPROVAL" : "COMPLETED";
+    const summaryToSave =
+      finalSummaryText ||
+      traceSteps.map((s) => `${s.tool_name}: ${s.output_summary}`).join(" | ");
 
-    return { deduplicated: false, run: runRecord };
+    await supabase
+      .from("agent_runs")
+      .update({
+        status: finalStatus,
+        reasoning_trace: traceSteps,
+        final_summary: summaryToSave,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", createdRun.id);
+
+    const runObj: AgentRunRecord = {
+      id: createdRun.id,
+      user_id: effectiveUserId,
+      idempotency_key: idempotencyKey,
+      trigger_type: payload.triggerType,
+      entity_id: payload.entityId || "global",
+      status: finalStatus,
+      requires_approval: awaitingApproval,
+      goal: payload.goalPrompt || payload.triggerType,
+      goal_prompt: payload.goalPrompt || payload.triggerType,
+      reasoning_trace: traceSteps,
+      final_summary: summaryToSave,
+      created_at: createdRun.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    return {
+      deduplicated: false,
+      isGuest,
+      status: finalStatus,
+      summary: summaryToSave,
+      trace: traceSteps,
+      runId: createdRun.id,
+      run: runObj,
+    };
   } catch (err: any) {
-    console.error("[Orchestrator] Gemini loop failed, initiating Deterministic Fallback Engine:", err.message);
+    const honestErrorMessage = `AGENT_EXECUTION_ERROR: ${err?.message || "Unknown runtime failure"}`;
+    traceSteps.push({
+      step_number: traceSteps.length,
+      timestamp: new Date().toISOString(),
+      tool_name: "agent_runtime_error",
+      input_summary: payload.triggerType,
+      output_summary: honestErrorMessage,
+      status: "ERROR",
+      latency_ms: 0,
+    });
 
-    const fallbackRes = await executeDeterministicFallback(
-      payload,
-      digitalTwin,
-      undefined,
-      err.message || "Gemini API Timeout or Rate Limit"
-    );
+    await supabase
+      .from("agent_runs")
+      .update({
+        status: "FAILED",
+        reasoning_trace: traceSteps,
+        final_summary: honestErrorMessage,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", createdRun.id);
 
-    runRecord.reasoning_trace.push(...fallbackRes.traceSteps);
-    runRecord.status = fallbackRes.status;
-    runRecord.requires_approval = fallbackRes.requiresApproval;
-    runRecord.final_summary = fallbackRes.finalSummary;
-    runRecord.staged_diff = fallbackRes.stagedResumeDiff;
-    runRecord.updated_at = new Date().toISOString();
+    const runObj: AgentRunRecord = {
+      id: createdRun.id,
+      user_id: effectiveUserId,
+      idempotency_key: idempotencyKey,
+      trigger_type: payload.triggerType,
+      entity_id: payload.entityId || "global",
+      status: "FAILED",
+      requires_approval: false,
+      goal: payload.goalPrompt || payload.triggerType,
+      goal_prompt: payload.goalPrompt || payload.triggerType,
+      reasoning_trace: traceSteps,
+      final_summary: honestErrorMessage,
+      created_at: createdRun.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    return { deduplicated: false, run: runRecord };
+    return {
+      deduplicated: false,
+      isGuest,
+      status: "FAILED",
+      error: honestErrorMessage,
+      summary: honestErrorMessage,
+      trace: traceSteps,
+      runId: createdRun.id,
+      run: runObj,
+    };
   }
+}
+
+// ─── Step 0 Context Hydration Helper (Digital Twin Loader) ───────────────────
+export async function getStudentTwinContext(
+  userId: string,
+  supabaseClient?: any
+): Promise<StudentTwinContext> {
+  const supabase = getPersistentSupabaseClient(supabaseClient);
+  const { effectiveUserId } = resolveEffectiveUserId(userId);
+  const toolRegistry = getAgentToolRegistry();
+  const res = await toolRegistry.get_student_twin_context(effectiveUserId, {}, supabase);
+  const dt = res.data;
+
+  return {
+    userId: effectiveUserId,
+    targetRole: (dt as any)?.targetRole || dt?.profileSummary?.targetRole || "Software Engineer",
+    readinessScore: (dt as any)?.readinessScore ?? dt?.profileSummary?.readinessScore ?? 0,
+    activeApplicationsCount: dt?.activeApplications?.length || 0,
+    skills: (dt?.skills || []).map((s: any) => ({
+      skill: s.skill_name || s.skill,
+      verified: s.verified_confidence === "HIGH" || s.verified_confidence === "MEDIUM",
+      confidence: s.verified_confidence === "HIGH" ? 100 : s.verified_confidence === "MEDIUM" ? 70 : 40,
+      bluffRisk: Boolean(s.bluff_risk),
+      evidenceSource: s.evidence_log?.[0]?.source,
+      lastUpdated: s.updated_at,
+    })),
+    bluffRisks: dt?.bluffRiskSkills || [],
+    recentMilestones: [],
+    lastActiveAt: new Date().toISOString(),
+  };
 }
 
 // ─── Non-Blocking Async Background Runner ────────────────────────────────────
@@ -698,7 +936,6 @@ export function triggerAgentEventAsync(input: {
   goalPrompt?: string;
   metadata?: Record<string, any>;
 }): void {
-  // Fire-and-forget in Node.js / serverless runtime
   setImmediate(async () => {
     try {
       await runPlacementAgent(input);
@@ -714,50 +951,46 @@ export async function getLatestAgentRuns(
   limit = 10,
   supabaseClient?: any
 ): Promise<AgentRunRecord[]> {
-  if (isSupabaseConfigured() && supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from("agent_runs")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(limit);
+  try {
+    const supabase = getPersistentSupabaseClient(supabaseClient);
+    const { effectiveUserId } = resolveEffectiveUserId(userId);
+    const { data, error } = await supabase
+      .from("agent_runs")
+      .select("*")
+      .eq("user_id", effectiveUserId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-      if (!error && data && data.length > 0) {
-        return data;
-      }
-    } catch (e) {
-      console.warn("[Orchestrator] Supabase getLatestAgentRuns failed, using in-memory:", e);
+    if (!error && Array.isArray(data)) {
+      return data;
     }
+  } catch (e) {
+    console.warn("[Orchestrator] getLatestAgentRuns error:", e);
   }
-
-  return mockAgentRuns.filter((r) => r.user_id === userId || userId === "guest-demo-user").slice(0, limit);
+  return [];
 }
 
 export async function getPendingAgentApprovals(
   userId: string,
   supabaseClient?: any
 ): Promise<AgentApprovalRecord[]> {
-  if (isSupabaseConfigured() && supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from("agent_approvals")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("status", "PENDING")
-        .order("created_at", { ascending: false });
+  try {
+    const supabase = getPersistentSupabaseClient(supabaseClient);
+    const { effectiveUserId } = resolveEffectiveUserId(userId);
+    const { data, error } = await supabase
+      .from("agent_approvals")
+      .select("*")
+      .eq("user_id", effectiveUserId)
+      .eq("status", "PENDING")
+      .order("created_at", { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        return data;
-      }
-    } catch (e) {
-      console.warn("[Orchestrator] Supabase getPendingAgentApprovals failed, using in-memory:", e);
+    if (!error && Array.isArray(data)) {
+      return data;
     }
+  } catch (e) {
+    console.warn("[Orchestrator] getPendingAgentApprovals error:", e);
   }
-
-  return mockAgentApprovals.filter(
-    (a) => (a.user_id === userId || userId === "guest-demo-user") && a.status === "PENDING"
-  );
+  return [];
 }
 
 export async function resolveAgentApproval(
@@ -766,35 +999,41 @@ export async function resolveAgentApproval(
   userId: string,
   supabaseClient?: any
 ): Promise<{ success: boolean; message: string }> {
-  // Check Manan's approval handler
-  const approvalHandler = await safeImportModule(APPROVAL_HANDLER_PATH);
-  if (approvalHandler && typeof approvalHandler.resolveAgentApproval === "function") {
-    try {
-      return await approvalHandler.resolveAgentApproval(approvalId, decision, userId, supabaseClient);
-    } catch (e) {
-      console.warn("[Orchestrator] approval-handler module threw, using fallback resolution:", e);
+  try {
+    const supabase = getPersistentSupabaseClient(supabaseClient);
+    const now = new Date().toISOString();
+
+    const { data: updatedApproval, error } = await supabase
+      .from("agent_approvals")
+      .update({ status: decision, resolved_at: now })
+      .eq("id", approvalId)
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
     }
-  }
 
-  // Built-in resolution logic
-  const approval = mockAgentApprovals.find((a) => a.id === approvalId);
-  if (approval) {
-    approval.status = decision;
-    approval.resolved_at = new Date().toISOString();
-
-    // Update parent run if present
-    const parentRun = mockAgentRuns.find((r) => r.staged_diff?.id === approvalId || r.id === approval.run_id);
-    if (parentRun) {
-      parentRun.status = "COMPLETED";
-      parentRun.requires_approval = false;
-      parentRun.final_summary = `${parentRun.final_summary || ""} [User ${decision} staged resume modifications.]`;
-      parentRun.updated_at = new Date().toISOString();
+    if (updatedApproval?.run_id) {
+      await supabase
+        .from("agent_runs")
+        .update({
+          status: "COMPLETED",
+          requires_approval: false,
+          final_summary: `[User ${decision} staged resume modifications]`,
+          updated_at: now,
+        })
+        .eq("id", updatedApproval.run_id);
     }
-  }
 
-  return {
-    success: true,
-    message: `Resume modification diff successfully ${decision.toLowerCase()} by candidate.`,
-  };
+    return {
+      success: true,
+      message: `Resume modification diff successfully ${decision.toLowerCase()} by candidate.`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || "Failed to resolve approval",
+    };
+  }
 }
-
