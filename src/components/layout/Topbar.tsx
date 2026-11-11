@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -168,34 +168,59 @@ export default function Topbar() {
   const [milestones, setMilestones] = useState<ReadinessMilestone[]>([]);
   const [latestResume, setLatestResume] = useState<ResumeAnalysis | null>(null);
 
-  const loadSearchAndAlertData = () => {
+  const lastAppsRef = useRef<string>("");
+  const lastMilestonesRef = useRef<string>("");
+  const lastResumeRef = useRef<string>("");
+
+  const loadSearchAndAlertData = useCallback(() => {
     try {
       const storedApps = getStoredApplications();
-      setApps(Array.isArray(storedApps) ? storedApps : []);
+      const appsStr = JSON.stringify(storedApps);
+      if (appsStr !== lastAppsRef.current) {
+        lastAppsRef.current = appsStr;
+        setApps(Array.isArray(storedApps) ? storedApps : []);
+      }
+
       const storedMilestones = getStoredReadinessMilestones();
-      setMilestones(Array.isArray(storedMilestones) ? storedMilestones : []);
+      const milesStr = JSON.stringify(storedMilestones);
+      if (milesStr !== lastMilestonesRef.current) {
+        lastMilestonesRef.current = milesStr;
+        setMilestones(Array.isArray(storedMilestones) ? storedMilestones : []);
+      }
+
       const resumeAnalysis = getStoredResumeWorkspace()?.analysis;
-      setLatestResume(resumeAnalysis || null);
+      const resStr = JSON.stringify(resumeAnalysis || null);
+      if (resStr !== lastResumeRef.current) {
+        lastResumeRef.current = resStr;
+        setLatestResume(resumeAnalysis || null);
+      }
     } catch {
       // safe fallback
-      setApps([]);
-      setMilestones([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleUpdate = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadSearchAndAlertData();
+      }, 150);
+    };
+
+    const initialTimer = setTimeout(() => {
       loadSearchAndAlertData();
-    }, 0);
-    const handleUpdate = () => loadSearchAndAlertData();
+    }, 50);
+
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
-      clearTimeout(timer);
+      clearTimeout(initialTimer);
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
-  }, []);
+  }, [loadSearchAndAlertData]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

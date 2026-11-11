@@ -38,6 +38,7 @@ export function IntegratedRobotNavigator() {
   const pathname = usePathname();
   const containerRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastSyncRef = useRef<string>("");
   const [isDuplicateInstance, setIsDuplicateInstance] = useState(false);
 
   const {
@@ -69,6 +70,10 @@ export function IntegratedRobotNavigator() {
   // Keep legacy storage-sync.ts unified whenever parsedResume updates so /resume never crashes on undefined[0]
   useEffect(() => {
     if (!parsedResume) return;
+    const syncKey = `${uploadedFileName}::${targetRole}::${parsedResume.candidateName}::${parsedResume.atsScore}::${(parsedResume.extractedSkills || []).length}`;
+    if (lastSyncRef.current === syncKey) return;
+    lastSyncRef.current = syncKey;
+
     try {
       const skillNames = (parsedResume.extractedSkills || []).map((s: any) =>
         typeof s === "string" ? s : String(s?.name || "")

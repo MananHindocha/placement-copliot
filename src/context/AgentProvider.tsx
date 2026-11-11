@@ -269,6 +269,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [probeSkill, setProbeSkill] = useState<string | null>(null);
 
   const hasHydratedRef = useRef(false);
+  const lastHydratedParsedRef = useRef<string>("");
 
   const setTargetRole = useCallback((role: string) => {
     setTargetRoleState(role);
@@ -325,10 +326,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       if (savedRole) setTargetRoleState(savedRole);
       if (savedFile) setUploadedFileName(savedFile);
       if (savedParsed) {
-        try {
-          setParsedResume(JSON.parse(savedParsed));
-        } catch {
-          // Ignore invalid JSON
+        if (savedParsed !== lastHydratedParsedRef.current) {
+          lastHydratedParsedRef.current = savedParsed;
+          try {
+            setParsedResume(JSON.parse(savedParsed));
+          } catch {
+            // Ignore invalid JSON
+          }
         }
       } else {
         const savedReal = window.localStorage.getItem("copilot_real_resume_v1");
@@ -414,6 +418,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         }
 
         const parsed: ParsedResumeData = json.parsedResume;
+        lastHydratedParsedRef.current = JSON.stringify(parsed);
         setTargetRole(cleanRole);
         setUploadedFileName(file.name);
         setParsedResume(parsed);

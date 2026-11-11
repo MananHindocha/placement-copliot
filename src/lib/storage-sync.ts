@@ -45,13 +45,20 @@ export function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
 
+let isDispatchingUpdate = false;
 export function dispatchCopilotUpdate(source: string): void {
   if (!isBrowser()) return;
-  try {
-    window.dispatchEvent(new CustomEvent("copilot-data-updated", { detail: { source, timestamp: Date.now() } }));
-  } catch {
-    window.dispatchEvent(new Event("copilot-data-updated"));
-  }
+  setTimeout(() => {
+    if (isDispatchingUpdate) return;
+    try {
+      isDispatchingUpdate = true;
+      window.dispatchEvent(new CustomEvent("copilot-data-updated", { detail: { source, timestamp: Date.now() } }));
+    } catch {
+      window.dispatchEvent(new Event("copilot-data-updated"));
+    } finally {
+      isDispatchingUpdate = false;
+    }
+  }, 0);
 }
 
 // ─── Real Resume Storage (Step 1 & 2) ────────────────────────────────────────
