@@ -27,6 +27,20 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 
+function toSkillLabel(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item.name === "string") return item.name;
+  if (typeof item.skill_name === "string") return item.skill_name;
+  if (typeof item.skill === "string") return item.skill;
+  return JSON.stringify(item);
+}
+
+function toSkillLevel(item: any): string {
+  if (!item || typeof item === "string") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
 const CONFIDENCE_BADGES: Record<
   ConfidenceTier,
   { label: string; badge: string; color: string; barWidth: string }
@@ -102,7 +116,7 @@ function SkillEvidenceCard({
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h4 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <span>{skill.skill_name}</span>
+              <span>{toSkillLabel(skill.skill_name || skill)}</span>
               {skill.verified_confidence === "HIGH" && (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               )}

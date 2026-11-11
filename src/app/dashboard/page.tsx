@@ -68,6 +68,20 @@ const ACTIVITY_COLORS: Record<string, string> = {
   readiness: "bg-sky-500/15 text-sky-400",
 };
 
+function toSkillLabel(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item.name === "string") return item.name;
+  if (typeof item.skill_name === "string") return item.skill_name;
+  if (typeof item.skill === "string") return item.skill;
+  return JSON.stringify(item);
+}
+
+function toSkillLevel(item: any): string {
+  if (!item || typeof item === "string") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -208,11 +222,16 @@ export default function DashboardPage() {
     (digitalTwin as any)?.currentResumeSummary?.fileName ||
     "resume.pdf";
 
-  const skillsList: string[] =
-    parsedResume?.extractedSkills?.map((s) => s.name) ||
+  const rawSkills: any[] =
+    parsedResume?.extractedSkills ||
     realResume?.skills ||
-    digitalTwin?.skills?.map((s) => (s as any).skill || (s as any).skill_name) ||
+    digitalTwin?.skills ||
     [];
+
+  const skillsList = rawSkills.map((s) => ({
+    label: toSkillLabel(s),
+    level: toSkillLevel(s) || "UNVERIFIED",
+  })).filter((s) => s.label.length > 0);
 
   const projectsList =
     parsedResume?.projects ||
@@ -513,14 +532,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
-              {skillsList.map((skillName, idx) => (
+              {skillsList.map((item, idx) => (
                 <div
                   key={idx}
                   className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 flex items-center gap-2 hover:border-white/20 transition-all"
                 >
-                  <span className="text-xs font-semibold text-white">{skillName}</span>
+                  <span className="text-xs font-semibold text-white">{item.label}</span>
                   <span className="rounded bg-sky-500/20 text-sky-300 text-[10px] px-1.5 py-0.2 font-mono">
-                    UNVERIFIED
+                    {item.level}
                   </span>
                 </div>
               ))}
@@ -588,7 +607,7 @@ export default function DashboardPage() {
                             key={tidx}
                             className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-cyan-300"
                           >
-                            {tech}
+                            {toSkillLabel(tech)}
                           </span>
                         ))}
                       </div>

@@ -19,6 +19,20 @@ import { printIsolatedResume, downloadDirectPdf } from "@/lib/resume/pdf-export"
 import ResumeDiffApprovalCard from "@/components/agent/ResumeDiffApprovalCard";
 import { useAgent } from "@/context/AgentProvider";
 import { getStoredRealResume, type RealParsedResume } from "@/lib/storage-sync";
+
+function toSkillLabel(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item.name === "string") return item.name;
+  if (typeof item.skill_name === "string") return item.skill_name;
+  if (typeof item.skill === "string") return item.skill;
+  return JSON.stringify(item);
+}
+
+function toSkillLevel(item: any): string {
+  if (!item || typeof item === "string") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
 import {
   Upload,
   FileText,
@@ -430,7 +444,7 @@ export default function ResumePage() {
     }
 
     const currentSkills = getUserSkills();
-    const merged = Array.from(new Set([...analysis.extractedSkills, ...currentSkills]));
+    const merged = Array.from(new Set([...analysis.extractedSkills.map(toSkillLabel), ...currentSkills]));
     setUserSkills(merged);
     showToast(`Synced ${analysis.extractedSkills.length} skills to your profile & Job Matcher!`);
   };
@@ -948,7 +962,7 @@ export default function ResumePage() {
                         ) : (
                           <XCircle className="w-3 h-3 text-rose-400" />
                         )}
-                        {kw.word}
+                        {toSkillLabel(kw.word)}
                       </span>
                     ))}
                   </div>
@@ -1151,7 +1165,7 @@ export default function ResumePage() {
                   {parsedResume.experience.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Work Experience</h3><div className="space-y-3">{parsedResume.experience.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="experience" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
                   {parsedResume.projects.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Projects</h3><div className="space-y-3">{parsedResume.projects.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="projects" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
 
-                  {(parsedResume.skillCategories.length > 0 || parsedResume.skills.length > 0) && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Technical Skills</h3><div className="space-y-1">{parsedResume.skillCategories.length > 0 ? parsedResume.skillCategories.map((group, index) => <p key={`${group.category}-${index}`}><strong className="text-slate-900">{group.category}: </strong><EditableText value={group.skills.join(", ")} onSave={(text) => { const skillCategories = parsedResume.skillCategories.map((item, itemIndex) => itemIndex === index ? { ...item, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) } : item); saveEditedResume({ ...parsedResume, skillCategories, skills: Array.from(new Set(skillCategories.flatMap((item) => item.skills))) }); }} /></p>) : <EditableText value={parsedResume.skills.join(", ")} onSave={(text) => saveEditedResume({ ...parsedResume, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) })} />}</div></section>}
+                  {(parsedResume.skillCategories.length > 0 || parsedResume.skills.length > 0) && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Technical Skills</h3><div className="space-y-1">{parsedResume.skillCategories.length > 0 ? parsedResume.skillCategories.map((group, index) => <p key={`${group.category}-${index}`}><strong className="text-slate-900">{group.category}: </strong><EditableText value={group.skills.map(toSkillLabel).join(", ")} onSave={(text) => { const skillCategories = parsedResume.skillCategories.map((item, itemIndex) => itemIndex === index ? { ...item, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) } : item); saveEditedResume({ ...parsedResume, skillCategories, skills: Array.from(new Set(skillCategories.flatMap((item) => item.skills))) }); }} /></p>) : <EditableText value={parsedResume.skills.map(toSkillLabel).join(", ")} onSave={(text) => saveEditedResume({ ...parsedResume, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) })} />}</div></section>}
 
                   {parsedResume.customSections.map((section) => <section key={section.id}><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">{section.heading}</h3><ul className="list-disc pl-5 space-y-1">{section.items.map((item) => <li key={item.id} className="text-[13px] leading-relaxed font-normal text-slate-800"><EditableText multiline value={item.text} onSave={(text) => editCustomItem(section.id, item.id, text)} className="w-full text-[13px] leading-relaxed font-normal text-slate-800" /></li>)}</ul></section>)}
                 </> : <div className="min-h-64 flex flex-col items-center justify-center text-center text-slate-500"><FileText className="w-8 h-8 mb-2" /><p className="font-sans font-medium">Your resume preview will appear here</p><p className="text-xs">Upload a PDF, DOCX, or TXT resume to begin.</p></div>}

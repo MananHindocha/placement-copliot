@@ -5,6 +5,20 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAgent } from "@/context/AgentProvider";
 import type { AgentTraceStep } from "@/lib/agent/types";
 
+function toSkillLabel(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item.name === "string") return item.name;
+  if (typeof item.skill_name === "string") return item.skill_name;
+  if (typeof item.skill === "string") return item.skill;
+  return JSON.stringify(item);
+}
+
+function toSkillLevel(item: any): string {
+  if (!item || typeof item === "string") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
 const ROLE_PRESETS = [
   "Backend Software Engineer",
   "Full-Stack Engineer",
@@ -80,8 +94,8 @@ export function IntegratedRobotNavigator() {
   const handleBuildReadinessSprint = async () => {
     const role = targetRole || customRoleInput || "Software Engineer";
     const missingList =
-      parsedResume?.missingSkillsForTargetRole?.map((m) => m.skill).join(", ") ||
-      digitalTwin?.bluffRiskSkills?.join(", ") ||
+      parsedResume?.missingSkillsForTargetRole?.map((m: any) => toSkillLabel(m)).join(", ") ||
+      digitalTwin?.bluffRiskSkills?.map((s: any) => toSkillLabel(s)).join(", ") ||
       "core role competencies";
     await triggerAgent({
       triggerType: "USER_GOAL_SUBMITTED",
@@ -362,9 +376,9 @@ export function IntegratedRobotNavigator() {
                   <div key={item.id} className="mt-2 space-y-2">
                     {changes.map((c: any, idx: number) => (
                       <div key={idx} className="rounded-lg bg-slate-900/90 p-3 text-xs space-y-1">
-                        <p className="text-red-300 line-through">- {c.originalBullet}</p>
-                        <p className="text-emerald-300 font-medium">+ {c.proposedBullet}</p>
-                        <p className="text-slate-400">Source Project: {c.verifiedSourceProject}</p>
+                        <p className="text-red-300 line-through">- {toSkillLabel(c.originalBullet)}</p>
+                        <p className="text-emerald-300 font-medium">+ {toSkillLabel(c.proposedBullet)}</p>
+                        <p className="text-slate-400">Source Project: {toSkillLabel(c.verifiedSourceProject)}</p>
                       </div>
                     ))}
                     <div className="flex gap-2 pt-1">
