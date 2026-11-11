@@ -11,6 +11,7 @@ import {
   Brain,
 } from "lucide-react";
 import { getAllCustomInterviewSessions, type CustomInterviewSession } from "@/lib/custom-interview-storage";
+import { DSA_OA_PROBLEMS } from "@/lib/dsa-oa-questions";
 
 interface InterviewModeCard {
   number: string;
@@ -51,7 +52,7 @@ const INTERVIEW_MODES: InterviewModeCard[] = [
       arrowColor: "text-[#A1A1AA] group-hover:text-[#F5F5F5]",
       numberColor: "text-[#71717A] font-mono",
     },
-    tags: ["30 OA Problems", "Multi-Language IDE", "Test Runner", "Big-O Verification"],
+    tags: [`${DSA_OA_PROBLEMS.length} OA Problems`, "Multi-Language IDE", "Test Runner", "Big-O Verification"],
     actionText: "Start Practice →",
   },
   {

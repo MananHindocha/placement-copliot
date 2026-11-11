@@ -3308,18 +3308,33 @@ const RAW_DSA_OA_PROBLEMS: DsaOaProblem[] = [
 const COPRIME_STRIDES = [1, 7, 11, 13, 17, 19, 23, 29];
 
 function buildCuratedProblemBank(problems: DsaOaProblem[]): DsaOaProblem[] {
-  const curated: DsaOaProblem[] = problems.map((p) => ({
-    ...p,
-    companyTags: Array.from(
-      new Set(p.companyTags.map((c) => (c === "D.E. Shaw" ? "DE Shaw" : c)))
-    ),
-  }));
+  // Deduplicate cleanly by internal id, canonical problem number, or normalized title
+  const seenIds = new Set<string>();
+  const seenNumbers = new Set<number>();
+  const seenTitles = new Set<string>();
+  const uniqueProblems: DsaOaProblem[] = [];
+
+  for (const p of problems) {
+    const normalizedTitle = p.title.trim().toLowerCase();
+    if (seenIds.has(p.id) || seenNumbers.has(p.number) || seenTitles.has(normalizedTitle)) {
+      continue;
+    }
+    seenIds.add(p.id);
+    seenNumbers.add(p.number);
+    seenTitles.add(normalizedTitle);
+    uniqueProblems.push({
+      ...p,
+      companyTags: Array.from(
+        new Set(p.companyTags.map((c) => (c === "D.E. Shaw" ? "DE Shaw" : c)))
+      ),
+    });
+  }
 
   const countMap = new Map<string, number>();
   for (const company of CORE_MAJOR_COMPANIES) {
     countMap.set(company, 0);
   }
-  for (const problem of curated) {
+  for (const problem of uniqueProblems) {
     for (const tag of problem.companyTags) {
       if (countMap.has(tag)) {
         countMap.set(tag, (countMap.get(tag) || 0) + 1);
@@ -3330,20 +3345,26 @@ function buildCuratedProblemBank(problems: DsaOaProblem[]): DsaOaProblem[] {
   const TARGET_PER_COMPANY = 26;
   CORE_MAJOR_COMPANIES.forEach((company, companyIdx) => {
     const stride = COPRIME_STRIDES[companyIdx % COPRIME_STRIDES.length];
-    let cursor = (companyIdx * 5) % curated.length;
+    let cursor = (companyIdx * 5) % uniqueProblems.length;
     let steps = 0;
-    while ((countMap.get(company) || 0) < TARGET_PER_COMPANY && steps < curated.length * 3) {
-      const targetProblem = curated[cursor];
+    while ((countMap.get(company) || 0) < TARGET_PER_COMPANY && steps < uniqueProblems.length * 3) {
+      const targetProblem = uniqueProblems[cursor];
       if (!targetProblem.companyTags.includes(company)) {
         targetProblem.companyTags.push(company);
         countMap.set(company, (countMap.get(company) || 0) + 1);
       }
-      cursor = (cursor + stride) % curated.length;
+      cursor = (cursor + stride) % uniqueProblems.length;
       steps += 1;
     }
   });
 
-  return curated;
+  // Sort canonically by underlying LeetCode number and assign sequential 1..N presentation index
+  return [...uniqueProblems]
+    .sort((a, b) => a.number - b.number)
+    .map((problem, index) => ({
+      ...problem,
+      displayRank: index + 1,
+    }));
 }
 
 export const DSA_OA_PROBLEMS: DsaOaProblem[] = buildCuratedProblemBank(RAW_DSA_OA_PROBLEMS);
