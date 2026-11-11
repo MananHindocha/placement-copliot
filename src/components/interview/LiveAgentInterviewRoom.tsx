@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import VisionProctorStage from "./VisionProctorStage";
 import {
   getStoredReadinessMilestones,
   setStoredReadinessMilestones,
@@ -178,6 +179,7 @@ export default function LiveAgentInterviewRoom({
   const [langGraphNodesExecuted, setLangGraphNodesExecuted] = useState<string[]>([]);
   const [agentEngine, setAgentEngine] = useState<string>("LangGraph.js StateGraph");
   const [storageMode, setStorageMode] = useState<string>("local_file");
+  const [showTranscriptDrawer, setShowTranscriptDrawer] = useState<boolean>(true);
 
   // 30-Second Proactive Idle Hint States
   const [idleSeconds, setIdleSeconds] = useState<number>(0);
@@ -206,8 +208,8 @@ export default function LiveAgentInterviewRoom({
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, isAgentThinking, activeHintBox]);
 
-  const speakText = useCallback((text: string) => {
-    if (!voiceEnabledRef.current || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const speakText = useCallback((text: string, forceSpeak = false) => {
+    if ((!voiceEnabledRef.current && !forceSpeak) || typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.03;
@@ -770,39 +772,74 @@ export default function LiveAgentInterviewRoom({
             </div>
           </div>
 
-          {/* Right Column: Back-and-Forth Dialogue Transcript, 30s Hint Prompt & Candidate Input (7 cols) */}
+          {/* Right Column: Live Camera + MediaPipe CV Telemetry Stage, Compact Transcript, 30s Hint & Composer (7 cols) */}
           <div className="lg:col-span-7 flex flex-col space-y-4">
-            {/* Scrollable Multi-Turn Conversation History */}
-            <div className="p-5 rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] h-[340px] overflow-y-auto space-y-4">
-              {history.map((turn, i) => (
-                <div
-                  key={i}
-                  className={`flex flex-col ${
-                    turn.role === "candidate" ? "items-end" : "items-start"
-                  }`}
+            <VisionProctorStage
+              interviewerTitle="AI Bar-Raiser Agent"
+              targetFileBadge={latestInterviewerTurn?.skillTested || targetRole}
+              interviewerActionBadge={currentAction}
+              currentPromptText={
+                latestInterviewerTurn?.content || "Initializing interview session..."
+              }
+              isAgentThinking={isAgentThinking}
+              isAgentSpeaking={isAgentSpeaking}
+              onSpeakPrompt={() => {
+                if (latestInterviewerTurn?.content) {
+                  speakText(latestInterviewerTurn.content, true);
+                }
+              }}
+            />
+
+            {/* Compact Collapsible Multi-Turn Conversation Transcript (shown once turns begin) */}
+            {(history.length > 1 || isAgentThinking) && (
+              <div className="rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowTranscriptDrawer((prev) => !prev)}
+                  className="w-full px-4 py-2.5 flex items-center justify-between text-xs bg-[#121212]/70 hover:bg-[#161616] transition-colors cursor-pointer"
                 >
-                  <div className="text-[11px] text-[#71717A] mb-1 px-1">
-                    {turn.role === "interviewer" ? "AI Bar-Raiser Agent" : "You (Candidate)"}
-                    {turn.interviewerAction ? ` • ${turn.interviewerAction}` : ""}
+                  <span className="font-semibold text-[#E4E4E7]">
+                    💬 Conversation History ({history.length} turns)
+                  </span>
+                  <span className="text-[#A1A1AA]">
+                    {showTranscriptDrawer ? "Collapse ▲" : "Expand ▼"}
+                  </span>
+                </button>
+
+                {showTranscriptDrawer && (
+                  <div className="p-4 max-h-64 overflow-y-auto space-y-3 border-t border-[#1D1D1D]">
+                    {history.map((turn, i) => (
+                      <div
+                        key={i}
+                        className={`flex flex-col ${
+                          turn.role === "candidate" ? "items-end" : "items-start"
+                        }`}
+                      >
+                        <div className="text-[11px] text-[#71717A] mb-1 px-1">
+                          {turn.role === "interviewer" ? "AI Bar-Raiser Agent" : "You (Candidate)"}
+                          {turn.interviewerAction ? ` • ${turn.interviewerAction}` : ""}
+                        </div>
+                        <div
+                          className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
+                            turn.role === "interviewer"
+                              ? "bg-[#121212] border border-[#1D1D1D] text-[#F5F5F5]"
+                              : "bg-indigo-600/20 border border-indigo-500/40 text-indigo-100"
+                          }`}
+                        >
+                          {turn.content}
+                        </div>
+                      </div>
+                    ))}
+                    {isAgentThinking && (
+                      <div className="text-xs text-amber-300 animate-pulse">
+                        🤖 AI Interviewer is evaluating your answer &amp; checking for study plan gaps...
+                      </div>
+                    )}
+                    <div ref={transcriptEndRef} />
                   </div>
-                  <div
-                    className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                      turn.role === "interviewer"
-                        ? "bg-[#121212] border border-[#1D1D1D] text-[#F5F5F5]"
-                        : "bg-indigo-600/20 border border-indigo-500/40 text-indigo-100"
-                    }`}
-                  >
-                    {turn.content}
-                  </div>
-                </div>
-              ))}
-              {isAgentThinking && (
-                <div className="text-xs text-amber-300 animate-pulse">
-                  🤖 AI Interviewer is evaluating your answer &amp; checking for study plan gaps...
-                </div>
-              )}
-              <div ref={transcriptEndRef} />
-            </div>
+                )}
+              </div>
+            )}
 
             {/* 30-Second Proactive Hint Offer Prompt */}
             {showHintOfferPrompt && !finalReport && (

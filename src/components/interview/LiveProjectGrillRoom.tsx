@@ -3,8 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
-  Video,
-  VideoOff,
   FileCode,
   ChevronDown,
   ChevronUp,
@@ -13,8 +11,7 @@ import {
   ArrowLeft,
   RotateCcw,
 } from "lucide-react";
-import { clsx } from "clsx";
-import { VisualTelemetryAnalyzer, type VisualPostureState } from "@/lib/visual-telemetry";
+import VisionProctorStage from "./VisionProctorStage";
 import {
   getStoredReadinessMilestones,
   setStoredReadinessMilestones,
@@ -239,8 +236,9 @@ export default function LiveProjectGrillRoom({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
-  // Code snippet drawer + collapsible ideal defense map
+  // Code snippet drawer + collapsible transcript & ideal defense map
   const [codeSnippetExpanded, setCodeSnippetExpanded] = useState(true);
+  const [showTranscriptDrawer, setShowTranscriptDrawer] = useState(true);
   const [expandedIdealTurns, setExpandedIdealTurns] = useState<Record<number, boolean>>({});
 
   // Live Skill Matrix & Study Plan sync
@@ -268,25 +266,12 @@ export default function LiveProjectGrillRoom({
     clueKeywords: string[];
   } | null>(null);
 
-  // Camera & Posture Coach state
-  const [cameraActive, setCameraActive] = useState(false);
-  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [liveEyeContact, setLiveEyeContact] = useState<number>(-1);
-  const [livePosture, setLivePosture] = useState<VisualPostureState>("Calibrating...");
-  const [reticleColor, setReticleColor] = useState<"green" | "amber" | "rose">("green");
-  const [visualToast, setVisualToast] = useState<string | null>(null);
-
   // Refs
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const voiceEnabledRef = useRef(voiceEnabled);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const videoStreamRef = useRef<MediaStream | null>(null);
-  const visualAnalyzerRef = useRef<VisualTelemetryAnalyzer | null>(null);
-  const gazeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
@@ -303,8 +288,12 @@ export default function LiveProjectGrillRoom({
     setIsAgentSpeaking(false);
   }, []);
 
-  const speakText = useCallback((text: string) => {
-    if (!voiceEnabledRef.current || typeof window === "undefined" || !("speechSynthesis" in window)) {
+  const speakText = useCallback((text: string, forceSpeak = false) => {
+    if (
+      (!voiceEnabledRef.current && !forceSpeak) ||
+      typeof window === "undefined" ||
+      !("speechSynthesis" in window)
+    ) {
       return;
     }
     window.speechSynthesis.cancel();
@@ -317,90 +306,11 @@ export default function LiveProjectGrillRoom({
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  const stopCamera = useCallback(() => {
-    if (gazeIntervalRef.current) {
-      clearInterval(gazeIntervalRef.current);
-      gazeIntervalRef.current = null;
-    }
-    if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach((track) => track.stop());
-      videoStreamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    if (visualAnalyzerRef.current) {
-      visualAnalyzerRef.current.reset();
-    }
-    setCameraActive(false);
-    setLiveEyeContact(-1);
-    setLivePosture("Calibrating...");
-    setVisualToast(null);
-  }, []);
-
-  const startCamera = useCallback(async () => {
-    stopCamera();
-    setCameraError(null);
-    setIsRequestingCamera(true);
-
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setCameraError("Webcam access is unavailable in this browser context.");
-      setIsRequestingCamera(false);
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
-
-      videoStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(() => {});
-      }
-
-      if (!visualAnalyzerRef.current) {
-        visualAnalyzerRef.current = new VisualTelemetryAnalyzer();
-      } else {
-        visualAnalyzerRef.current.reset();
-      }
-
-      setCameraActive(true);
-      gazeIntervalRef.current = setInterval(() => {
-        if (!videoRef.current || !visualAnalyzerRef.current) return;
-        const frame = visualAnalyzerRef.current.analyzeFrame(videoRef.current);
-        setLiveEyeContact(frame.smoothEyeContactPct);
-        setLivePosture(frame.posture);
-        setReticleColor(frame.hudStatusColor);
-        setVisualToast(frame.hudToast);
-      }, 100);
-    } catch (err: unknown) {
-      const e = err as { name?: string; message?: string };
-      if (e?.name === "NotReadableError" || e?.name === "TrackStartError") {
-        setCameraError("Camera is currently in use by another application.");
-      } else if (e?.name === "NotFoundError" || e?.name === "DevicesNotFoundError") {
-        setCameraError("No webcam hardware detected on this device.");
-      } else {
-        setCameraError("Camera permission denied. You can continue cleanly in audio/text mode.");
-      }
-    } finally {
-      setIsRequestingCamera(false);
-    }
-  }, [stopCamera]);
-
-  // Clean up hardware streams & TTS strictly on unmount
+  // Clean up audio & TTS strictly on unmount
   useEffect(() => {
     return () => {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
-      }
-      if (gazeIntervalRef.current) {
-        clearInterval(gazeIntervalRef.current);
-      }
-      if (videoStreamRef.current) {
-        videoStreamRef.current.getTracks().forEach((t) => t.stop());
       }
       if (audioStreamRef.current) {
         audioStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -510,7 +420,6 @@ export default function LiveProjectGrillRoom({
 
   const exitLiveRoom = () => {
     stopSpeech();
-    stopCamera();
     if (audioStreamRef.current) {
       audioStreamRef.current.getTracks().forEach((t) => t.stop());
       audioStreamRef.current = null;
@@ -1236,121 +1145,24 @@ export default function LiveProjectGrillRoom({
 
         {/* Main 2-Column Conversational Stage */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* ─── LEFT COLUMN (5 cols): Persona/Webcam Coach + Active Prompt + Real Code Snippet + Live Matrix ─── */}
+          {/* ─── LEFT COLUMN (5 cols): AI Presence Orb + Real Code Snippet + Live Matrix ─── */}
           <div className="lg:col-span-5 space-y-4">
             <div className="p-5 rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] flex flex-col items-center text-center space-y-4">
-              {/* Camera & Posture Coach Header Controls */}
-              <div className="w-full flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
-                  {cameraActive ? "Live Camera & Posture Coach" : "AI Interviewer Presence"}
-                </span>
-                <button
-                  type="button"
-                  onClick={cameraActive ? stopCamera : startCamera}
-                  disabled={isRequestingCamera}
-                  className={clsx(
-                    "px-2.5 py-1 rounded-lg text-[11px] font-medium border inline-flex items-center gap-1.5 cursor-pointer transition-colors",
-                    cameraActive
-                      ? "bg-rose-500/15 text-rose-300 border-rose-500/40 hover:bg-rose-500/25"
-                      : "bg-[#121212] text-[#F5F5F5] border-[#292929] hover:bg-[#1A1A1A]"
-                  )}
+              <div className="py-2 flex flex-col items-center space-y-2">
+                <div
+                  className={`w-24 h-24 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                    isAgentThinking || isRequestingHint
+                      ? "border-amber-400 bg-amber-500/10 animate-pulse"
+                      : isAgentSpeaking
+                      ? "border-indigo-400 bg-indigo-500/20 shadow-[0_0_35px_rgba(99,102,241,0.45)]"
+                      : "border-[#292929] bg-[#121212]"
+                  }`}
                 >
-                  {isRequestingCamera ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : cameraActive ? (
-                    <VideoOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Video className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                  <span>
-                    {cameraActive ? "Turn Off Camera" : "Turn On Camera (Posture Coach)"}
+                  <span className="text-3xl">
+                    {isAgentThinking || isRequestingHint ? "🧠" : isAgentSpeaking ? "🎙️" : "🤖"}
                   </span>
-                </button>
-              </div>
-
-              {cameraError && (
-                <div className="w-full text-left px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-500/30 text-[11px] text-amber-200">
-                  {cameraError}
-                </div>
-              )}
-
-              {/* Webcam Video Box OR AI Persona Orb */}
-              <div className={clsx("w-full", cameraActive ? "block" : "hidden")}>
-                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-[#050505] border border-[#292929]">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover -scale-x-100"
-                  />
-
-                  <div className="absolute top-2 inset-x-2 flex items-center justify-between text-[10px] font-mono pointer-events-none">
-                    <div className="flex items-center gap-1.5 bg-[#050505]/90 px-2 py-0.5 rounded-full border border-[#292929] text-[#F5F5F5]">
-                      <span
-                        className={clsx(
-                          "w-1.5 h-1.5 rounded-full",
-                          reticleColor === "green"
-                            ? "bg-emerald-400 animate-pulse"
-                            : reticleColor === "amber"
-                            ? "bg-amber-400"
-                            : "bg-rose-400 animate-ping"
-                        )}
-                      />
-                      <span>
-                        Eye Contact: {liveEyeContact >= 0 ? `${liveEyeContact}%` : "Scanning..."}
-                      </span>
-                    </div>
-                    <div className="bg-[#050505]/90 px-2 py-0.5 rounded-full border border-[#292929] text-[#F5F5F5]">
-                      Posture: {livePosture}
-                    </div>
-                  </div>
-
-                  {/* Center Eye-Line Guide Box */}
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div
-                      className={clsx(
-                        "w-32 h-28 rounded-2xl border border-dashed flex flex-col items-center pt-4 transition-colors",
-                        reticleColor === "green"
-                          ? "border-emerald-400/50"
-                          : reticleColor === "amber"
-                          ? "border-amber-400/60"
-                          : "border-rose-400/60"
-                      )}
-                    >
-                      <div className="w-16 border-t border-cyan-400/50 text-[8px] font-mono uppercase tracking-wider text-cyan-300/80 text-center pt-0.5">
-                        Eye Line
-                      </div>
-                    </div>
-                  </div>
-
-                  {visualToast && (
-                    <div className="absolute bottom-2 left-2 right-2 pointer-events-none text-left">
-                      <span className="inline-block max-w-full truncate px-2 py-0.5 rounded bg-[#050505]/90 border border-[#292929] text-[10px] text-[#E4E4E7]">
-                        {visualToast}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
-
-              {!cameraActive && (
-                <div className="py-2 flex flex-col items-center space-y-2">
-                  <div
-                    className={`w-24 h-24 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                      isAgentThinking || isRequestingHint
-                        ? "border-amber-400 bg-amber-500/10 animate-pulse"
-                        : isAgentSpeaking
-                        ? "border-indigo-400 bg-indigo-500/20 shadow-[0_0_35px_rgba(99,102,241,0.45)]"
-                        : "border-[#292929] bg-[#121212]"
-                    }`}
-                  >
-                    <span className="text-3xl">
-                      {isAgentThinking || isRequestingHint ? "🧠" : isAgentSpeaking ? "🎙️" : "🤖"}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               <div className={`px-3 py-1 rounded-full text-xs font-medium border ${badgeMeta.color}`}>
                 {badgeMeta.label}
@@ -1490,140 +1302,183 @@ export default function LiveProjectGrillRoom({
             </div>
           </div>
 
-          {/* ─── RIGHT COLUMN (7 cols): Scrollable Chat Transcript + 30s Hint Offer + Composer / Debrief ─── */}
+          {/* ─── RIGHT COLUMN (7 cols): Live Camera + MediaPipe CV Stage + Compact Turn History + Composer ─── */}
           <div className="lg:col-span-7 flex flex-col space-y-4">
-            {/* Multi-Turn Conversational Transcript */}
-            <div className="p-5 rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] h-[400px] overflow-y-auto space-y-4">
-              {history.map((turn, i) => {
-                const isIdealOpen = Boolean(expandedIdealTurns[i]);
-                return (
-                  <div
-                    key={i}
-                    className={`flex flex-col ${
-                      turn.role === "candidate" ? "items-end" : "items-start"
-                    }`}
-                  >
-                    <div className="text-[11px] text-[#71717A] mb-1 px-1 flex items-center gap-1.5 flex-wrap">
-                      <span>
-                        {turn.role === "interviewer" ? "AI Bar-Raiser Agent" : "You (Candidate)"}
-                      </span>
-                      {turn.targetFile && (
-                        <span className="font-mono text-[10px] text-emerald-400">
-                          • {turn.targetFile}
-                        </span>
-                      )}
-                      {turn.interviewerAction && (
-                        <span className="text-[10px] text-[#A1A1AA]">
-                          • {turn.interviewerAction}
-                        </span>
-                      )}
-                    </div>
+            <VisionProctorStage
+              interviewerTitle="AI Bar-Raiser Agent"
+              targetFileBadge={activeTargetFile}
+              interviewerActionBadge={currentAction}
+              currentPromptText={
+                latestInterviewerTurn?.content || currentQuestion?.question || "Initializing interview..."
+              }
+              isAgentThinking={isAgentThinking}
+              isAgentSpeaking={isAgentSpeaking}
+              onSpeakPrompt={() =>
+                speakText(
+                  latestInterviewerTurn?.content || currentQuestion?.question || "",
+                  true
+                )
+              }
+            />
 
-                    <div
-                      className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed space-y-3 ${
-                        turn.role === "interviewer"
-                          ? "bg-[#121212] border border-[#1D1D1D] text-[#F5F5F5]"
-                          : "bg-indigo-600/20 border border-indigo-500/40 text-indigo-100"
-                      }`}
-                    >
-                      {/* Inline Code-Grounded Coaching Card Inside Evaluated Interviewer Turns */}
-                      {turn.coaching && (
-                        <div className="p-3 rounded-xl bg-[#080808] border border-[#292929] space-y-2.5 text-xs">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="font-semibold text-[#F5F5F5]">
-                              📊 Previous Answer Score:{" "}
-                              <span
-                                className={
-                                  turn.coaching.score >= 75
-                                    ? "text-emerald-400"
-                                    : turn.coaching.score >= 50
-                                    ? "text-amber-400"
-                                    : "text-rose-400"
-                                }
-                              >
-                                {turn.coaching.score}/100
+            {/* Compact Collapsible Conversation & Coaching History (Shown once turns begin so zero empty box on Turn 0) */}
+            {(history.length > 1 || isAgentThinking) && (
+              <div className="rounded-2xl bg-[#0D0D0D] border border-[#1D1D1D] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowTranscriptDrawer((prev) => !prev)}
+                  className="w-full px-4 py-2.5 flex items-center justify-between text-xs bg-[#121212]/70 hover:bg-[#161616] transition-colors cursor-pointer"
+                >
+                  <span className="font-semibold text-[#E4E4E7]">
+                    💬 Conversation &amp; Coaching History ({history.length} turns)
+                  </span>
+                  <span className="text-[#A1A1AA] flex items-center gap-1">
+                    {showTranscriptDrawer ? (
+                      <>
+                        Collapse <ChevronUp className="w-3.5 h-3.5" />
+                      </>
+                    ) : (
+                      <>
+                        Expand <ChevronDown className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </span>
+                </button>
+
+                {showTranscriptDrawer && (
+                  <div className="p-4 max-h-72 overflow-y-auto space-y-3 border-t border-[#1D1D1D]">
+                    {history.map((turn, i) => {
+                      const isIdealOpen = Boolean(expandedIdealTurns[i]);
+                      return (
+                        <div
+                          key={i}
+                          className={`flex flex-col ${
+                            turn.role === "candidate" ? "items-end" : "items-start"
+                          }`}
+                        >
+                          <div className="text-[11px] text-[#71717A] mb-1 px-1 flex items-center gap-1.5 flex-wrap">
+                            <span>
+                              {turn.role === "interviewer" ? "AI Bar-Raiser Agent" : "You (Candidate)"}
+                            </span>
+                            {turn.targetFile && (
+                              <span className="font-mono text-[10px] text-emerald-400">
+                                • {turn.targetFile}
                               </span>
-                            </span>
-                            <span className="font-mono text-[10px] text-[#A1A1AA]">
-                              {turn.coaching.targetFile}
-                            </span>
-                          </div>
-
-                          {turn.coaching.howToImproveYourAnswer.length > 0 && (
-                            <div className="space-y-1">
-                              <div className="font-semibold text-amber-300 text-[11px]">
-                                🛠️ How to Improve Your Previous Answer
-                              </div>
-                              <ul className="list-disc list-inside space-y-0.5 text-[#D4D4D8] text-[11px]">
-                                {turn.coaching.howToImproveYourAnswer.map((tip, tipIdx) => (
-                                  <li key={tipIdx}>{tip}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {(turn.coaching.addressedConcepts.length > 0 ||
-                            turn.coaching.missedConcepts.length > 0) && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {turn.coaching.addressedConcepts.slice(0, 3).map((c, idx) => (
-                                <span
-                                  key={`ok-${idx}`}
-                                  className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                                >
-                                  ✓ {c}
-                                </span>
-                              ))}
-                              {turn.coaching.missedConcepts.slice(0, 3).map((c, idx) => (
-                                <span
-                                  key={`miss-${idx}`}
-                                  className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                                >
-                                  ✕ Missed: {c}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="pt-0.5">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedIdealTurns((prev) => ({
-                                  ...prev,
-                                  [i]: !prev[i],
-                                }))
-                              }
-                              className="text-[11px] font-medium text-indigo-300 hover:text-indigo-200 underline cursor-pointer"
-                            >
-                              {isIdealOpen
-                                ? "Hide 95/100 Model Project Defense"
-                                : "✨ View 95/100 Model Project Defense"}
-                            </button>
-                            {isIdealOpen && (
-                              <p className="mt-1.5 p-2.5 rounded-lg bg-indigo-950/30 border border-indigo-500/30 text-[11px] text-indigo-100 leading-relaxed whitespace-pre-wrap">
-                                {turn.coaching.idealRewrittenAnswer}
-                              </p>
+                            )}
+                            {turn.interviewerAction && (
+                              <span className="text-[10px] text-[#A1A1AA]">
+                                • {turn.interviewerAction}
+                              </span>
                             )}
                           </div>
+
+                          <div
+                            className={`max-w-[92%] rounded-2xl px-4 py-3 text-xs leading-relaxed space-y-2.5 ${
+                              turn.role === "interviewer"
+                                ? "bg-[#121212] border border-[#1D1D1D] text-[#F5F5F5]"
+                                : "bg-indigo-600/20 border border-indigo-500/40 text-indigo-100"
+                            }`}
+                          >
+                            {turn.coaching && (
+                              <div className="p-3 rounded-xl bg-[#080808] border border-[#292929] space-y-2 text-xs">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="font-semibold text-[#F5F5F5]">
+                                    📊 Previous Answer Score:{" "}
+                                    <span
+                                      className={
+                                        turn.coaching.score >= 75
+                                          ? "text-emerald-400"
+                                          : turn.coaching.score >= 50
+                                          ? "text-amber-400"
+                                          : "text-rose-400"
+                                      }
+                                    >
+                                      {turn.coaching.score}/100
+                                    </span>
+                                  </span>
+                                  <span className="font-mono text-[10px] text-[#A1A1AA]">
+                                    {turn.coaching.targetFile}
+                                  </span>
+                                </div>
+
+                                {turn.coaching.howToImproveYourAnswer.length > 0 && (
+                                  <div className="space-y-1">
+                                    <div className="font-semibold text-amber-300 text-[11px]">
+                                      🛠️ How to Improve Your Previous Answer
+                                    </div>
+                                    <ul className="list-disc list-inside space-y-0.5 text-[#D4D4D8] text-[11px]">
+                                      {turn.coaching.howToImproveYourAnswer.map((tip, tipIdx) => (
+                                        <li key={tipIdx}>{tip}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {(turn.coaching.addressedConcepts.length > 0 ||
+                                  turn.coaching.missedConcepts.length > 0) && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {turn.coaching.addressedConcepts.slice(0, 3).map((c, idx) => (
+                                      <span
+                                        key={`ok-${idx}`}
+                                        className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                                      >
+                                        ✓ {c}
+                                      </span>
+                                    ))}
+                                    {turn.coaching.missedConcepts.slice(0, 3).map((c, idx) => (
+                                      <span
+                                        key={`miss-${idx}`}
+                                        className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                                      >
+                                        ✕ Missed: {c}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="pt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedIdealTurns((prev) => ({
+                                        ...prev,
+                                        [i]: !prev[i],
+                                      }))
+                                    }
+                                    className="text-[11px] font-medium text-indigo-300 hover:text-indigo-200 underline cursor-pointer"
+                                  >
+                                    {isIdealOpen
+                                      ? "Hide 95/100 Model Project Defense"
+                                      : "✨ View 95/100 Model Project Defense"}
+                                  </button>
+                                  {isIdealOpen && (
+                                    <p className="mt-1.5 p-2.5 rounded-lg bg-indigo-950/30 border border-indigo-500/30 text-[11px] text-indigo-100 leading-relaxed whitespace-pre-wrap">
+                                      {turn.coaching.idealRewrittenAnswer}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="whitespace-pre-wrap">{turn.content}</div>
+                          </div>
                         </div>
-                      )}
+                      );
+                    })}
 
-                      <div className="whitespace-pre-wrap">{turn.content}</div>
-                    </div>
+                    {isAgentThinking && (
+                      <div className="text-xs text-amber-300 animate-pulse flex items-center gap-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>
+                          AI Bar-Raiser is grading your defense against actual code in {activeTargetFile} &amp; preparing follow-up...
+                        </span>
+                      </div>
+                    )}
+                    <div ref={transcriptEndRef} />
                   </div>
-                );
-              })}
-
-              {isAgentThinking && (
-                <div className="text-xs text-amber-300 animate-pulse flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>
-                    AI Bar-Raiser is grading your defense against actual code in {activeTargetFile} &amp; preparing follow-up...
-                  </span>
-                </div>
-              )}
-              <div ref={transcriptEndRef} />
-            </div>
+                )}
+              </div>
+            )}
 
             {/* 30-Second Proactive Hint Offer Prompt */}
             {showHintOfferPrompt && !finalReport && (
