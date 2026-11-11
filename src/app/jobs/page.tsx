@@ -831,8 +831,8 @@ export default function JobsPage() {
 
       {/* Loading Skeleton */}
       {loading && jobs.length === 0 ? (
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="w-full md:w-[240px] lg:w-[260px] shrink-0 p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-4">
+        <div className="flex flex-col @3xl/main:flex-row gap-4">
+          <div className="w-full @3xl/main:w-[220px] @5xl/main:w-[250px] shrink-0 p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-4">
             <div className="h-5 w-24 skeleton mb-2" />
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-2 py-2">
@@ -842,7 +842,7 @@ export default function JobsPage() {
             ))}
           </div>
 
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 min-w-0 space-y-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="p-4 rounded-xl bg-[#111218] border border-[#22232D] space-y-3">
                 <div className="flex items-center gap-3">
@@ -860,7 +860,7 @@ export default function JobsPage() {
             ))}
           </div>
 
-          <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 p-5 rounded-xl bg-[#111218] border border-[#22232D] space-y-4 hidden lg:block">
+          <div className="w-full @4xl/main:w-[340px] @5xl/main:w-[400px] shrink-0 p-5 rounded-xl bg-[#111218] border border-[#22232D] space-y-4 hidden @4xl/main:block">
             <div className="h-6 w-48 skeleton" />
             <div className="h-4 w-32 skeleton" />
             <div className="h-24 w-full skeleton my-4" />
@@ -873,10 +873,10 @@ export default function JobsPage() {
         </div>
       ) : (
         /* Main 3-column layout: Filter | List | Detail */
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col @3xl/main:flex-row gap-4">
           {/* ─── LEFT: Filter Panel ──────────────────────────────────────── */}
           {filterPanelOpen && (
-            <div className="w-full md:w-[240px] lg:w-[260px] xl:w-[280px] shrink-0">
+            <div className="w-full @3xl/main:w-[220px] @5xl/main:w-[250px] shrink-0">
               <Card className="md:sticky md:top-0 md:max-h-[calc(100vh-160px)] overflow-y-auto scrollbar-thin">
                 <div className="space-y-1">
                   {/* Panel header */}
@@ -1353,7 +1353,7 @@ export default function JobsPage() {
           </div>
 
           {/* ─── RIGHT: Job Detail Panel ──────────────────────────────────── */}
-          <div className="w-[380px] xl:w-[420px] shrink-0 hidden lg:block">
+          <div className="w-full @4xl/main:w-[340px] @5xl/main:w-[400px] shrink-0">
             {activeJob ? (
               <Card className="sticky top-0 max-h-[calc(100vh-160px)] overflow-y-auto scrollbar-thin">
                 {/* Header */}

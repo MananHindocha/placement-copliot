@@ -115,7 +115,15 @@ interface SystemStatusData {
   };
 }
 
-export default function Topbar() {
+export interface TopbarProps {
+  onOpenPrepDrawer?: () => void;
+  prepSummary?: {
+    pct: number;
+    todayCount: number;
+  };
+}
+
+export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   let page = PAGE_TITLES[pathname];
@@ -327,6 +335,27 @@ export default function Topbar() {
             <span className="text-[11px] text-[#969085]">Search co-pilot...</span>
             <kbd className="text-[10px] bg-[#171820] border border-[#2A2B38] px-1.5 py-0.5 rounded text-[#969085] font-mono">⌘K</kbd>
           </button>
+
+          {/* Compact Mobile / Portrait-Tablet Preparation Drawer Trigger */}
+          {onOpenPrepDrawer && (
+            <button
+              type="button"
+              onClick={onOpenPrepDrawer}
+              aria-label="Open preparation calendar and progress"
+              className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111218] border border-[#22232D] hover:border-[#735BA0]/50 hover:bg-[#171820] text-xs font-medium text-[#F8F8F9] transition-colors cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#B293E2]" />
+              <span className="hidden sm:inline">Prep</span>
+              {prepSummary && (
+                <span className="font-mono text-[11px] font-semibold text-[#B293E2] tabular-nums">
+                  {prepSummary.pct}%
+                </span>
+              )}
+              {prepSummary && prepSummary.todayCount > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+              )}
+            </button>
+          )}
 
           {/* Notifications Trigger & Popover */}
           <div className="relative">

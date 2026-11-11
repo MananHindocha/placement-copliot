@@ -14,6 +14,9 @@ import {
   toggleMilestone as toggleMilestoneService,
   addReadinessMilestone,
   deleteReadinessMilestone,
+  updateReadinessMilestoneDueDate,
+  calculatePreparationProgress,
+  parseFlexibleDueDate,
   fetchAiGoalRecommendations,
 } from "@/lib/services/readiness.service";
 import type { ReadinessMilestone, ReadinessDomain, AiGoalRecommendation } from "@/types";
@@ -42,6 +45,7 @@ import {
   Briefcase,
   HelpCircle,
   Bot,
+  Pencil,
 } from "lucide-react";
 import { clsx } from "clsx";
 import DigitalTwinMatrix from "@/components/agent/DigitalTwinMatrix";
@@ -79,13 +83,31 @@ function MilestoneRow({
   milestone,
   onToggle,
   onDelete,
+  onUpdateDueDate,
 }: {
   milestone: ReadinessMilestone;
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
+  onUpdateDueDate?: (id: string, newDueDate: string) => Promise<void>;
 }) {
   const config = CATEGORY_CONFIG[milestone.category] ?? CATEGORY_CONFIG.skills;
   const Icon = config.icon;
+  const [editingDate, setEditingDate] = useState(false);
+  const [draftDate, setDraftDate] = useState(
+    () => parseFlexibleDueDate(milestone.dueDate) || ""
+  );
+  const [savingDate, setSavingDate] = useState(false);
+
+  const handleSaveDate = async () => {
+    if (!onUpdateDueDate) return;
+    setSavingDate(true);
+    try {
+      await onUpdateDueDate(milestone.id, draftDate);
+      setEditingDate(false);
+    } finally {
+      setSavingDate(false);
+    }
+  };
 
   return (
     <div
@@ -129,12 +151,59 @@ function MilestoneRow({
         {milestone.description && (
           <p className="text-xs text-[#969085] leading-relaxed">{milestone.description}</p>
         )}
-        {milestone.dueDate && (
-          <div className="flex items-center gap-1 mt-2 text-xs text-[#969085]/80">
-            <Calendar className="w-3 h-3" />
-            Due {milestone.dueDate}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          {!editingDate ? (
+            <>
+              {milestone.dueDate ? (
+                <div className="flex items-center gap-1 text-xs text-[#969085]/80">
+                  <Calendar className="w-3 h-3" />
+                  <span>Due {milestone.dueDate}</span>
+                </div>
+              ) : (
+                <span className="text-xs text-[#969085]/60">No deadline set</span>
+              )}
+              {onUpdateDueDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftDate(parseFlexibleDueDate(milestone.dueDate) || "");
+                    setEditingDate(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] text-[#B293E2] hover:text-[#C3A9EB] opacity-80 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  title="Edit milestone deadline"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>{milestone.dueDate ? "Change deadline" : "Set deadline"}</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <input
+                type="date"
+                value={draftDate}
+                onChange={(e) => setDraftDate(e.target.value)}
+                aria-label="Milestone due date"
+                className="bg-[#0A0B0F] border border-[#262733] rounded-md px-2 py-1 text-xs text-[#F8F8F9] focus:outline-none focus:border-[#B293E2]"
+              />
+              <button
+                type="button"
+                disabled={savingDate}
+                onClick={handleSaveDate}
+                className="px-2 py-1 rounded-md bg-[#B293E2] hover:bg-[#C3A9EB] text-[#0A0B0F] text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+              >
+                {savingDate ? "Saving..." : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingDate(false)}
+                className="px-2 py-1 rounded-md bg-[#171820] border border-[#262733] text-[#969085] hover:text-[#F8F8F9] text-[11px] cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       {onDelete && (
         <button
@@ -302,6 +371,20 @@ export default function ReadinessPage() {
     }
   };
 
+  const handleUpdateDueDate = async (id: string, newDate: string) => {
+    try {
+      const updatedDisplay = await updateReadinessMilestoneDueDate(id, newDate || null);
+      setMilestones((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, dueDate: updatedDisplay } : m))
+      );
+      showToast(
+        updatedDisplay ? `Updated deadline to ${updatedDisplay}` : "Cleared milestone deadline"
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update milestone deadline.");
+    }
+  };
+
   // Convert AI Recommendation to Milestone
   const handleAddRecommendationToPlan = async (rec: AiGoalRecommendation) => {
     if (isRecommendationAdded(rec) || addingRecId === rec.id) return;
@@ -334,33 +417,15 @@ export default function ReadinessPage() {
     );
   };
 
-  const completed = milestones.filter((m) => m.completed).length;
-  const total = milestones.length;
-  const overallPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const progressSummary = useMemo(
+    () => calculatePreparationProgress(milestones, digitalTwin?.skills),
+    [milestones, digitalTwin?.skills]
+  );
 
-  // ─── FEATURE 3: LIVE READINESS SCORE FORMULA TIED TO DIGITAL TWIN & MILESTONES ───
-  // Map each skill in digitalTwin.skills to numerical confidence ratio:
-  // HIGH = 1.0, MEDIUM = 0.7, UNVERIFIED = 0.4, LOW (or bluff_risk) = 0.2
-  const skills = digitalTwin?.skills || [];
-  const digitalTwinConfidenceRatio = useMemo(() => {
-    if (!skills || skills.length === 0) return 0;
-    const RATIO_MAP: Record<string, number> = {
-      HIGH: 1.0,
-      MEDIUM: 0.7,
-      UNVERIFIED: 0.4,
-      LOW: 0.2,
-    };
-    const totalRatio = skills.reduce((sum, s) => {
-      if (s.bluff_risk) return sum + 0.2;
-      return sum + (RATIO_MAP[s.verified_confidence] ?? 0.4);
-    }, 0);
-    return Math.round((totalRatio / skills.length) * 100);
-  }, [skills]);
-
-  const completedMilestonesRatio = total > 0 ? (completed / total) * 100 : 0;
-  const overallReadiness = (skills.length > 0 || total > 0)
-    ? Math.min(100, Math.round(0.6 * digitalTwinConfidenceRatio + 0.4 * completedMilestonesRatio))
-    : 0;
+  const completed = progressSummary.completedTasks;
+  const total = progressSummary.totalTasks;
+  const overallPct = progressSummary.overallTaskPercentage;
+  const overallReadiness = progressSummary.overallReadinessPercentage;
 
   const pending = milestones.filter((m) => !m.completed);
   const done = milestones.filter((m) => m.completed);
@@ -647,6 +712,7 @@ export default function ReadinessPage() {
                       milestone={m}
                       onToggle={toggleMilestone}
                       onDelete={handleDeleteMilestone}
+                      onUpdateDueDate={handleUpdateDueDate}
                     />
                   ))
               )}
