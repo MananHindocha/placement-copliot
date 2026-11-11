@@ -86,6 +86,9 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [isBluffAuditModalOpen, setIsBluffAuditModalOpen] = useState(false);
   const [probeSkill, setProbeSkill] = useState<string | null>(null);
   const lastStateVersionRef = useRef<string>("0");
+  const hasInitialHydratedRef = useRef<boolean>(false);
+  const isFetchingStateRef = useRef<boolean>(false);
+  const mutationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openBluffAuditModal = useCallback(() => setIsBluffAuditModalOpen(true), []);
   const closeBluffAuditModal = useCallback(() => setIsBluffAuditModalOpen(false), []);
@@ -112,6 +115,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   // ─── HYDRATE STATE FROM /api/agent/twin ────────────────────────────────────
   const refreshAgentState = useCallback(async () => {
+    if (isFetchingStateRef.current) return;
+    isFetchingStateRef.current = true;
     try {
       const res = await fetch("/api/agent/twin", { cache: "no-store" });
       if (!res.ok) return;
@@ -124,7 +129,22 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
       const data = await res.json();
       if (data.success) {
-        if (data.digitalTwin) setDigitalTwin(data.digitalTwin);
+        if (data.digitalTwin) {
+          setDigitalTwin((prevTwin) => {
+            const incomingSkillsCount = Array.isArray(data.digitalTwin.skills)
+              ? data.digitalTwin.skills.length
+              : 0;
+            const prevSkillsCount = Array.isArray(prevTwin?.skills)
+              ? prevTwin.skills.length
+              : 0;
+
+            // Preserve populated skills in guest/localStorage mode if backend returns an empty baseline
+            if (incomingSkillsCount === 0 && prevSkillsCount > 0) {
+              return prevTwin;
+            }
+            return data.digitalTwin;
+          });
+        }
         if (Array.isArray(data.runs)) {
           setRuns(data.runs);
           // Set activeRun to latest if not currently executing
@@ -139,22 +159,37 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.warn("[AgentProvider] Failed to hydrate twin context:", err);
+    } finally {
+      isFetchingStateRef.current = false;
     }
   }, []);
 
-  // Initial mount hydration
+  // Initial mount hydration (runs once cleanly without re-triggering on every render)
   useEffect(() => {
-    refreshAgentState();
+    if (!hasInitialHydratedRef.current) {
+      hasInitialHydratedRef.current = true;
+      void refreshAgentState();
+    }
 
-    // Listen for cross-module agent mutations
+    // Listen for cross-module agent mutations (debounced to coalesce dual dispatches)
     const handleMutation = () => {
-      refreshAgentState();
+      if (mutationDebounceRef.current) {
+        clearTimeout(mutationDebounceRef.current);
+      }
+      mutationDebounceRef.current = setTimeout(() => {
+        mutationDebounceRef.current = null;
+        void refreshAgentState();
+      }, 250);
     };
 
     window.addEventListener("agent-state-mutated", handleMutation);
     window.addEventListener("copilot-data-updated", handleMutation);
 
     return () => {
+      if (mutationDebounceRef.current) {
+        clearTimeout(mutationDebounceRef.current);
+        mutationDebounceRef.current = null;
+      }
       window.removeEventListener("agent-state-mutated", handleMutation);
       window.removeEventListener("copilot-data-updated", handleMutation);
     };

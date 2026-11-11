@@ -27,6 +27,7 @@ import {
   saveDraftCustomConfig,
   getDraftCustomConfig,
 } from "@/lib/custom-interview-storage";
+import LiveAgentInterviewRoom from "@/components/interview/LiveAgentInterviewRoom";
 
 interface RawResumeProject {
   title?: string;
@@ -56,6 +57,7 @@ export default function CustomizePage() {
   ]);
   const [includeResumeContext, setIncludeResumeContext] = useState(true);
   const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
+  const [liveAgentActive, setLiveAgentActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // LocalStorage Resume Detection
@@ -231,6 +233,17 @@ export default function CustomizePage() {
       setIsGeneratingCustom(false);
     }
   };
+
+  if (liveAgentActive) {
+    return (
+      <LiveAgentInterviewRoom
+        targetRole={customRole || "Software Engineer"}
+        targetCompany={customCompany || ""}
+        jobDescription={customJdText}
+        onExit={() => setLiveAgentActive(false)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -479,6 +492,14 @@ export default function CustomizePage() {
           </span>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setLiveAgentActive(true)}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-lg transition cursor-pointer"
+            >
+              🎙️ Start Live Agent Interview (Multi-Turn) →
+            </button>
+
             <Button
               variant="secondary"
               size="sm"

@@ -17,6 +17,7 @@ import {
   EXPANDED_CATEGORIES,
   getRoleInterviewQuestions,
 } from "@/lib/interview-questions";
+import { getBaselineAsStudioQuestions } from "@/lib/interview/role-baseline-questions";
 import type {
   InterviewQuestion,
   InterviewSession,
@@ -58,6 +59,8 @@ import {
   BrainCircuit,
   Flame,
   ShieldAlert,
+  Zap,
+  Rocket,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAgent } from "@/context/AgentProvider";
@@ -117,13 +120,45 @@ export default function InterviewStudioStage({
   onQuestionsChange,
 }: InterviewStudioStageProps) {
   // ─── Core Data State ────────────────────────────────────────────────────────
+  const buildRoleQuestionPool = useCallback(
+    (roleTitle: string, targetMode: "bank" | "grill" | "custom"): StudioQuestion[] => {
+      if (targetMode === "grill") {
+        return getBaselineAsStudioQuestions(roleTitle, "grill");
+      }
+      if (targetMode === "custom") {
+        return [];
+      }
+      const baseline = getBaselineAsStudioQuestions(roleTitle, "bank");
+      const curated = getRoleInterviewQuestions(roleTitle, "all");
+      const seenIds = new Set(baseline.map((q) => q.id));
+      return [...baseline, ...curated.filter((q) => !seenIds.has(q.id))];
+    },
+    []
+  );
+
   const [questions, setQuestions] = useState<StudioQuestion[]>(() => {
     if (initialQuestions && initialQuestions.length > 0) return initialQuestions;
-    return getRoleInterviewQuestions(initialRole, initialCategory);
+    if (mode === "grill") return getBaselineAsStudioQuestions(initialRole, "grill");
+    if (mode === "custom") return [];
+    const baseline = getBaselineAsStudioQuestions(initialRole, "bank");
+    const curated = getRoleInterviewQuestions(initialRole, "all");
+    const seenIds = new Set(baseline.map((q) => q.id));
+    return [...baseline, ...curated.filter((q) => !seenIds.has(q.id))];
   });
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ─── Adaptive Difficulty State ──────────────────────────────────────────────
+  const [candidateLevel, setCandidateLevel] = useState<1 | 2 | 3>(1);
+  const [levelUpBanner, setLevelUpBanner] = useState<{
+    decision: "LEVEL_UP_HARDER_QUESTION" | "PROBE_CURRENT_LEVEL" | "CALIBRATE_FOUNDATION";
+    score: number;
+    previousLevel: 1 | 2 | 3;
+    nextLevel: 1 | 2 | 3;
+    reaction?: string;
+    hasNextQuestion: boolean;
+  } | null>(null);
 
   // ─── Studio Configuration State ─────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"practice" | "history">("practice");
@@ -201,15 +236,18 @@ export default function InterviewStudioStage({
   const lastSpokenTimestampRef = useRef<number>(0);
   const evaluationRef = useRef<HTMLDivElement | null>(null);
 
-  // Synchronize when external questions change
-  useEffect(() => {
+  // Synchronize when external questions change without cascading effects
+  const [prevInitialQuestions, setPrevInitialQuestions] = useState(initialQuestions);
+  if (initialQuestions !== prevInitialQuestions) {
+    setPrevInitialQuestions(initialQuestions);
     if (initialQuestions && initialQuestions.length > 0) {
       setQuestions(initialQuestions);
       setCurrentIdx(0);
       setEvalResult(null);
+      setLevelUpBanner(null);
       setResponse("");
     }
-  }, [initialQuestions]);
+  }
 
   // Load past sessions
   useEffect(() => {
@@ -254,17 +292,18 @@ export default function InterviewStudioStage({
   const availableQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (mode === "grill") {
-        return q.category === "resume-grill" || q.isCustom;
+        return q.category === "resume-grill" || q.isCustom || q.isAiEscalated || q.level !== undefined;
       }
       if (mode === "custom") {
         return true;
       }
       const roleMatches =
-        q.isCustom || !q.role || q.role.toLowerCase() === selectedRole.toLowerCase();
+        q.isCustom || q.isAiEscalated || !q.role || q.role.toLowerCase() === selectedRole.toLowerCase();
       if (!roleMatches) return false;
 
       if (filterCategory === "all") {
-        return q.isCustom || q.category !== "resume-grill";
+        // Default Bank stage loads progressive 10-question role calibration (Level 1 -> 3) + dynamically escalated questions
+        return (q.level !== undefined || q.isCustom || q.isAiEscalated) && q.category !== "resume-grill";
       }
       return q.category === filterCategory;
     });
@@ -715,6 +754,7 @@ export default function InterviewStudioStage({
     const totalFillers = Object.values(fillerCounts).reduce((a, b) => a + b, 0);
 
     try {
+      setLevelUpBanner(null);
       const evaluation = await evaluateInterviewAnswer({
         questionId: activeQuestion.id,
         questionText: activeQuestion.question,
@@ -722,6 +762,7 @@ export default function InterviewStudioStage({
         role: selectedRole,
         userTranscript: textToEvaluate,
         durationSeconds: Math.max(10, durationSeconds),
+        currentLevel: candidateLevel,
         codeSnippet: codeSnippet.trim() || undefined,
         keyConceptsToCover: activeExpectedConcepts.length > 0 ? activeExpectedConcepts : undefined,
         telemetry: {
@@ -743,6 +784,57 @@ export default function InterviewStudioStage({
       });
 
       setEvalResult(evaluation);
+
+      const previousLevel = candidateLevel;
+      const resolvedNextLevel: 1 | 2 | 3 = evaluation.nextLevel || previousLevel;
+      setCandidateLevel(resolvedNextLevel);
+
+      let insertedAdaptive = false;
+      if (evaluation.adaptiveNextQuestion?.question) {
+        const adaptiveQ: StudioQuestion = {
+          id: evaluation.adaptiveNextQuestion.id || `ai-escalated-${Date.now()}`,
+          role: selectedRole,
+          category:
+            mode === "grill"
+              ? "resume-grill"
+              : evaluation.adaptiveNextQuestion.category || activeQuestion.category,
+          difficulty: evaluation.adaptiveNextQuestion.difficulty || "hard",
+          level: resolvedNextLevel,
+          isAiEscalated: true,
+          question: evaluation.adaptiveNextQuestion.question,
+          hint: evaluation.adaptiveNextQuestion.hint,
+          keyConceptsToCover:
+            evaluation.adaptiveNextQuestion.keyConceptsToCover &&
+            evaluation.adaptiveNextQuestion.keyConceptsToCover.length > 0
+              ? evaluation.adaptiveNextQuestion.keyConceptsToCover
+              : activeExpectedConcepts.slice(0, 3),
+          isCustom: true,
+        };
+
+        setQuestions((prev) => {
+          const activePos = prev.findIndex((item) => item.id === activeQuestion.id);
+          if (activePos === -1) return [adaptiveQ, ...prev];
+          const nextArr = [...prev];
+          nextArr.splice(activePos + 1, 0, adaptiveQ);
+          return nextArr;
+        });
+        insertedAdaptive = true;
+      }
+
+      setLevelUpBanner({
+        decision:
+          evaluation.adaptiveDecision ||
+          (evaluation.overallScore >= 75
+            ? "LEVEL_UP_HARDER_QUESTION"
+            : evaluation.overallScore >= 50
+            ? "PROBE_CURRENT_LEVEL"
+            : "CALIBRATE_FOUNDATION"),
+        score: evaluation.overallScore,
+        previousLevel,
+        nextLevel: resolvedNextLevel,
+        reaction: evaluation.interviewerReaction,
+        hasNextQuestion: insertedAdaptive,
+      });
 
       // Record Turn
       const newTurn: InterviewTurn = {
@@ -771,18 +863,39 @@ export default function InterviewStudioStage({
         evaluationRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 150);
 
-      if (ttsEnabled && evaluation.followUpQuestion?.prompt) {
-        setTimeout(() => {
-          speakText(
-            `Evaluation complete. Score: ${evaluation.overallScore} out of 100. Follow-up: ${evaluation.followUpQuestion.prompt}`
-          );
-        }, 1000);
+      if (ttsEnabled) {
+        const spokenReaction = evaluation.interviewerReaction
+          ? `${evaluation.interviewerReaction} `
+          : `Evaluation complete. Score: ${evaluation.overallScore} out of 100. `;
+        const spokenEscalation =
+          evaluation.overallScore >= 75 && evaluation.adaptiveNextQuestion?.question
+            ? `Level up to Level ${resolvedNextLevel}. Escalated question ready.`
+            : evaluation.followUpQuestion?.prompt
+            ? `Follow-up: ${evaluation.followUpQuestion.prompt}`
+            : "";
+        if (spokenReaction || spokenEscalation) {
+          setTimeout(() => {
+            speakText(`${spokenReaction}${spokenEscalation}`);
+          }, 900);
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate evaluation feedback.");
     } finally {
       setIsEvaluating(false);
     }
+  };
+
+  const handleProceedToAdaptiveQuestion = () => {
+    setCurrentIdx((i) => Math.min(Math.max(0, availableQuestions.length - 1), i + 1));
+    setCurrentTurnOrder((prev) => prev + 1);
+    setResponse("");
+    setCodeSnippet("");
+    setEvalResult(null);
+    setLevelUpBanner(null);
+    setDurationSeconds(0);
+    setFillerCounts({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleChainFollowUpTurn = () => {
@@ -792,6 +905,8 @@ export default function InterviewStudioStage({
       role: selectedRole,
       category: activeQuestion.category,
       difficulty: "hard",
+      level: candidateLevel,
+      isAiEscalated: true,
       question: evalResult.followUpQuestion.prompt,
       hint: `Interviewer Intent: ${evalResult.followUpQuestion.intent}`,
       keyConceptsToCover: evalResult.followUpQuestion.keyConcepts || activeExpectedConcepts.slice(0, 3),
@@ -804,6 +919,7 @@ export default function InterviewStudioStage({
     setResponse("");
     setCodeSnippet("");
     setEvalResult(null);
+    setLevelUpBanner(null);
     setDurationSeconds(0);
     setFillerCounts({});
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1014,9 +1130,11 @@ export default function InterviewStudioStage({
                   const newRole = e.target.value;
                   setSelectedRole(newRole);
                   setCurrentIdx(0);
+                  setCandidateLevel(1);
                   setEvalResult(null);
+                  setLevelUpBanner(null);
                   setResponse("");
-                  const newQuestions = getRoleInterviewQuestions(newRole, filterCategory);
+                  const newQuestions = buildRoleQuestionPool(newRole, mode);
                   setQuestions(newQuestions);
                   onQuestionsChange?.(newQuestions);
                 }}
@@ -1037,6 +1155,27 @@ export default function InterviewStudioStage({
               </span>
             </div>
           )}
+
+          {/* Adaptive Agent Mastery Level Badge */}
+          <span
+            className={clsx(
+              "text-[11px] font-semibold px-2.5 py-1 rounded-lg border font-mono flex items-center gap-1.5",
+              candidateLevel === 3
+                ? "bg-amber-500/15 text-amber-300 border-amber-500/35 shadow-sm shadow-amber-500/10"
+                : candidateLevel === 2
+                ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/35"
+                : "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+            )}
+            title="Adaptive Agent scales difficulty automatically from your live evaluation scores"
+          >
+            <Zap className="w-3 h-3 shrink-0" />
+            Adaptive Agent Level {candidateLevel} / 3 ·{" "}
+            {candidateLevel === 3
+              ? "Staff Bar-Raiser"
+              : candidateLevel === 2
+              ? "Production SDE"
+              : "Foundational"}
+          </span>
         </div>
 
         {/* Right: TTS Toggle */}
@@ -1175,6 +1314,7 @@ export default function InterviewStudioStage({
                     setFilterCategory(cat.id);
                     setCurrentIdx(0);
                     setEvalResult(null);
+                    setLevelUpBanner(null);
                     setResponse("");
                   }}
                   className={clsx(
@@ -1394,13 +1534,22 @@ export default function InterviewStudioStage({
               {/* Question Flashcard */}
               <Card className="p-5 md:p-6 bg-[#0D0D0D] border-[#1D1D1D] rounded-xl space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#1D1D1D]">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant={CATEGORY_CONFIG[activeQuestion?.category || "technical"]?.variant || "indigo"} size="sm">
                       {CATEGORY_CONFIG[activeQuestion?.category || "technical"]?.label || activeQuestion?.category}
                     </Badge>
                     <span className={clsx("text-xs font-semibold capitalize", DIFFICULTY_COLOR[activeQuestion?.difficulty || "medium"])}>
                       {activeQuestion?.difficulty}
                     </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#A1A1AA] border border-[#1D1D1D]">
+                      Level {activeQuestion?.level || candidateLevel}/3
+                    </span>
+                    {activeQuestion?.isAiEscalated && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-indigo-500/20 text-amber-300 border border-amber-400/40 flex items-center gap-1 shadow-sm shadow-amber-500/10">
+                        <Rocket className="w-3 h-3 text-amber-400" />
+                        Live API Escalated Question
+                      </span>
+                    )}
                   </div>
 
                   {/* Navigation */}
@@ -1410,6 +1559,7 @@ export default function InterviewStudioStage({
                       onClick={() => {
                         setCurrentIdx((i) => Math.max(0, i - 1));
                         setEvalResult(null);
+                        setLevelUpBanner(null);
                         setResponse("");
                       }}
                       disabled={currentIdx === 0}
@@ -1418,13 +1568,14 @@ export default function InterviewStudioStage({
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <span className="font-mono tabular-nums text-[#A1A1AA]">
-                      {currentIdx + 1} / {availableQuestions.length}
+                      {availableQuestions.length > 0 ? currentIdx + 1 : 0} / {availableQuestions.length}
                     </span>
                     <button
                       type="button"
                       onClick={() => {
                         setCurrentIdx((i) => Math.min(availableQuestions.length - 1, i + 1));
                         setEvalResult(null);
+                        setLevelUpBanner(null);
                         setResponse("");
                       }}
                       disabled={currentIdx >= availableQuestions.length - 1}
@@ -1599,6 +1750,42 @@ export default function InterviewStudioStage({
                       </div>
                     </div>
 
+                    {/* LangGraph.js StateGraph Execution Trace */}
+                    {(evalResult.langGraphTrace?.length || evalResult.engine) && (
+                      <div className="px-3.5 py-2.5 rounded-xl bg-[#0A0A0A] border border-[#1D1D1D] space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <BrainCircuit className="w-3.5 h-3.5 text-[#A78BFA]" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA]">
+                              LangGraph.js Execution Trace
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-[#71717A]">
+                            {evalResult.engine && <span>{evalResult.engine}</span>}
+                            {evalResult.storageMode && (
+                              <span className="px-1.5 py-0.5 rounded bg-[#121212] border border-[#292929] text-[#A1A1AA]">
+                                {evalResult.storageMode === "supabase" ? "Supabase Sync" : "Local Store"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {evalResult.langGraphTrace && evalResult.langGraphTrace.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {evalResult.langGraphTrace.map((node, idx) => (
+                              <span key={`${node}-${idx}`} className="inline-flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md bg-[#121212] border border-[#292929] text-[10px] font-mono text-[#F5F5F5]">
+                                  {node}
+                                </span>
+                                {idx < evalResult.langGraphTrace!.length - 1 && (
+                                  <span className="text-[10px] text-[#52525B] font-mono">→</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* STAR Breakdown Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                       {(["situation", "task", "action", "result"] as const).map((step) => {
@@ -1654,6 +1841,71 @@ export default function InterviewStudioStage({
                         </p>
                       </div>
                     </div>
+
+                    {/* Adaptive Difficulty Level-Up & Dynamic Escalation Card */}
+                    {levelUpBanner && evalResult.adaptiveNextQuestion && (
+                      <div
+                        className={clsx(
+                          "p-4 rounded-xl border flex flex-col sm:flex-row items-start justify-between gap-4 animate-fadeIn",
+                          levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION"
+                            ? "bg-gradient-to-r from-amber-950/50 via-orange-950/35 to-indigo-950/50 border-amber-400/50 shadow-lg shadow-amber-500/10"
+                            : "bg-gradient-to-r from-indigo-950/50 to-slate-950/60 border-indigo-400/35"
+                        )}
+                      >
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={clsx(
+                                "text-[11px] uppercase font-extrabold tracking-wider flex items-center gap-1",
+                                levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION"
+                                  ? "text-amber-300"
+                                  : "text-indigo-300"
+                              )}
+                            >
+                              {levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION" ? (
+                                <>
+                                  <Rocket className="w-3.5 h-3.5 text-amber-400" />
+                                  🔥 LEVEL UP (Score: {levelUpBanner.score}/100)! Promoted to Level {levelUpBanner.nextLevel}/3 Bar-Raiser Question
+                                </>
+                              ) : levelUpBanner.decision === "PROBE_CURRENT_LEVEL" ? (
+                                <>
+                                  <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                                  🎯 Adaptive Calibration (Score: {levelUpBanner.score}/100) — Level {levelUpBanner.nextLevel}/3 Targeted Probe Injected
+                                </>
+                              ) : (
+                                <>
+                                  <Target className="w-3.5 h-3.5 text-emerald-400" />
+                                  🛠️ Foundation Stepped to Level {levelUpBanner.nextLevel}/3 (Score: {levelUpBanner.score}/100)
+                                </>
+                              )}
+                            </span>
+                          </div>
+                          {levelUpBanner.reaction && (
+                            <p className="text-xs text-slate-300 italic">
+                              Interviewer: &ldquo;{levelUpBanner.reaction}&rdquo;
+                            </p>
+                          )}
+                          <p className="text-xs font-medium text-white/90 bg-black/35 px-3 py-2 rounded-lg border border-white/10">
+                            Next Escalated Question: &ldquo;{evalResult.adaptiveNextQuestion.question}&rdquo;
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-center sm:self-start">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleProceedToAdaptiveQuestion}
+                            className={clsx(
+                              "text-xs font-bold shadow-lg",
+                              levelUpBanner.decision === "LEVEL_UP_HARDER_QUESTION"
+                                ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/25"
+                                : "bg-[#1B1FB8] hover:bg-[#292EDB] text-white"
+                            )}
+                          >
+                            Proceed to Escalated Level Question →
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Dynamic Follow-Up Turn Chain */}
                     {evalResult.followUpQuestion && (

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import {
-  Flame,
   Search,
   Loader2,
   FileCode,
@@ -15,6 +14,7 @@ import InterviewStudioStage from "@/components/interview/InterviewStudioStage";
 import { GithubIcon, type StudioQuestion } from "@/components/interview/interview-common";
 import type { GitHubGrillAnalysis } from "@/types";
 import type { InterviewRoleMeta } from "@/lib/interview-roles";
+import { getBaselineAsStudioQuestions } from "@/lib/interview/role-baseline-questions";
 
 interface ResumeGrillWorkspaceProps {
   roleMeta: InterviewRoleMeta;
@@ -25,7 +25,11 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
   const [githubFocusNotes, setGithubFocusNotes] = useState("");
   const [isAnalyzingRepo, setIsAnalyzingRepo] = useState(false);
   const [githubAnalysis, setGithubAnalysis] = useState<GitHubGrillAnalysis | null>(null);
-  const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>([]);
+  const [grillQuestions, setGrillQuestions] = useState<StudioQuestion[]>(() =>
+    getBaselineAsStudioQuestions(roleMeta.title, "grill")
+  );
+  const [grillTrace, setGrillTrace] = useState<string[]>([]);
+  const [grillTools, setGrillTools] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Read detected resume from localStorage
@@ -39,49 +43,53 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem("copilot_latest_resume_analysis");
-      if (raw) {
-        const workspace = JSON.parse(raw);
-        const skills: string[] =
-          workspace.editableResume?.skills?.length
-            ? workspace.editableResume.skills
-            : workspace.analysis?.skills || [];
-        const rawProjects = workspace.editableResume?.projects || [];
-        const projects = rawProjects.map((p: { title?: string; subtitle?: string; bullets?: Array<string | { text?: string }> }) => ({
-          title: p.title || "Project",
-          subtitle: p.subtitle,
-          bullets: Array.isArray(p.bullets)
-            ? p.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
-            : [],
-        }));
-        const rawExperience = workspace.editableResume?.experience || [];
-        const experience = rawExperience.map((e: { title?: string; subtitle?: string; bullets?: Array<string | { text?: string }> }) => ({
-          title: e.title || "Experience",
-          subtitle: e.subtitle,
-          bullets: Array.isArray(e.bullets)
-            ? e.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
-            : [],
-        }));
-        const candidateName = workspace.editableResume?.contactInfo?.fullName || "Candidate";
-        const fileName = workspace.fileName || "Uploaded Resume.pdf";
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem("copilot_latest_resume_analysis");
+        if (raw) {
+          const workspace = JSON.parse(raw);
+          const skills: string[] =
+            workspace.editableResume?.skills?.length
+              ? workspace.editableResume.skills
+              : workspace.analysis?.skills || [];
+          const rawProjects = workspace.editableResume?.projects || [];
+          const projects = rawProjects.map((p: { title?: string; subtitle?: string; bullets?: Array<string | { text?: string }> }) => ({
+            title: p.title || "Project",
+            subtitle: p.subtitle,
+            bullets: Array.isArray(p.bullets)
+              ? p.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
+              : [],
+          }));
+          const rawExperience = workspace.editableResume?.experience || [];
+          const experience = rawExperience.map((e: { title?: string; subtitle?: string; bullets?: Array<string | { text?: string }> }) => ({
+            title: e.title || "Experience",
+            subtitle: e.subtitle,
+            bullets: Array.isArray(e.bullets)
+              ? e.bullets.map((b) => (typeof b === "string" ? b : b?.text || ""))
+              : [],
+          }));
+          const candidateName = workspace.editableResume?.contactInfo?.fullName || "Candidate";
+          const fileName = workspace.fileName || "Uploaded Resume.pdf";
 
-        setDetectedResume({
-          fileName,
-          candidateName,
-          skills,
-          projects,
-          experience,
-        });
+          setDetectedResume({
+            fileName,
+            candidateName,
+            skills,
+            projects,
+            experience,
+          });
+        }
+      } catch {
+        // Safe fallback
       }
-    } catch {
-      // Safe fallback
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const handleAnalyzeGitHubRepo = async () => {
-    if (!githubUrl.trim()) {
-      setError("Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo or owner/repo).");
+    const hasResumeProjects = Boolean(detectedResume?.projects?.length);
+    if (!githubUrl.trim() && !hasResumeProjects) {
+      setError("Please enter a GitHub repository URL or upload a resume first to generate targeted project grilling questions.");
       return;
     }
 
@@ -89,7 +97,6 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
     setError(null);
 
     try {
-      // Inject target role context into focus notes so questions are role-tailored
       const contextualFocusNotes = [
         `Target Role: ${roleMeta.title}`,
         roleMeta.category ? `Domain Focus: ${roleMeta.category}` : "",
@@ -102,8 +109,15 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          targetRole: roleMeta.title,
           repoUrl: githubUrl.trim(),
           focusNotes: contextualFocusNotes,
+          resumeContext: detectedResume
+            ? {
+                projects: detectedResume.projects,
+                skills: detectedResume.skills,
+              }
+            : undefined,
         }),
       });
 
@@ -113,15 +127,28 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
       }
 
       const data = await res.json();
+      if (Array.isArray(data.langGraphTrace)) setGrillTrace(data.langGraphTrace);
+      if (Array.isArray(data.toolsExecuted)) setGrillTools(data.toolsExecuted);
       if (data.analysis) {
-        const analysis: GitHubGrillAnalysis = data.analysis;
-        setGithubAnalysis(analysis);
+        setGithubAnalysis(data.analysis as GitHubGrillAnalysis);
+      }
 
+      if (Array.isArray(data.questions) && data.questions.length > 0) {
+        const richQuestions: StudioQuestion[] = data.questions.map((q: StudioQuestion) => ({
+          ...q,
+          role: roleMeta.title,
+          category: "resume-grill",
+          isCustom: true,
+        }));
+        setGrillQuestions(richQuestions);
+      } else if (data.analysis?.grillQuestions?.length) {
+        const analysis: GitHubGrillAnalysis = data.analysis;
         const convertedQuestions: StudioQuestion[] = analysis.grillQuestions.map((gq, i) => ({
           id: gq.id || `gh-grill-${Date.now()}-${i + 1}`,
           role: roleMeta.title,
           category: "resume-grill",
           difficulty: gq.difficulty === "Medium" ? "medium" : "hard",
+          level: i < 3 ? 1 : i < 7 ? 2 : 3,
           question: gq.question,
           hint: `${gq.whatInterviewerLooksFor} · Hint: ${gq.hint}`,
           sampleAnswer: `Architectural breakdown for ${analysis.repoName} from a ${roleMeta.title} perspective.`,
@@ -245,10 +272,14 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
             size="sm"
             icon={isAnalyzingRepo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             onClick={handleAnalyzeGitHubRepo}
-            disabled={isAnalyzingRepo || !githubUrl.trim()}
+            disabled={isAnalyzingRepo || (!githubUrl.trim() && !(detectedResume?.projects?.length))}
             className="font-semibold"
           >
-            {isAnalyzingRepo ? "Inspecting Codebase & Formulating Questions..." : "Analyze Repo & Generate Grill Questions"}
+            {isAnalyzingRepo
+              ? "Inspecting Codebase & Formulating Questions..."
+              : githubUrl.trim()
+              ? "Analyze Repo & Generate Grill Questions"
+              : "Generate Resume Project Grill Questions"}
           </Button>
         </div>
 
@@ -256,10 +287,32 @@ export default function ResumeGrillWorkspace({ roleMeta }: ResumeGrillWorkspaceP
         {githubAnalysis && (
           <div className="mt-5 pt-4 border-t border-[#1D1D1D] space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-2">
-                <FileCode className="w-4 h-4 text-[#A78BFA]" />
-                Repository Intelligence: {githubAnalysis.owner}/{githubAnalysis.repoName}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-[#F5F5F5] flex items-center gap-2">
+                  <FileCode className="w-4 h-4 text-[#A78BFA]" />
+                  Repository Intelligence: {githubAnalysis.owner}/{githubAnalysis.repoName}
+                </span>
+                {(grillTools.length > 0 || grillTrace.length > 0) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {grillTools.map((tool) => (
+                      <span
+                        key={tool}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#121212] text-[#10B981] border border-[#292929]"
+                      >
+                        Tool: {tool}
+                      </span>
+                    ))}
+                    {grillTrace.map((node) => (
+                      <span
+                        key={node}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#121212] text-[#A78BFA] border border-[#292929]"
+                      >
+                        {node}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {githubAnalysis.detectedStack.map((tech) => (
                   <span
