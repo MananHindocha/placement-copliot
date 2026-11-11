@@ -84,8 +84,10 @@ export default function DsaProblemWorkspace({
   allProblems,
   backHref = "/interview/dsa",
 }: DsaProblemWorkspaceProps) {
-  // Navigation indexes
-  const sortedProblems = [...allProblems].sort((a, b) => a.number - b.number);
+  // Navigation indexes ordered by sequential presentation rank
+  const sortedProblems = [...allProblems].sort(
+    (a, b) => (a.displayRank ?? a.number) - (b.displayRank ?? b.number)
+  );
   const currentIdx = sortedProblems.findIndex((p) => p.id === problem.id || p.number === problem.number);
   const prevProblem = currentIdx > 0 ? sortedProblems[currentIdx - 1] : null;
   const nextProblem = currentIdx < sortedProblems.length - 1 ? sortedProblems[currentIdx + 1] : null;
@@ -562,7 +564,9 @@ export default function DsaProblemWorkspace({
 
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-bold text-[#F5F5F5] tracking-tight flex items-center gap-2.5">
-              <span className="font-mono text-[#A78BFA] font-semibold tabular-nums">#{problem.number}.</span>
+              <span className="font-mono text-[#A78BFA] font-semibold tabular-nums">
+                #{problem.displayRank ?? problem.number}.
+              </span>
               <span>{problem.title}</span>
             </h1>
 

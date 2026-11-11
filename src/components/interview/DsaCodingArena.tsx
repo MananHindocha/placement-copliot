@@ -233,7 +233,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
 
         <div className="flex items-center gap-2">
           <Badge variant="violet" size="md">
-            30 OA Problems
+            {DSA_OA_PROBLEMS.length} OA Problems
           </Badge>
           <Badge variant="indigo" size="md">
             Multi-Language IDE
@@ -388,7 +388,7 @@ export default function DsaCodingArena({ backHref = "/interview" }: DsaCodingAre
                 </div>
 
                 <h2 className="text-lg font-bold text-[#F5F5F5] tracking-tight tabular-nums">
-                  #{activeDsaProblem.number}. {activeDsaProblem.title}
+                  #{activeDsaProblem.displayRank ?? activeDsaProblem.number}. {activeDsaProblem.title}
                 </h2>
               </div>
 
