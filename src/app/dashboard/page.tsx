@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
@@ -27,6 +27,9 @@ import {
   Send,
   Code2,
   TrendingUp,
+  Upload,
+  Loader2,
+  X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -37,7 +40,17 @@ import {
   type RealParsedResume,
 } from "@/lib/storage-sync";
 import type { KanbanCard, Activity } from "@/types";
-import RealResumeUploader from "@/components/resume/RealResumeUploader";
+import IntegratedRobotNavigator from "@/components/agent/IntegratedRobotNavigator";
+import { useAgent } from "@/context/AgentProvider";
+
+const POPULAR_TARGET_ROLES = [
+  "Backend Engineer",
+  "Full Stack Developer",
+  "Frontend Engineer",
+  "DevOps / Cloud Engineer",
+  "Data Engineer",
+  "AI / ML Engineer",
+];
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   application: Send,
@@ -55,20 +68,29 @@ const ACTIVITY_COLORS: Record<string, string> = {
   readiness: "bg-sky-500/15 text-sky-400",
 };
 
-const DOMAIN_READINESS_ITEMS = [
-  { label: "Data Structures & Algorithms", score: 78, color: "#777CFF" },
-  { label: "System Design & Architecture", score: 65, color: "#F59E0B" },
-  { label: "Behavioral & HR Evaluation", score: 84, color: "#10B981" },
-  { label: "Full-Stack Project Portfolio", score: 88, color: "#8B5CF6" },
-];
-
 export default function DashboardPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    targetRole,
+    setTargetRole,
+    uploadResumeForRole,
+    isUploadingResume,
+    agentError,
+    clearAgentError,
+    digitalTwin,
+    parsedResume,
+    uploadedFileName,
+  } = useAgent();
+
   const [realResume, setRealResume] = useState<RealParsedResume | null>(null);
   const [applications, setApplications] = useState<KanbanCard[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [bulletApplied, setBulletApplied] = useState(false);
   const [showAppliedSuccess, setShowAppliedSuccess] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [customRoleInput, setCustomRoleInput] = useState("");
 
   // Sync real resume, applications, and activities from storage
   const syncState = useCallback(() => {
@@ -87,14 +109,60 @@ export default function DashboardPage() {
     const handleUpdate = () => syncState();
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
+    window.addEventListener("agent-state-mutated", handleUpdate);
 
     return () => {
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("agent-state-mutated", handleUpdate);
     };
   }, [syncState]);
 
-  const hasResume = realResume !== null && Array.isArray(realResume.skills) && realResume.skills.length > 0;
+  const hasResume = Boolean(
+    (realResume !== null && Array.isArray(realResume.skills) && realResume.skills.length > 0) ||
+    parsedResume !== null ||
+    (digitalTwin !== null && Array.isArray(digitalTwin.skills) && digitalTwin.skills.length > 0)
+  );
+
+  // File drag & drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isUploadingResume) setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (isUploadingResume) return;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    const roleToUse = targetRole.trim();
+    if (!roleToUse) {
+      return;
+    }
+    await uploadResumeForRole(file, roleToUse);
+  };
 
   // Apply bullet improvement
   const handleApplyBullet = () => {
@@ -118,26 +186,196 @@ export default function DashboardPage() {
   const scheduledInterviews = applications.filter((c) =>
     ["Technical Round", "HR Round", "Phone Screen", "Interview"].includes(c.status)
   );
-  const avgMatchScore =
-    applications.length > 0
-      ? Math.round(applications.reduce((acc, c) => acc + (c.matchScore || 0), 0) / applications.length)
-      : realResume?.atsScore || 0;
-  const placementReadiness = realResume
-    ? Math.min(100, Math.max(10, Math.round(((realResume.atsScore || 60) * 0.6) + (totalApps > 0 ? 30 : 15))))
-    : 0;
+  const atsScore =
+    parsedResume?.atsScore ||
+    realResume?.atsScore ||
+    (digitalTwin as any)?.atsScore ||
+    0;
+  const placementReadiness =
+    (digitalTwin as any)?.readinessScore ||
+    (digitalTwin as any)?.profileSummary?.readinessScore ||
+    (hasResume ? Math.min(100, Math.max(10, Math.round((atsScore * 0.6) + (totalApps > 0 ? 30 : 15)))) : 0);
+
+  const candidateName =
+    parsedResume?.candidateName ||
+    realResume?.candidateName ||
+    (digitalTwin as any)?.profileSummary?.fullName ||
+    "Candidate";
+
+  const effectiveFileName =
+    uploadedFileName ||
+    realResume?.fileName ||
+    (digitalTwin as any)?.currentResumeSummary?.fileName ||
+    "resume.pdf";
+
+  const skillsList: string[] =
+    parsedResume?.extractedSkills?.map((s) => s.name) ||
+    realResume?.skills ||
+    digitalTwin?.skills?.map((s) => (s as any).skill || (s as any).skill_name) ||
+    [];
+
+  const projectsList =
+    parsedResume?.projects ||
+    realResume?.projects ||
+    [];
+
+  const missingSkillsList =
+    parsedResume?.missingSkillsForTargetRole?.map((m) => m.skill) ||
+    realResume?.missingRecommendedSkills ||
+    [];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <title>Home</title>
+      <title>Home | Placement Co-pilot</title>
       <h1 className="sr-only">Home</h1>
+
+      {/* ─── ROBOT CONCIERGE NAVIGATOR MOUNTED AT THE TOP ───────────────── */}
+      <IntegratedRobotNavigator />
+
+      {/* ─── ERROR BANNER ──────────────────────────────────────────────── */}
+      {agentError && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-950/40 p-4 flex items-center justify-between text-xs text-red-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{agentError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={clearAgentError}
+            className="text-red-400 hover:text-white p-1 rounded-lg"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ─── STATE A: ZERO STATE (BEFORE RESUME UPLOAD) ────────────────── */}
       {!hasResume ? (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <RealResumeUploader
-            headline="Upload Your Real Resume (PDF, DOCX, or TXT)"
-            description="Drag & drop your resume file or click below. The AI Robot will extract your real skills, detect genuine projects, and calculate an authentic ATS score."
-          />
+          {/* Step 1: Target Role Selector */}
+          <div className="rounded-3xl border border-sky-500/30 bg-gradient-to-br from-[#0c102a] via-[#0d1434] to-[#070914] p-6 shadow-2xl backdrop-blur-2xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 font-bold text-xs border border-sky-500/30">
+                1
+              </span>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Select Your Aspiring Target Role
+              </h2>
+            </div>
+            <p className="text-xs text-slate-300 mb-4">
+              Your resume analysis, skill gap detection, and ATS score will be calibrated specifically against this role.
+            </p>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {POPULAR_TARGET_ROLES.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setTargetRole(role)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    targetRole === role
+                      ? "bg-sky-500 text-black shadow-lg shadow-sky-500/25 ring-2 ring-sky-400"
+                      : "bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700/60"
+                  }`}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (customRoleInput.trim()) {
+                  setTargetRole(customRoleInput.trim());
+                  setCustomRoleInput("");
+                }
+              }}
+              className="flex gap-2 max-w-md"
+            >
+              <input
+                type="text"
+                placeholder="Or type a custom role (e.g. SRE, Solutions Architect)..."
+                value={customRoleInput}
+                onChange={(e) => setCustomRoleInput(e.target.value)}
+                className="flex-1 bg-black/60 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+              />
+              <button
+                type="submit"
+                disabled={!customRoleInput.trim()}
+                className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-black text-xs font-bold transition-all"
+              >
+                Set Role
+              </button>
+            </form>
+          </div>
+
+          {/* Step 2: Real Resume Upload Zone */}
+          <div className="rounded-3xl border border-white/10 bg-[#0a0d1e] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 font-bold text-xs border border-indigo-500/30">
+                2
+              </span>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Upload Your Real Resume (PDF or TXT)
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400">
+              {targetRole
+                ? `Ready to evaluate against target role: "${targetRole}". Attach your file below.`
+                : "Please select or type your target role above before uploading your resume."}
+            </p>
+
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => {
+                if (!isUploadingResume && targetRole) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={clsx(
+                "relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-10 text-center transition-all cursor-pointer",
+                !targetRole
+                  ? "border-slate-800 bg-black/20 opacity-60 cursor-not-allowed"
+                  : dragActive
+                  ? "border-sky-400 bg-sky-950/20 scale-[0.99]"
+                  : "border-slate-700 hover:border-sky-500/60 bg-black/40 hover:bg-slate-900/40"
+              )}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.txt,application/pdf,text/plain"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={!targetRole || isUploadingResume}
+              />
+
+              {isUploadingResume ? (
+                <div className="flex flex-col items-center space-y-3 py-4">
+                  <Loader2 className="h-10 w-10 animate-spin text-sky-400" />
+                  <p className="text-sm font-semibold text-white">Analyzing Resume with Gemini 3.8 Flash...</p>
+                  <p className="text-xs text-slate-400 max-w-sm">
+                    Extracting real skills, detecting genuine projects, calculating ATS alignment for &quot;{targetRole}&quot;, and seeding your autonomous preparation plan.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center space-y-3 py-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">
+                      {targetRole ? "Click to upload or drag & drop" : "Select a target role first"}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">Supports PDF &amp; TXT documents (Max 10MB)</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         /* ─── STATE B: REAL RESUME ACTIVE (AFTER REAL UPLOAD) ──────────── */
@@ -151,12 +389,12 @@ export default function DashboardPage() {
                     <CheckCircle2 className="h-5 w-5" />
                   </span>
                   <h2 className="text-lg font-bold text-white tracking-tight">
-                    {realResume.candidateName || "Candidate Profile"}
+                    {candidateName}
                   </h2>
                 </div>
                 <p className="text-xs text-slate-300">
-                  From <span className="font-semibold text-cyan-300">{realResume.fileName}</span> · Best fit for:{" "}
-                  <span className="text-indigo-300 font-semibold">{realResume.inferredTargetRoles?.join(" • ") || "Software Engineer"}</span>
+                  From <span className="font-semibold text-cyan-300">{effectiveFileName}</span> · Target Role:{" "}
+                  <span className="text-indigo-300 font-semibold">{targetRole || "Software Engineer"}</span>
                 </p>
               </div>
 
@@ -175,39 +413,48 @@ export default function DashboardPage() {
             {/* Profile Metrics Chips */}
             <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Resume Score</span>
+                <span className="text-xs text-slate-400 font-medium">ATS Match Score</span>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-emerald-400">{realResume.atsScore}%</span>
+                  <span className="text-2xl font-bold text-emerald-400">{atsScore}%</span>
                 </div>
                 <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "2px" }}>
-                  Overall formatting &amp; completeness
+                  Role fit for {targetRole || "Software Engineer"}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Skills Found</span>
+                <span className="text-xs text-slate-400 font-medium">Extracted Skills</span>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white">{realResume.skills.length}</span>
+                  <span className="text-2xl font-bold text-white">{skillsList.length}</span>
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "2px" }}>
+                  Verified from your PDF
                 </div>
               </div>
 
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Projects</span>
+                <span className="text-xs text-slate-400 font-medium">Real Projects</span>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-cyan-300">{realResume.projectsCount || realResume.projects?.length || 0}</span>
+                  <span className="text-2xl font-bold text-cyan-300">{projectsList.length}</span>
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "2px" }}>
+                  Extracted from experience
                 </div>
               </div>
 
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
-                <span className="text-xs text-slate-400 font-medium">Gaps to Fill</span>
+                <span className="text-xs text-slate-400 font-medium">Missing Skills</span>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-amber-400">{realResume.missingRecommendedSkills?.length || 0}</span>
+                  <span className="text-2xl font-bold text-amber-400">{missingSkillsList.length}</span>
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "2px" }}>
+                  Target role skill gaps
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 2. Original StatCards Row */}
+          {/* 2. StatCards Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Total Applications"
@@ -226,18 +473,18 @@ export default function DashboardPage() {
               color="emerald"
             />
             <StatCard
-              label="Average Match Score"
-              value={`${avgMatchScore}%`}
-              delta={avgMatchScore >= 80 ? "High role fit" : "Moderate fit"}
-              deltaPositive={avgMatchScore >= 80}
+              label="Target Role Fit"
+              value={`${atsScore}%`}
+              delta={atsScore >= 75 ? "High match" : "Gaps identified"}
+              deltaPositive={atsScore >= 75}
               icon="TrendingUp"
               color="amber"
             />
             <StatCard
               label="Placement Readiness"
               value={`${placementReadiness}%`}
-              delta={placementReadiness >= 75 ? "Interview ready" : "Prep ongoing"}
-              deltaPositive={placementReadiness >= 75}
+              delta={placementReadiness >= 70 ? "Interview ready" : "Preparation ongoing"}
+              deltaPositive={placementReadiness >= 70}
               icon="Target"
               color="violet"
             />
@@ -248,10 +495,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between border-b border-white/8 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Real Extracted Skills From {realResume.fileName}
+                  Real Extracted Skills From {effectiveFileName}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Categorized by verified strength from your projects and coursework.
+                  Extracted and cited directly from your projects and coursework by Gemini.
                 </p>
               </div>
 
@@ -266,89 +513,62 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
-              {realResume.skills.map((skill, idx) => (
+              {skillsList.map((skillName, idx) => (
                 <div
                   key={idx}
-                  className={clsx(
-                    "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold border",
-                    skill.strength === "Verified Strong"
-                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-                      : skill.strength === "Good Foundation"
-                      ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
-                      : "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                  )}
-                  title={skill.reason}
+                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 flex items-center gap-2 hover:border-white/20 transition-all"
                 >
-                  <span>{skill.name}</span>
-                  <span className="text-[10px] opacity-70">• {skill.strength}</span>
+                  <span className="text-xs font-semibold text-white">{skillName}</span>
+                  <span className="rounded bg-sky-500/20 text-sky-300 text-[10px] px-1.5 py-0.2 font-mono">
+                    UNVERIFIED
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 4. Real Before / After Suggestion Card */}
-          {realResume.bulletImprovements?.[0] && (
-            <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-[#121736] via-[#0d122b] to-[#070914] p-6 space-y-4 shadow-xl">
+          {/* 4. Missing Skills for Target Role */}
+          {missingSkillsList.length > 0 && (
+            <div className="rounded-3xl border border-amber-500/20 bg-amber-950/10 p-6 space-y-3 shadow-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-cyan-400" />
-                  <h4 className="text-sm font-bold text-white">
-                    Suggested High-Impact Bullet Rewrite (Extracted from {realResume.bulletImprovements[0].projectName})
-                  </h4>
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Recommended Skills for &quot;{targetRole}&quot;
+                  </h3>
                 </div>
-
-                {bulletApplied ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300">
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                    Applied to Profile
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-3 py-1 text-xs font-bold text-amber-300">
-                    +{realResume.bulletImprovements[0].atsBoost || 6}% ATS Score Boost
-                  </span>
-                )}
+                <Link
+                  href="/readiness"
+                  className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+                >
+                  <span>Build Study Plan →</span>
+                </Link>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="rounded-2xl border border-rose-500/25 bg-rose-950/15 p-4 space-y-1.5">
-                  <span className="font-bold text-rose-300">❌ Original Bullet from your PDF:</span>
-                  <p className="text-slate-300 leading-relaxed italic">
-                    &quot;{realResume.bulletImprovements[0].originalBullet}&quot;
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-1.5">
-                  <span className="font-bold text-emerald-300">✅ High-Impact STAR Format Rewrite:</span>
-                  <p className="text-slate-100 font-medium leading-relaxed">
-                    &quot;{realResume.bulletImprovements[0].improvedBullet}&quot;
-                  </p>
-                </div>
-              </div>
-
-              {!bulletApplied && (
-                <div className="pt-1 flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={handleApplyBullet}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
+              <p className="text-xs text-slate-400">
+                These critical competencies are tested in technical interviews for {targetRole}.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {missingSkillsList.map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="rounded-xl bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-medium text-amber-300"
                   >
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>✓ Apply Rewrite &amp; Boost ATS Score</span>
-                  </button>
-                </div>
-              )}
+                    + {typeof skill === "object" && skill !== null ? (skill as any).skill : String(skill)}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
           {/* 5. Real Detected Projects */}
-          {realResume.projects && realResume.projects.length > 0 && (
+          {projectsList.length > 0 && (
             <div className="rounded-3xl border border-white/10 bg-[#090d1c] p-6 space-y-4 shadow-xl">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Projects Detected in Your Resume ({realResume.projects.length})
+                Projects Detected in Your Resume ({projectsList.length})
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {realResume.projects.map((proj, idx) => (
+                {projectsList.map((proj: any, idx: number) => (
                   <div key={idx} className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2.5">
                     <div className="flex items-center gap-2">
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400 font-bold text-xs">
@@ -357,11 +577,13 @@ export default function DashboardPage() {
                       <h4 className="text-sm font-bold text-white truncate">{proj.name}</h4>
                     </div>
 
-                    <p className="text-xs text-slate-300 leading-relaxed">{proj.summary}</p>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {Array.isArray(proj.bullets) ? proj.bullets[0] : proj.summary || ""}
+                    </p>
 
                     {proj.techStack && proj.techStack.length > 0 && (
                       <div className="flex flex-wrap gap-1 pt-1">
-                        {proj.techStack.map((tech, tidx) => (
+                        {proj.techStack.map((tech: string, tidx: number) => (
                           <span
                             key={tidx}
                             className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-cyan-300"
@@ -377,222 +599,50 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 6. Activity Feed & Domain Readiness Gauges Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Live Activity Feed */}
-            <div className="lg:col-span-2">
-              <Card padding="none">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(100,110,255,0.12)]">
-                  <div className="flex items-center gap-2">
-                    <ActivityIcon className="w-4 h-4 text-[#777CFF]" />
-                    <h3 className="text-sm font-semibold text-[#F5F6FF]">Recent Activity Feed</h3>
-                  </div>
-                  <Link
-                    href="/tracker"
-                    className="text-xs text-[#777CFF] hover:text-[#A5A9FF] flex items-center gap-1 transition-colors"
-                  >
-                    View tracker <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </div>
-                <div className="divide-y divide-[rgba(255,255,255,0.06)] max-h-[360px] overflow-y-auto">
-                  {activities.length === 0 ? (
-                    <p className="px-5 py-6 text-xs text-[#737A99] text-center">
-                      No recent activity recorded yet.
-                    </p>
-                  ) : (
-                    activities.slice(0, 8).map((activity) => {
-                      const Icon = ACTIVITY_ICONS[activity.type] ?? ActivityIcon;
-                      const color = ACTIVITY_COLORS[activity.type] ?? ACTIVITY_COLORS.application;
-                      return (
-                        <div
-                          key={activity.id}
-                          className="flex items-start gap-3 px-5 py-3 hover:bg-[#151A35]/40 transition-colors"
-                        >
-                          <div
-                            className={clsx(
-                              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
-                              color
-                            )}
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-[#F5F6FF] leading-snug">{activity.message}</p>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Clock className="w-3 h-3 text-[#737A99]" />
-                              <span className="text-xs text-[#737A99]">{activity.timestamp}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </Card>
-            </div>
-
-            {/* Domain Readiness Breakdown */}
-            <div className="space-y-4">
-              <Card>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-[#777CFF]" />
-                    <h3 className="text-sm font-semibold text-[#F5F6FF]">Domain Readiness</h3>
-                  </div>
-                  <Link href="/readiness" className="text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
-                    Plan →
-                  </Link>
-                </div>
-
-                <div className="space-y-3.5">
-                  {DOMAIN_READINESS_ITEMS.map((domain) => (
-                    <div key={domain.label}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-[#A2A7C0]">{domain.label}</span>
-                        <span className="text-xs font-semibold text-[#F5F6FF]">
-                          {domain.score}%
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-[#080A14] border border-[rgba(100,110,255,0.10)] overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${domain.score}%`,
-                            backgroundColor: domain.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <Link href="/readiness">
-                  <div className="mt-5 flex items-center justify-center gap-1 text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
-                    View roadmap &amp; sprint milestones <ArrowRight className="w-3 h-3" />
-                  </div>
-                </Link>
-              </Card>
-            </div>
-          </div>
-
-          {/* 7. Upcoming Interviews Widget */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
+          {/* 6. Activity Feed */}
+          <Card padding="none">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(100,110,255,0.12)]">
               <div className="flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-[#F5F6FF]">Upcoming Interviews &amp; Action Deadlines</h3>
+                <ActivityIcon className="w-4 h-4 text-[#777CFF]" />
+                <h3 className="text-sm font-semibold text-[#F5F6FF]">Recent Activity Feed</h3>
               </div>
-              <Link href="/tracker" className="text-xs text-[#777CFF] hover:text-[#A5A9FF] transition-colors">
-                Manage in Tracker →
+              <Link
+                href="/tracker"
+                className="text-xs text-[#777CFF] hover:text-[#A5A9FF] flex items-center gap-1 transition-colors"
+              >
+                View tracker <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
-
-            {scheduledInterviews.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {scheduledInterviews.map((interview) => (
-                  <div
-                    key={interview.id}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-[#080A14] border border-[rgba(100,110,255,0.14)] hover:border-[rgba(100,110,255,0.28)] hover:bg-[#151A35]/40 transition-all"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[rgba(27,31,184,0.20)] border border-[rgba(100,110,255,0.25)] flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-[#A5A9FF]">{interview.logo || interview.company.slice(0, 2).toUpperCase()}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#F5F6FF] truncate">{interview.company}</p>
-                      <p className="text-xs text-[#A2A7C0] truncate">{interview.title}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <Badge variant="indigo" size="sm">
-                          {interview.status}
-                        </Badge>
-                        <span className="text-xs text-[#737A99] truncate">
-                          {interview.nextStepDate || interview.nextStep || "Upcoming"}
-                        </span>
+            <div className="divide-y divide-[rgba(255,255,255,0.06)] max-h-[360px] overflow-y-auto">
+              {activities.length === 0 ? (
+                <p className="px-5 py-6 text-xs text-[#737A99] text-center">
+                  No recent activity recorded yet.
+                </p>
+              ) : (
+                activities.slice(0, 8).map((activity) => {
+                  const Icon = ACTIVITY_ICONS[activity.type] ?? ActivityIcon;
+                  const color = ACTIVITY_COLORS[activity.type] ?? ACTIVITY_COLORS.application;
+                  return (
+                    <div
+                      key={activity.id}
+                      className="flex items-start gap-3 px-5 py-3 hover:bg-[#151A35]/40 transition-colors"
+                    >
+                      <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5", color)}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-[#F5F6FF] leading-snug">{activity.message}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="w-3 h-3 text-[#737A99]" />
+                          <span className="text-xs text-[#737A99]">{activity.timestamp}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center text-[#737A99] text-xs border border-dashed border-[rgba(100,110,255,0.16)] rounded-xl bg-[#080A14]/40">
-                No interviews scheduled yet. Move applications to &quot;Technical Round&quot; or &quot;HR Round&quot; in the Tracker to populate this schedule.
-              </div>
-            )}
+                  );
+                })
+              )}
+            </div>
           </Card>
-
-          {/* 8. Quick Navigation Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div
-              onClick={() => router.push("/jobs")}
-              className="group cursor-pointer rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#141209] to-[#070914] p-5 shadow-lg hover:border-amber-400/50 hover:-translate-y-0.5 transition-all"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 mb-3 group-hover:scale-110 transition-transform">
-                <Briefcase className="h-5 w-5" />
-              </div>
-              <h4 className="text-sm font-bold text-white group-hover:text-amber-300">
-                1. Pick Target Role &amp; Find Jobs
-              </h4>
-              <p className="mt-1 text-xs text-slate-400">
-                Match your {realResume.skills.length} skills against current tech job openings.
-              </p>
-              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-amber-400">
-                Explore Jobs →
-              </span>
-            </div>
-
-            <div
-              onClick={() => router.push("/readiness")}
-              className="group cursor-pointer rounded-2xl border border-sky-500/20 bg-gradient-to-b from-[#09131d] to-[#070914] p-5 shadow-lg hover:border-sky-400/50 hover:-translate-y-0.5 transition-all"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 mb-3 group-hover:scale-110 transition-transform">
-                <Target className="h-5 w-5" />
-              </div>
-              <h4 className="text-sm font-bold text-white group-hover:text-sky-300">
-                2. Readiness Study Plan
-              </h4>
-              <p className="mt-1 text-xs text-slate-400">
-                Covers your {realResume.missingRecommendedSkills.length} recommended topics.
-              </p>
-              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-sky-400">
-                View Plan →
-              </span>
-            </div>
-
-            <div
-              onClick={() => router.push("/tracker")}
-              className="group cursor-pointer rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-[#091712] to-[#070914] p-5 shadow-lg hover:border-emerald-400/50 hover:-translate-y-0.5 transition-all"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
-                <CalendarCheck className="h-5 w-5" />
-              </div>
-              <h4 className="text-sm font-bold text-white group-hover:text-emerald-300">
-                3. Application Tracker
-              </h4>
-              <p className="mt-1 text-xs text-slate-400">
-                Manage your active pipeline and deadline reminders.
-              </p>
-              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-emerald-400">
-                Open Kanban →
-              </span>
-            </div>
-
-            <div
-              onClick={() => router.push("/interview")}
-              className="group cursor-pointer rounded-2xl border border-purple-500/20 bg-gradient-to-b from-[#150a1d] to-[#070914] p-5 shadow-lg hover:border-purple-400/50 hover:-translate-y-0.5 transition-all"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400 mb-3 group-hover:scale-110 transition-transform">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <h4 className="text-sm font-bold text-white group-hover:text-purple-300">
-                4. Practice Interview Coach
-              </h4>
-              <p className="mt-1 text-xs text-slate-400">
-                Practice role-specific questions and get instant feedback.
-              </p>
-              <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-purple-400">
-                Start Practice →
-              </span>
-            </div>
-          </div>
         </div>
       )}
     </div>
