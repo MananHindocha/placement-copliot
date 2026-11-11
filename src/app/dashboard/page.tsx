@@ -144,9 +144,10 @@ export default function DashboardPage() {
   }, [syncState]);
 
   const hasResume = Boolean(
+    (parsedResume !== null && ((parsedResume.extractedSkills?.length ?? 0) > 0 || ((parsedResume as any)?.skills?.length ?? 0) > 0)) ||
     (realResume !== null && Array.isArray(realResume.skills) && realResume.skills.length > 0) ||
-    parsedResume !== null ||
-    (digitalTwin !== null && Array.isArray(digitalTwin.skills) && digitalTwin.skills.length > 0)
+    (digitalTwin !== null && Array.isArray(digitalTwin.skills) && digitalTwin.skills.length > 0) ||
+    parsedResume !== null
   );
 
   // File drag & drop handlers
@@ -235,6 +236,7 @@ export default function DashboardPage() {
 
   const rawSkills: any[] =
     parsedResume?.extractedSkills ||
+    (parsedResume as any)?.skills ||
     realResume?.skills ||
     digitalTwin?.skills ||
     [];

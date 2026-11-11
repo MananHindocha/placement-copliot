@@ -319,7 +319,11 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               disabled={isBusy}
-              onClick={() => runFocusedAction("jobs")}
+              onClick={() => {
+                const role = targetRole || "Software Engineer";
+                runFocusedAction("jobs").catch(() => {});
+                router.push(`/jobs?q=${encodeURIComponent(role)}`);
+              }}
               className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
                 pathname?.includes("/tracker") || pathname?.includes("/jobs")
                   ? "border-cyan-400 bg-cyan-500/15"
