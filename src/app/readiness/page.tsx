@@ -51,6 +51,20 @@ import { clsx } from "clsx";
 import DigitalTwinMatrix from "@/components/agent/DigitalTwinMatrix";
 import MultiCompanyOverlapCard from "@/components/agent/MultiCompanyOverlapCard";
 
+function toSkillLabel(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item.name === "string") return item.name;
+  if (typeof item.skill_name === "string") return item.skill_name;
+  if (typeof item.skill === "string") return item.skill;
+  return JSON.stringify(item);
+}
+
+function toSkillLevel(item: any): string {
+  if (!item || typeof item === "string") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
 const DOMAIN_ICONS: Record<string, React.ElementType> = {
   FileText,
   Code2,
@@ -876,7 +890,7 @@ export default function ReadinessPage() {
 
                         {/* Title */}
                         <h4 className="text-sm font-bold text-[#F5F5F5] tracking-tight leading-snug">
-                          {rec.title}
+                          {toSkillLabel(rec.title)}
                         </h4>
 
                         {/* Reason / Why Recommended */}
@@ -885,7 +899,7 @@ export default function ReadinessPage() {
                             Why Recommended:
                           </span>
                           <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                            {rec.reason}
+                            {toSkillLabel(rec.reason)}
                           </p>
                         </div>
 
@@ -896,7 +910,7 @@ export default function ReadinessPage() {
                               Suggested Action:
                             </span>
                             <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                              {rec.suggestedAction}
+                              {toSkillLabel(rec.suggestedAction)}
                             </p>
                           </div>
                         )}
@@ -904,7 +918,7 @@ export default function ReadinessPage() {
                         {/* Related Finding Tag */}
                         {rec.finding && (
                           <p className="text-[10px] text-[#71717A] italic">
-                            Finding: {rec.finding}
+                            Finding: {toSkillLabel(rec.finding)}
                           </p>
                         )}
                       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -176,32 +176,59 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
   const [milestones, setMilestones] = useState<ReadinessMilestone[]>([]);
   const [latestResume, setLatestResume] = useState<ResumeAnalysis | null>(null);
 
-  const loadSearchAndAlertData = () => {
+  const lastAppsRef = useRef<string>("");
+  const lastMilestonesRef = useRef<string>("");
+  const lastResumeRef = useRef<string>("");
+
+  const loadSearchAndAlertData = useCallback(() => {
     try {
       const storedApps = getStoredApplications();
-      setApps(storedApps);
+      const appsStr = JSON.stringify(storedApps);
+      if (appsStr !== lastAppsRef.current) {
+        lastAppsRef.current = appsStr;
+        setApps(Array.isArray(storedApps) ? storedApps : []);
+      }
+
       const storedMilestones = getStoredReadinessMilestones();
-      setMilestones(storedMilestones);
+      const milesStr = JSON.stringify(storedMilestones);
+      if (milesStr !== lastMilestonesRef.current) {
+        lastMilestonesRef.current = milesStr;
+        setMilestones(Array.isArray(storedMilestones) ? storedMilestones : []);
+      }
+
       const resumeAnalysis = getStoredResumeWorkspace()?.analysis;
-      setLatestResume(resumeAnalysis || null);
+      const resStr = JSON.stringify(resumeAnalysis || null);
+      if (resStr !== lastResumeRef.current) {
+        lastResumeRef.current = resStr;
+        setLatestResume(resumeAnalysis || null);
+      }
     } catch {
       // safe fallback
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleUpdate = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadSearchAndAlertData();
+      }, 150);
+    };
+
+    const initialTimer = setTimeout(() => {
       loadSearchAndAlertData();
-    }, 0);
-    const handleUpdate = () => loadSearchAndAlertData();
+    }, 50);
+
     window.addEventListener("copilot-data-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
-      clearTimeout(timer);
+      clearTimeout(initialTimer);
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("copilot-data-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
-  }, []);
+  }, [loadSearchAndAlertData]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -277,11 +304,11 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
 
   const initials = profile?.fullName
     ? profile.fullName
-        .split(" ")
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase()
     : "AK";
 
   return (
@@ -394,7 +421,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                 <div className="space-y-2 max-h-72 overflow-y-auto">
                   {/* Real Scheduled Interview notification */}
                   {apps
-                    .filter((a) => a.status === "Interview" || a.status === "Phone Screen" || a.nextStepDate)
+                    .filter((a) => a && (a.status === "Interview" || a.status === "Phone Screen" || a.nextStepDate))
                     .slice(0, 2)
                     .map((app) => (
                       <div
@@ -406,20 +433,20 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                         className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1D1D1D] hover:border-[#292929] hover:bg-[#121212] cursor-pointer transition-colors space-y-1"
                       >
                         <div className="flex items-center justify-between text-[11px] font-semibold text-[#F5F5F5]">
-                          <span>{app.company}</span>
+                          <span>{String(app.company ?? "")}</span>
                           <span className="text-[10px] text-amber-300 font-normal">
-                            {app.nextStepDate || "Interview"}
+                            {String(app.nextStepDate || "Interview")}
                           </span>
                         </div>
                         <p className="text-[10px] text-[#71717A]">
-                          {app.nextStep || `${app.title} - Round scheduled.`}
+                          {String(app.nextStep || `${app.title || "Role"} - Round scheduled.`)}
                         </p>
                       </div>
                     ))}
 
                   {/* High priority task reminder */}
                   {milestones
-                    .filter((m) => !m.completed && m.priority === "high")
+                    .filter((m) => m && !m.completed && m.priority === "high")
                     .slice(0, 2)
                     .map((m) => (
                       <div
@@ -434,7 +461,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                           <span>Goal Reminder</span>
                           <span className="text-[10px] text-rose-400">High Priority</span>
                         </div>
-                        <p className="text-[10px] text-[#A1A1AA] leading-snug">{m.title}</p>
+                        <p className="text-[10px] text-[#A1A1AA] leading-snug">{String(m.title ?? "")}</p>
                       </div>
                     ))}
 
@@ -449,10 +476,10 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                     >
                       <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
                         <span>Resume Diagnostic</span>
-                        <span className="text-[10px] text-emerald-400">{latestResume.matchScore}% Match</span>
+                        <span className="text-[10px] text-emerald-400">{String(latestResume.matchScore ?? 0)}% Match</span>
                       </div>
                       <p className="text-[10px] text-[#71717A]">
-                        ATS Score: {latestResume.atsScore}%. Ready for application tailoring.
+                        ATS Score: {String(latestResume.atsScore ?? 0)}%. Ready for application tailoring.
                       </p>
                     </div>
                   )}
@@ -771,8 +798,8 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
               {apps.filter(
                 (a) =>
                   searchQuery.trim() &&
-                  ((a.company && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                    (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
+                  ((typeof a.company === "string" && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (typeof a.title === "string" && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
               ).length > 0 && (
                 <div>
                   <p className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider px-2 mb-1">
@@ -783,8 +810,8 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                       .filter(
                         (a) =>
                           searchQuery.trim() &&
-                          ((a.company && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                            (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
+                          ((typeof a.company === "string" && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                            (typeof a.title === "string" && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
                       )
                       .slice(0, 4)
                       .map((app) => (
@@ -798,11 +825,11 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                           className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#121212] text-left transition-colors cursor-pointer"
                         >
                           <div>
-                            <p className="text-[#F5F5F5] font-medium">{app.company}</p>
-                            <p className="text-[10px] text-[#71717A]">{app.title}</p>
+                            <p className="text-[#F5F5F5] font-medium">{String(app.company ?? "")}</p>
+                            <p className="text-[10px] text-[#71717A]">{String(app.title ?? "")}</p>
                           </div>
                           <span className="text-[10px] text-[#F5F5F5] bg-[#121212] border border-[#292929] px-2 py-0.5 rounded-full">
-                            {app.status}
+                            {String(app.status ?? "")}
                           </span>
                         </button>
                       ))}
@@ -814,7 +841,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
               {milestones.filter(
                 (m) =>
                   searchQuery.trim() &&
-                  m.title &&
+                  typeof m.title === "string" &&
                   m.title.toLowerCase().includes(searchQuery.toLowerCase())
               ).length > 0 && (
                 <div>
@@ -826,7 +853,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                       .filter(
                         (m) =>
                           searchQuery.trim() &&
-                          m.title &&
+                          typeof m.title === "string" &&
                           m.title.toLowerCase().includes(searchQuery.toLowerCase())
                       )
                       .slice(0, 3)
@@ -840,7 +867,7 @@ export default function Topbar({ onOpenPrepDrawer, prepSummary }: TopbarProps = 
                           }}
                           className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#121212] text-left transition-colors cursor-pointer"
                         >
-                          <span className="text-[#F5F5F5] truncate max-w-xs">{m.title}</span>
+                          <span className="text-[#F5F5F5] truncate max-w-xs">{String(m.title ?? "")}</span>
                           <span className="text-[10px] text-[#71717A]">{m.completed ? "✓ Done" : "Pending"}</span>
                         </button>
                       ))}

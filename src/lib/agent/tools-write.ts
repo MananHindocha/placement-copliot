@@ -1,113 +1,9 @@
-/**
- * Track 2: State-Mutation Tool Handlers & Damped Skill Evidence Ladder
- * Owner: Manan
- *
- * Implements:
- * 1. computeDampedConfidence: Pure helper for deterministic 4-tier confidence transitions and bluff detection
- * 2. update_skill_evidence: Writes verified citations to skill_evidence_matrix with damped progression
- * 3. inject_readiness_sprint: Deduplicated injection of readiness tasks with evidence citation metadata
- * 4. stage_resume_diff: Hallucination-guarded resume diff staging into agent_approvals (Human-in-the-Loop)
- * 5. mockAgentStore: In-memory fallback store for standalone testing and dual-mode guest execution
- */
+import type { ConfidenceTier, ToolExecutionResult } from "./types";
+import { createPersistentFallbackDbClient } from "./orchestrator";
 
-import { upsertMockSkillEvidence } from "./mock-agent-store";
-
-export type ConfidenceTier = "UNVERIFIED" | "LOW" | "MEDIUM" | "HIGH";
+export type { ConfidenceTier };
 export type ClaimedLevel = "LOW" | "MEDIUM" | "HIGH";
 export type EvidenceVerdict = "POSITIVE" | "NEGATIVE";
-export type EvidenceSource =
-  | "MOCK_INTERVIEW"
-  | "READINESS_DRILL"
-  | "MANUAL_TEST"
-  | "SYSTEM_EVAL"
-  | string;
-
-export interface DampedConfidenceResult {
-  previousTier: ConfidenceTier;
-  nextTier: ConfidenceTier;
-  bluffRisk: boolean;
-}
-
-export const CONFIDENCE_LADDER: readonly ConfidenceTier[] = [
-  "UNVERIFIED",
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-] as const;
-
-/**
- * Deterministic Damped Confidence Ladder:
- * - POSITIVE verdict: climbs at most +1 step (capped at 'HIGH')
- * - NEGATIVE verdict: if 'UNVERIFIED' moves to 'LOW'; otherwise drops -1 step (floored at 'LOW')
- * - bluffRisk: triggers when claimedLevel === 'HIGH' but verified confidence drops to 'LOW'
- */
-export function computeDampedConfidence(
-  currentTier: ConfidenceTier = "UNVERIFIED",
-  verdict: EvidenceVerdict,
-  claimedLevel: ClaimedLevel = "MEDIUM"
-): DampedConfidenceResult {
-  let nextTier: ConfidenceTier = currentTier;
-
-  if (verdict === "POSITIVE") {
-    if (currentTier === "UNVERIFIED") {
-      nextTier = "LOW";
-    } else if (currentTier === "LOW") {
-      nextTier = "MEDIUM";
-    } else if (currentTier === "MEDIUM" || currentTier === "HIGH") {
-      nextTier = "HIGH";
-    }
-  } else if (verdict === "NEGATIVE") {
-    if (currentTier === "UNVERIFIED") {
-      nextTier = "LOW";
-    } else if (currentTier === "HIGH") {
-      nextTier = "MEDIUM";
-    } else if (currentTier === "MEDIUM") {
-      nextTier = "LOW";
-    } else if (currentTier === "LOW") {
-      nextTier = "LOW";
-    }
-  }
-
-  const bluffRisk = claimedLevel === "HIGH" && nextTier === "LOW";
-
-  return {
-    previousTier: currentTier,
-    nextTier,
-    bluffRisk,
-  };
-}
-
-// ─── DATA MODELS ─────────────────────────────────────────────────────────────
-
-export interface EvidenceLogEntry {
-  timestamp: string;
-  source: EvidenceSource;
-  verdict: EvidenceVerdict;
-  citation: string;
-}
-
-export interface SkillEvidenceRow {
-  id?: string;
-  user_id: string;
-  skill_name: string;
-  claimed_level: ClaimedLevel;
-  verified_confidence: ConfidenceTier;
-  bluff_risk: boolean;
-  evidence_log: EvidenceLogEntry[];
-  updated_at?: string;
-}
-
-export interface ReadinessTaskRow {
-  id: string;
-  user_id: string;
-  title: string;
-  category: string;
-  description: string;
-  priority: "HIGH" | "MEDIUM" | "LOW";
-  completed: boolean;
-  due_date?: string;
-  created_at: string;
-}
 
 export interface ProposedBulletChange {
   originalBullet: string;
@@ -116,19 +12,45 @@ export interface ProposedBulletChange {
   keywordsAdded: string[];
 }
 
+export interface UpdateSkillEvidenceArgs {
+  skillName: string;
+  verdict: "POSITIVE" | "NEGATIVE";
+  source: "MOCK_INTERVIEW" | "READINESS_DRILL" | string;
+  evidenceCitation: string;
+}
+
+export interface InjectReadinessSprintArgs {
+  sprintTitle: string;
+  linkedJobId?: string;
+  tasks: Array<{
+    title: string;
+    category: string;
+    priority: "HIGH" | "MEDIUM" | "LOW";
+    estimatedHours: number;
+    evidenceReason: string;
+  }>;
+}
+
+export interface StageResumeDiffArgs {
+  jobId: string;
+  targetRole: string;
+  runId?: string;
+  proposedBulletChanges: ProposedBulletChange[];
+}
+
 export interface AgentApprovalRecord {
   id: string;
   user_id: string;
   run_id?: string;
-  action_type: "RESUME_DIFF" | "SKILL_EVALUATION" | "TASK_INJECTION";
+  action_type: "RESUME_DIFF" | "SKILL_EVALUATION" | "TASK_INJECTION" | string;
   target_entity_id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   payload_diff: {
     targetRole?: string;
     jobId?: string;
     proposedBulletChanges: ProposedBulletChange[];
-    estimatedAtsScoreDelta: number;
-    createdAt: string;
+    estimatedAtsScoreDelta?: number;
+    createdAt?: string;
     [key: string]: unknown;
   };
   resolved_at?: string;
@@ -158,30 +80,28 @@ export interface ResumeDocument {
   [key: string]: unknown;
 }
 
-// ─── IN-MEMORY / GUEST FALLBACK STATE STORE ─────────────────────────────────
-
 export class MockAgentStore {
-  private skillEvidence = new Map<string, SkillEvidenceRow>();
-  private readinessTasks = new Map<string, ReadinessTaskRow[]>();
+  private skillEvidence = new Map<string, any>();
+  private readinessTasks = new Map<string, any[]>();
   private approvals = new Map<string, AgentApprovalRecord>();
   private masterResumes = new Map<string, ResumeDocument>();
 
-  getSkill(userId: string, skillName: string): SkillEvidenceRow | undefined {
+  getSkill(userId: string, skillName: string): any {
     return this.skillEvidence.get(`${userId}:${skillName.toLowerCase().trim()}`);
   }
 
-  upsertSkill(row: SkillEvidenceRow): SkillEvidenceRow {
+  upsertSkill(row: any): any {
     const key = `${row.user_id}:${row.skill_name.toLowerCase().trim()}`;
     const saved = { ...row, updated_at: new Date().toISOString() };
     this.skillEvidence.set(key, saved);
     return saved;
   }
 
-  getTasks(userId: string): ReadinessTaskRow[] {
+  getTasks(userId: string): any[] {
     return this.readinessTasks.get(userId) || [];
   }
 
-  insertTasks(userId: string, newTasks: ReadinessTaskRow[]): ReadinessTaskRow[] {
+  insertTasks(userId: string, newTasks: any[]): any[] {
     const current = this.getTasks(userId);
     const updated = [...current, ...newTasks];
     this.readinessTasks.set(userId, updated);
@@ -232,492 +152,425 @@ export class MockAgentStore {
 
 export const mockAgentStore = new MockAgentStore();
 
-// ─── TOOL 1: UPDATE_SKILL_EVIDENCE ──────────────────────────────────────────
+function getDb(passedClient?: any) {
+  if (passedClient) return passedClient;
+  return createPersistentFallbackDbClient();
+}
 
-export interface UpdateSkillEvidenceArgs {
-  skillName: string;
-  verdict: EvidenceVerdict;
-  source: EvidenceSource;
-  evidenceCitation: string;
+const CONFIDENCE_LADDER: ConfidenceTier[] = ["UNVERIFIED", "LOW", "MEDIUM", "HIGH"];
+
+export function computeDampedConfidence(
+  currentTier: ConfidenceTier,
+  verdict: "POSITIVE" | "NEGATIVE",
+  claimedLevel: "LOW" | "MEDIUM" | "HIGH" = "MEDIUM"
+): { previousTier: ConfidenceTier; nextTier: ConfidenceTier; bluffRisk: boolean } {
+  const idx = CONFIDENCE_LADDER.indexOf(currentTier);
+  const safeIdx = idx === -1 ? 0 : idx;
+
+  let nextIdx = safeIdx;
+  if (verdict === "POSITIVE") {
+    nextIdx = Math.min(CONFIDENCE_LADDER.length - 1, safeIdx + 1);
+  } else {
+    nextIdx = currentTier === "UNVERIFIED" ? 1 : Math.max(1, safeIdx - 1);
+  }
+
+  const nextTier = CONFIDENCE_LADDER[nextIdx];
+  const bluffRisk = claimedLevel === "HIGH" && nextTier === "LOW";
+  return { previousTier: currentTier, nextTier, bluffRisk };
+}
+
+export async function sync_digital_twin_from_resume(
+  userId: string,
+  args: {
+    targetRole?: string;
+    skills: Array<{ name: string; claimedLevel?: "LOW" | "MEDIUM" | "HIGH"; citation?: string }>;
+  },
+  supabase?: any
+): Promise<ToolExecutionResult> {
+  const db = getDb(supabase);
+
+  if (!Array.isArray(args.skills) || args.skills.length === 0) {
+    return {
+      success: false,
+      summary: "No skills provided to sync_digital_twin_from_resume. Upload a valid resume first.",
+      data: { syncedCount: 0 },
+    };
+  }
+
+  const now = new Date().toISOString();
+  const rowsToUpsert = args.skills.map((s) => ({
+    user_id: userId,
+    skill_name: s.name.trim(),
+    claimed_level: s.claimedLevel || "HIGH",
+    verified_confidence: "UNVERIFIED" as ConfidenceTier,
+    bluff_risk: false,
+    evidence_log: [
+      {
+        timestamp: now,
+        source: "RESUME",
+        verdict: "POSITIVE",
+        citation: s.citation || `Extracted from uploaded resume for ${args.targetRole || "target role"}`,
+      },
+    ],
+    updated_at: now,
+  }));
+
+  const { data: upserted, error } = await db
+    .from("skill_evidence_matrix")
+    .upsert(rowsToUpsert, { onConflict: "user_id,skill_name" })
+    .select("*");
+
+  if (error) {
+    throw new Error(`SUPABASE_SKILL_SYNC_ERROR: ${error.message}`);
+  }
+
+  return {
+    success: true,
+    summary: `Synced ${upserted?.length ?? rowsToUpsert.length} real extracted resume skills into Supabase skill_evidence_matrix.`,
+    data: { syncedCount: upserted?.length ?? rowsToUpsert.length, skills: upserted },
+  };
 }
 
 export async function update_skill_evidence(
   userId: string,
-  args: UpdateSkillEvidenceArgs,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase?: any
-): Promise<{
-  success: boolean;
-  summary: string;
-  data: {
+  args: {
     skillName: string;
-    previousTier: ConfidenceTier;
-    nextTier: ConfidenceTier;
-    bluffRisk: boolean;
-    latestCitation: string;
-    claimedLevel: ClaimedLevel;
-    evidenceCount: number;
-  };
-}> {
-  if (!args.skillName || !args.verdict || !args.evidenceCitation) {
-    throw new Error("Invalid arguments: skillName, verdict, and evidenceCitation are required.");
+    verdict: "POSITIVE" | "NEGATIVE";
+    source: "MOCK_INTERVIEW" | "READINESS_DRILL" | string;
+    evidenceCitation: string;
+  },
+  supabase?: any
+): Promise<ToolExecutionResult & { status?: string }> {
+  const db = getDb(supabase);
+
+  const { data: existing } = await db
+    .from("skill_evidence_matrix")
+    .select("*")
+    .eq("user_id", userId)
+    .ilike("skill_name", args.skillName.trim())
+    .maybeSingle();
+
+  const currentTier: ConfidenceTier = existing?.verified_confidence || "UNVERIFIED";
+  const claimedLevel: "LOW" | "MEDIUM" | "HIGH" = existing?.claimed_level || "HIGH";
+  const { previousTier, nextTier, bluffRisk } = computeDampedConfidence(currentTier, args.verdict, claimedLevel);
+
+  const prevLog = Array.isArray(existing?.evidence_log) ? existing.evidence_log : [];
+  const updatedLog = [
+    {
+      timestamp: new Date().toISOString(),
+      source: args.source,
+      verdict: args.verdict,
+      citation: args.evidenceCitation,
+    },
+    ...prevLog,
+  ].slice(0, 15);
+
+  const { data: savedRow, error } = await db
+    .from("skill_evidence_matrix")
+    .upsert(
+      {
+        user_id: userId,
+        skill_name: existing?.skill_name || args.skillName.trim(),
+        claimed_level: claimedLevel,
+        verified_confidence: nextTier,
+        bluff_risk: bluffRisk,
+        evidence_log: updatedLog,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,skill_name" }
+    )
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`SUPABASE_UPDATE_SKILL_EVIDENCE_ERROR: ${error.message}`);
   }
 
-  const normalizedSkill = args.skillName.trim();
-  let existingRow: SkillEvidenceRow | null = null;
-
-  // 1. Try DB lookup if Supabase client is available
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("skill_evidence_matrix")
-        .select("*")
-        .eq("user_id", userId)
-        .ilike("skill_name", normalizedSkill)
-        .maybeSingle();
-
-      if (!error && data) {
-        existingRow = {
-          id: data.id,
-          user_id: data.user_id,
-          skill_name: data.skill_name,
-          claimed_level: (data.claimed_level as ClaimedLevel) || "HIGH",
-          verified_confidence: (data.verified_confidence as ConfidenceTier) || "UNVERIFIED",
-          bluff_risk: Boolean(data.bluff_risk),
-          evidence_log: Array.isArray(data.evidence_log) ? data.evidence_log : [],
-        };
-      }
-    } catch {
-      // Graceful fallback to mockAgentStore
-    }
-  }
-
-  // 2. Fallback to mockAgentStore
-  if (!existingRow) {
-    const fromStore = mockAgentStore.getSkill(userId, normalizedSkill);
-    if (fromStore) {
-      existingRow = fromStore;
-    }
-  }
-
-  // Initialize defaults if missing: default claimed_level to HIGH for verified candidates
-  const claimedLevel: ClaimedLevel = existingRow?.claimed_level || "HIGH";
-  const currentTier: ConfidenceTier = existingRow?.verified_confidence || "UNVERIFIED";
-
-  // Apply pure damped ladder logic
-  const { previousTier, nextTier, bluffRisk } = computeDampedConfidence(
-    currentTier,
-    args.verdict,
-    claimedLevel
-  );
-
-  const existingLog = existingRow?.evidence_log || [];
-  const newEntry: EvidenceLogEntry = {
-    timestamp: new Date().toISOString(),
-    source: args.source,
-    verdict: args.verdict,
-    citation: args.evidenceCitation,
-  };
-  const updatedEvidenceLog = [...existingLog, newEntry].slice(-10);
-
-  const updatedRow: SkillEvidenceRow = {
-    id: existingRow?.id || `skill-ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    user_id: userId,
-    skill_name: normalizedSkill,
-    claimed_level: claimedLevel,
-    verified_confidence: nextTier,
-    bluff_risk: bluffRisk,
-    evidence_log: updatedEvidenceLog,
-    updated_at: new Date().toISOString(),
-  };
-
-  // Persist to Supabase if available
-  if (supabase) {
-    try {
-      await supabase.from("skill_evidence_matrix").upsert(
-        {
-          user_id: userId,
-          skill_name: normalizedSkill,
-          claimed_level: claimedLevel,
-          verified_confidence: nextTier,
-          bluff_risk: bluffRisk,
-          evidence_log: updatedEvidenceLog,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,skill_name" }
-      );
-    } catch {
-      // Table may not exist yet in early development
-    }
-  }
-
-  // Always sync to mockAgentStore and global mock store
-  mockAgentStore.upsertSkill(updatedRow);
-  upsertMockSkillEvidence(userId, {
-    skill_name: normalizedSkill,
-    claimed_level: claimedLevel,
-    verified_confidence: nextTier,
-    bluff_risk: bluffRisk,
-    evidence_log: updatedEvidenceLog,
-  });
-
-  const summary = `Skill evidence updated for "${normalizedSkill}": moved ${previousTier} -> ${nextTier} (${args.verdict} verdict from ${args.source}).${
-    bluffRisk ? " ⚠️ BLUFF RISK DETECTED: Claimed HIGH but verified at LOW." : ""
-  }`;
+  // Also sync to in-memory store
+  mockAgentStore.upsertSkill(savedRow);
 
   return {
     success: true,
-    summary,
+    summary: `Updated "${savedRow.skill_name}" confidence: ${previousTier} -> ${nextTier} (Bluff Risk: ${bluffRisk}).`,
     data: {
-      skillName: normalizedSkill,
+      skillName: savedRow.skill_name,
       previousTier,
       nextTier,
       bluffRisk,
       latestCitation: args.evidenceCitation,
-      claimedLevel,
-      evidenceCount: updatedEvidenceLog.length,
     },
   };
-}
-
-// ─── TOOL 2: INJECT_READINESS_SPRINT ────────────────────────────────────────
-
-export interface InjectReadinessSprintArgs {
-  sprintTitle: string;
-  linkedJobId?: string;
-  tasks: Array<{
-    title: string;
-    category: string;
-    priority: "HIGH" | "MEDIUM" | "LOW";
-    estimatedHours: number;
-    evidenceReason: string;
-  }>;
 }
 
 export async function inject_readiness_sprint(
   userId: string,
-  args: InjectReadinessSprintArgs,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase?: any
-): Promise<{
-  success: boolean;
-  summary: string;
-  data: {
-    insertedCount: number;
-    skippedDuplicates: number;
+  args: {
     sprintTitle: string;
-    tasks: ReadinessTaskRow[];
-  };
-}> {
-  if (!args.sprintTitle || !Array.isArray(args.tasks)) {
-    throw new Error("Invalid arguments: sprintTitle and tasks array are required.");
-  }
+    linkedJobId?: string;
+    tasks: Array<{
+      title: string;
+      category: string;
+      priority: "HIGH" | "MEDIUM" | "LOW";
+      estimatedHours: number;
+      evidenceReason: string;
+    }>;
+  },
+  supabase?: any
+): Promise<ToolExecutionResult & { status?: string }> {
+  const db = getDb(supabase);
 
-  // Deduplication check: collect titles of uncompleted tasks
-  let existingUncompletedTitles = new Set<string>();
-
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("readiness_tasks")
-        .select("title, completed")
-        .eq("user_id", userId)
-        .eq("completed", false);
-
-      if (!error && Array.isArray(data)) {
-        existingUncompletedTitles = new Set(
-          data.map((t: { title: string }) => t.title.toLowerCase().trim())
-        );
-      }
-    } catch {
-      // Fallback
-    }
-  }
-
-  // Merge with mockAgentStore tasks
-  const localTasks = mockAgentStore.getTasks(userId).filter((t) => !t.completed);
-  localTasks.forEach((t) => existingUncompletedTitles.add(t.title.toLowerCase().trim()));
-
-  const tasksToInsert: ReadinessTaskRow[] = [];
-  let skippedDuplicates = 0;
-
-  for (const t of args.tasks) {
-    const cleanTitle = t.title.trim();
-    if (existingUncompletedTitles.has(cleanTitle.toLowerCase())) {
-      skippedDuplicates++;
-      continue;
-    }
-
-    const taskRow: ReadinessTaskRow = {
-      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      user_id: userId,
-      title: cleanTitle,
-      category: t.category || "Sprint",
-      description: `[Agent Sprint: ${args.sprintTitle}] Reason: ${t.evidenceReason}${
-        t.estimatedHours ? ` · Estimated: ${t.estimatedHours}h` : ""
-      }${args.linkedJobId ? ` · Linked Job: ${args.linkedJobId}` : ""}`,
-      priority: t.priority || "MEDIUM",
-      completed: false,
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_at: new Date().toISOString(),
+  if (!Array.isArray(args.tasks) || args.tasks.length === 0) {
+    return {
+      success: false,
+      summary: "No tasks provided to inject_readiness_sprint.",
+      data: { insertedCount: 0, skippedDuplicates: 0 },
     };
-
-    tasksToInsert.push(taskRow);
-    existingUncompletedTitles.add(cleanTitle.toLowerCase());
   }
 
-  if (supabase && tasksToInsert.length > 0) {
-    try {
-      await supabase.from("readiness_tasks").insert(tasksToInsert);
-    } catch {
-      // Fallback
-    }
+  const { data: existingTasks } = await db
+    .from("readiness_tasks")
+    .select("title")
+    .eq("user_id", userId);
+
+  const existingTitles = new Set(
+    (existingTasks || []).map((t: any) => String(t.title || "").trim().toLowerCase())
+  );
+
+  const now = new Date().toISOString();
+  const newTasksToInsert = args.tasks
+    .filter((t) => !existingTitles.has(t.title.trim().toLowerCase()))
+    .map((t, idx) => ({
+      id: `task-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+      user_id: userId,
+      title: t.title.trim(),
+      category: t.category || "CORE_CS",
+      priority: t.priority || "HIGH",
+      estimated_hours: t.estimatedHours || 2,
+      description: `[${args.sprintTitle}] ${t.evidenceReason}`,
+      completed: false,
+      created_at: now,
+    }));
+
+  if (newTasksToInsert.length === 0) {
+    return {
+      success: true,
+      summary: `All ${args.tasks.length} sprint tasks already exist in readiness_tasks; skipped duplicates.`,
+      data: {
+        insertedCount: 0,
+        tasksInjected: 0,
+        skippedDuplicates: args.tasks.length,
+        sprintTitle: args.sprintTitle,
+        tasks: [],
+      },
+    };
   }
 
-  if (tasksToInsert.length > 0) {
-    mockAgentStore.insertTasks(userId, tasksToInsert);
+  const { data: insertedRows, error } = await db
+    .from("readiness_tasks")
+    .insert(newTasksToInsert)
+    .select("*");
 
-    // Browser runtime sync: update local readiness tasks store so UI updates live
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem("copilot_readiness_tasks_v1");
-        const current = raw ? JSON.parse(raw) : [];
-        const currentTitles = new Set(current.map((m: any) => m.title.toLowerCase().trim()));
-        const newMilestones = tasksToInsert
-          .filter((t) => !currentTitles.has(t.title.toLowerCase().trim()))
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            category: (["skills", "resume", "interview", "applications", "network"].includes(t.category?.toLowerCase())
-              ? t.category.toLowerCase()
-              : "skills") as any,
-            description: t.description || "",
-            completed: false,
-            priority: (t.priority?.toLowerCase() || "medium") as any,
-            dueDate: t.due_date ? new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined,
-          }));
-        if (newMilestones.length > 0) {
-          const merged = [...current, ...newMilestones];
-          window.localStorage.setItem("copilot_readiness_tasks_v1", JSON.stringify(merged));
-          window.dispatchEvent(new CustomEvent("copilot-data-updated", { detail: { source: "readiness" } }));
-          window.dispatchEvent(new CustomEvent("agent-state-mutated"));
-        }
-      } catch (err) {
-        console.warn("[inject_readiness_sprint] Browser storage sync failed:", err);
-      }
-    }
+  if (error) {
+    throw new Error(`SUPABASE_READINESS_INSERT_ERROR: ${error.message}`);
   }
 
-  const summary = `Readiness sprint "${args.sprintTitle}": inserted ${tasksToInsert.length} task(s), skipped ${skippedDuplicates} duplicate(s).`;
+  mockAgentStore.insertTasks(userId, newTasksToInsert);
+
+  const rows = insertedRows && insertedRows.length > 0 ? insertedRows : newTasksToInsert;
+  const tasks = rows.map((r: any, idx: number) => ({
+    id: r.id || `task-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+    title: r.title,
+    description: r.description,
+    completed: false,
+    priority: ((r.priority || "high").toLowerCase() === "low"
+      ? "low"
+      : (r.priority || "high").toLowerCase() === "medium"
+      ? "medium"
+      : "high") as "high" | "medium" | "low",
+    category: (r.category || "skills").toLowerCase(),
+    dueDate: "In 7 days",
+    createdAt: r.created_at || now,
+  }));
 
   return {
     success: true,
-    summary,
+    summary: `Injected ${tasks.length} tasks for "${args.sprintTitle}" into Supabase readiness_tasks.`,
     data: {
-      insertedCount: tasksToInsert.length,
-      skippedDuplicates,
+      insertedCount: tasks.length,
+      tasksInjected: tasks.length,
+      skippedDuplicates: args.tasks.length - newTasksToInsert.length,
       sprintTitle: args.sprintTitle,
-      tasks: tasksToInsert,
+      tasks,
     },
   };
 }
 
-// ─── TOOL 3: STAGE_RESUME_DIFF ──────────────────────────────────────────────
-
-export interface StageResumeDiffArgs {
-  jobId: string;
-  targetRole: string;
-  runId?: string;
-  proposedBulletChanges: ProposedBulletChange[];
-}
-
 export async function stage_resume_diff(
   userId: string,
-  args: StageResumeDiffArgs,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase?: any
-): Promise<{
-  success: boolean;
-  status: "AWAITING_APPROVAL";
-  summary: string;
-  data: {
-    approvalId: string;
+  args: {
+    jobId: string;
     targetRole: string;
-    diffCount: number;
-    proposedBulletChanges: ProposedBulletChange[];
-    estimatedAtsScoreDelta: number;
-  };
-}> {
-  if (
-    !args.jobId ||
-    !args.targetRole ||
-    !Array.isArray(args.proposedBulletChanges) ||
-    args.proposedBulletChanges.length === 0
-  ) {
-    throw new Error(
-      "Invalid arguments: jobId, targetRole, and non-empty proposedBulletChanges are required."
-    );
+    runId?: string;
+    proposedBulletChanges: Array<{
+      originalBullet: string;
+      proposedBullet: string;
+      verifiedSourceProject: string;
+      keywordsAdded: string[];
+    }>;
+  },
+  supabase?: any
+): Promise<ToolExecutionResult & { status: "AWAITING_APPROVAL" }> {
+  const db = getDb(supabase);
+
+  if (!Array.isArray(args.proposedBulletChanges) || args.proposedBulletChanges.length === 0) {
+    throw new Error("UNGROUNDED_RESUME_DIFF_REJECTED: No bullet changes provided to stage_resume_diff.");
   }
 
-  // Hallucination Guardrail: Every proposed change must ground itself in a verified source project
-  for (let i = 0; i < args.proposedBulletChanges.length; i++) {
-    const item = args.proposedBulletChanges[i];
-    if (
-      !item.verifiedSourceProject ||
-      typeof item.verifiedSourceProject !== "string" ||
-      item.verifiedSourceProject.trim().length === 0
-    ) {
-      throw new Error(
-        `Hallucination guardrail triggered in bullet change #${i + 1}: verifiedSourceProject is required and cannot be empty.`
-      );
-    }
-    if (
-      !item.proposedBullet ||
-      typeof item.proposedBullet !== "string" ||
-      item.proposedBullet.trim().length === 0
-    ) {
-      throw new Error(
-        `Invalid bullet change #${i + 1}: proposedBullet is required.`
-      );
+  for (const item of args.proposedBulletChanges) {
+    if (!item.verifiedSourceProject || !item.originalBullet || !item.proposedBullet) {
+      throw new Error("UNGROUNDED_RESUME_DIFF_REJECTED: Every bullet diff must include originalBullet, proposedBullet, and verifiedSourceProject.");
     }
   }
-
-  // Calculate estimated ATS keyword lift delta (approx 3.5 points per unique keyword added)
-  const uniqueKeywords = new Set<string>();
-  args.proposedBulletChanges.forEach((change) => {
-    (change.keywordsAdded || []).forEach((kw) => {
-      if (kw && kw.trim()) uniqueKeywords.add(kw.trim().toLowerCase());
-    });
-  });
-  const estimatedAtsScoreDelta = Math.min(25, Math.max(5, Math.round(uniqueKeywords.size * 3.5)));
 
   const approvalId = `appr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
   const approvalRecord: AgentApprovalRecord = {
     id: approvalId,
     user_id: userId,
     run_id: args.runId,
     action_type: "RESUME_DIFF",
-    target_entity_id: args.jobId,
+    target_entity_id: args.jobId || "general",
     status: "PENDING",
     payload_diff: {
       targetRole: args.targetRole,
       jobId: args.jobId,
       proposedBulletChanges: args.proposedBulletChanges,
-      estimatedAtsScoreDelta,
+      estimatedAtsScoreDelta: Math.min(25, Math.max(5, Math.round(args.proposedBulletChanges.length * 4))),
       createdAt: new Date().toISOString(),
     },
     created_at: new Date().toISOString(),
   };
 
-  // Does NOT mutate the master resume! Creates a PENDING approval record.
-  if (supabase) {
-    try {
-      await supabase.from("agent_approvals").insert({
-        id: approvalRecord.id,
-        user_id: approvalRecord.user_id,
-        run_id: approvalRecord.run_id,
-        action_type: approvalRecord.action_type,
-        target_entity_id: approvalRecord.target_entity_id,
-        status: approvalRecord.status,
-        payload_diff: approvalRecord.payload_diff,
-        created_at: approvalRecord.created_at,
-      });
-    } catch {
-      // Fallback
-    }
+  const { data: approvalRow, error } = await db
+    .from("agent_approvals")
+    .insert(approvalRecord)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`SUPABASE_STAGE_DIFF_ERROR: ${error.message}`);
   }
 
-  // Always register in mockAgentStore
-  mockAgentStore.saveApproval(approvalRecord);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("agent-state-mutated"));
-  }
-
-  const summary = `Staged ${args.proposedBulletChanges.length} grounded resume diff(s) for role "${args.targetRole}" (Job: ${args.jobId}). Awaiting human approval. Estimated ATS lift: +${estimatedAtsScoreDelta} points.`;
+  mockAgentStore.saveApproval(approvalRow || approvalRecord);
 
   return {
     success: true,
     status: "AWAITING_APPROVAL",
-    summary,
+    summary: `Staged ${args.proposedBulletChanges.length} grounded resume bullet diff(s) in Supabase agent_approvals (ID: ${approvalRow?.id || approvalId}) awaiting user approval.`,
     data: {
-      approvalId,
+      approvalId: approvalRow?.id || approvalId,
       targetRole: args.targetRole,
       diffCount: args.proposedBulletChanges.length,
       proposedBulletChanges: args.proposedBulletChanges,
-      estimatedAtsScoreDelta,
     },
   };
 }
 
-// ─── TOOL 4: SYNC_DIGITAL_TWIN_FROM_RESUME ──────────────────────────────────
-export async function sync_digital_twin_from_resume(
-  userId: string,
-  args: { fileName?: string; atsScore?: number },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase?: any
-): Promise<{
-  success: boolean;
-  summary: string;
-  data: {
-    skillsCount: number;
-    bluffRisks: string[];
-    fileName: string;
-  };
-}> {
-  const fileName = args.fileName || "Uploaded_Resume.pdf";
-  const { syncMockDigitalTwinFromResume } = await import("./mock-agent-store");
-  const skills = syncMockDigitalTwinFromResume(userId, fileName);
-
-  const bluffRisks = skills.filter((s) => s.bluff_risk).map((s) => s.skill_name);
-
-  return {
-    success: true,
-    summary: `Synchronized Digital Twin from "${fileName}": 8 skills tracked, ${bluffRisks.length} bluff risks detected (PostgreSQL & Redis).`,
-    data: {
-      skillsCount: skills.length,
-      bluffRisks,
-      fileName,
-    },
-  };
-}
-
-// ─── TOOL 5: AUTO_SEED_KANBAN_PIPELINE ──────────────────────────────────────
 export async function auto_seed_kanban_pipeline(
   userId: string,
-  args: { skills?: string[]; targetRole?: string },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params: any = {},
   supabase?: any
-): Promise<{
-  success: boolean;
-  summary: string;
-  data: {
-    seededCount: number;
-    roles: Array<{ company: string; role: string; matchScore: number }>;
-  };
-}> {
-  const skills = args.skills || [];
-  if (!skills || skills.length === 0) {
-    console.warn("[Agent] auto_seed_kanban: no skills provided, skipping seed");
-    return {
-      success: true,
-      summary: "Upload a resume first to auto-find matching jobs.",
-      data: {
-        seededCount: 0,
-        roles: [],
-      },
-    };
+): Promise<ToolExecutionResult & { status?: string }> {
+  // Extract skills and target role from agent params
+  const skills: string[] =
+    params.skills ||
+    params.targetSkills ||
+    params.requiredSkills ||
+    [];
+  const targetRole: string =
+    params.targetRole ||
+    params.role ||
+    "Software Engineer";
+  const limit: number = params.limit || 6;
+
+  // Build search query from skills and target role
+  const query = `${targetRole} ${skills.slice(0, 3).join(" ")}`.trim();
+
+  let applications: any[] = [];
+
+  try {
+    // Use absolute URL for server-side fetch
+    const port = process.env.PORT || 3000;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : `http://localhost:${port}`);
+
+    const response = await fetch(
+      `${baseUrl}/api/jobs/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      {
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      const jobs = data.jobs || data.results || data.data || [];
+
+      applications = jobs.map((job: any, idx: number) => ({
+        id: job.id || `seeded-${Date.now()}-${idx}`,
+        company: job.company || job.employer || "Unknown Company",
+        role: job.title || job.position || targetRole,
+        title: job.title || job.position || targetRole,
+        status: "Applied",
+        appliedDate: new Date().toISOString().split("T")[0],
+        url: job.url || job.applyUrl || job.link || "",
+        location: job.location || job.city || "Remote",
+        salary: job.salary || job.salaryRange || "",
+        description: job.description || job.snippet || "",
+        matchScore: job.matchScore || job.score || 70,
+        source: "agent",
+        skills: skills,
+      }));
+    }
+  } catch (err) {
+    console.error("[auto_seed_kanban_pipeline] Job search failed:", err);
+    // Do NOT silently succeed — return honest empty state
+  }
+
+  // Also persist to database/in-memory store if db is available
+  if (applications.length > 0) {
+    try {
+      const db = getDb(supabase);
+      await db.from("applications").insert(
+        applications.map((a: any) => ({
+          user_id: userId,
+          company: a.company,
+          title: a.role || a.title,
+          status: a.status || "Applied",
+          url: a.url,
+          location: a.location,
+          salary: a.salary,
+          notes: `Live scouted via Agent for target role "${targetRole}".`,
+          created_at: new Date().toISOString(),
+        }))
+      );
+    } catch {
+      // In-memory or database persistence notice
+    }
   }
 
   return {
     success: true,
-    summary: `Ready to scout real placement matches for ${args.targetRole || "target role"}.`,
+    summary:
+      applications.length > 0
+        ? `Seeded ${applications.length} real ${targetRole} jobs into your pipeline.`
+        : `No jobs found for "${query}". Check your job API keys in .env.local.`,
     data: {
-      seededCount: 0,
-      roles: [],
+      seededCount: applications.length,
+      roles: applications.map((a: any) => a.role || a.title),
+      applications: applications, // ← full objects for AgentProvider to sync
     },
   };
 }
-
-

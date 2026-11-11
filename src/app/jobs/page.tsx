@@ -412,7 +412,21 @@ export default function JobsPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await searchJobs("", "");
+      // Read target role from localStorage (set by robot navigator)
+      const storedRole = (() => {
+        try {
+          return (
+            localStorage.getItem("copilot_selected_target_role") ||
+            localStorage.getItem("copilot_target_role") ||
+            "Software Engineer"
+          );
+        } catch {
+          return "Software Engineer";
+        }
+      })();
+
+      const initialQuery = filters.search.trim() || storedRole;
+      const result = await searchJobs(initialQuery, filters.location);
       const data = result.jobs;
       setJobs(data);
       setSelectedJob(data[0] || null);
@@ -429,7 +443,7 @@ export default function JobsPage() {
       // Score matches immediately on load using current filter.location as
       // a preference signal — users often set location in filters
       setScoring(true);
-      const scores = await scoreJobMatches(data, skills, "Frontend Developer", {
+      const scores = await scoreJobMatches(data, skills, storedRole, {
         preferredLocation: "",
         preferredTypes: [],
       });
@@ -448,7 +462,7 @@ export default function JobsPage() {
       setLoading(false);
       setScoring(false);
     }
-  }, []);
+  }, [filters.search, filters.location]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => { void loadJobs(); }, 0);
@@ -457,9 +471,13 @@ export default function JobsPage() {
       loadJobs();
     };
     window.addEventListener("placement_skills_updated", handleSkillsUpdate);
+    window.addEventListener("copilot-data-updated", handleSkillsUpdate);
+    window.addEventListener("agent-state-mutated", handleSkillsUpdate);
     return () => {
       window.clearTimeout(initialLoad);
       window.removeEventListener("placement_skills_updated", handleSkillsUpdate);
+      window.removeEventListener("copilot-data-updated", handleSkillsUpdate);
+      window.removeEventListener("agent-state-mutated", handleSkillsUpdate);
     };
   }, [loadJobs]);
 
@@ -472,8 +490,21 @@ export default function JobsPage() {
       debounceRef.current = setTimeout(async () => {
         setSearching(true);
         try {
+          const storedRole = (() => {
+            try {
+              return (
+                localStorage.getItem("copilot_selected_target_role") ||
+                localStorage.getItem("copilot_target_role") ||
+                "Software Engineer"
+              );
+            } catch {
+              return "Software Engineer";
+            }
+          })();
+
           const searchFilters = { ...filters, ...overrides };
-          const result = await searchJobs(searchQuery, locationQuery, {
+          const activeQuery = searchQuery.trim() || storedRole;
+          const result = await searchJobs(activeQuery, locationQuery, {
             workArrangement: searchFilters.workArrangement,
             employment: searchFilters.jobTypes[0],
             experience: searchFilters.experienceLevel,
@@ -496,7 +527,7 @@ export default function JobsPage() {
             const scores = await scoreJobMatches(
               result.jobs,
               currentSkills,
-              "Frontend Developer",
+              storedRole,
               {
                 preferredLocation: locationQuery,
                 preferredTypes:    filters.jobTypes,
@@ -573,7 +604,20 @@ export default function JobsPage() {
     if (!nextCursor && !pagination.himalayasNextPage) return;
     setSearching(true);
     try {
-      const result = await searchJobs(filters.search, filters.location, {
+      const storedRole = (() => {
+        try {
+          return (
+            localStorage.getItem("copilot_selected_target_role") ||
+            localStorage.getItem("copilot_target_role") ||
+            "Software Engineer"
+          );
+        } catch {
+          return "Software Engineer";
+        }
+      })();
+
+      const activeQuery = filters.search.trim() || storedRole;
+      const result = await searchJobs(activeQuery, filters.location, {
         workArrangement: filters.workArrangement,
         employment: filters.jobTypes[0],
         experience: filters.experienceLevel,
@@ -589,7 +633,7 @@ export default function JobsPage() {
       const existingIds = new Set(jobs.map((job) => job.id));
       const added = result.jobs.filter((job) => !existingIds.has(job.id));
       if (added.length) {
-        const scores = await scoreJobMatches(added, getUserSkills(), "Frontend Developer", {
+        const scores = await scoreJobMatches(added, getUserSkills(), storedRole, {
           preferredLocation: filters.location,
           preferredTypes: filters.jobTypes,
         });

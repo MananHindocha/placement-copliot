@@ -435,25 +435,40 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   "unknownRequirements": [<requirements that can't be verified from profile>]
 }`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1, // Lower temperature for more deterministic, evidence-based output
-            maxOutputTokens: 500,
-          },
-        }),
-        signal: AbortSignal.timeout(10000),
-      }
-    );
+    const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash-001", "gemini-1.5-flash"];
+    let res: Response | null = null;
+    let lastErr = "";
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 150)}`);
+    for (const model of candidateModels) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 500,
+              },
+            }),
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+        if (response.ok) {
+          res = response;
+          break;
+        } else {
+          lastErr = await response.text().catch(() => "");
+        }
+      } catch (e: any) {
+        lastErr = e?.message || "fetch error";
+      }
+    }
+
+    if (!res || !res.ok) {
+      throw new Error(`Gemini candidate models failed: ${lastErr.slice(0, 150)}`);
     }
 
     const data = await res.json();

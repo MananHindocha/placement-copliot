@@ -50,6 +50,7 @@ export interface SkillEvidenceItem {
 // ─── Career Digital Twin Snapshot ───────────────────────────────────────────
 export interface StudentDigitalTwinSnapshot {
   userId: string;
+  atsScore?: number;
   profileSummary: {
     fullName?: string;
     targetRole?: string;
@@ -102,6 +103,11 @@ export interface AgentRunPayload {
   entityId?: string;
   goalPrompt?: string;
   metadata?: Record<string, any>;
+  focusedAction?: "jobs" | "readiness" | "kanban" | string;
+  userInstruction?: string;
+  maxSteps?: number;
+  parsedResume?: any;
+  targetRole?: string;
 }
 
 export interface ToolExecutionResult<T = any> {

@@ -19,6 +19,31 @@ import { printIsolatedResume, downloadDirectPdf } from "@/lib/resume/pdf-export"
 import ResumeDiffApprovalCard from "@/components/agent/ResumeDiffApprovalCard";
 import { useAgent } from "@/context/AgentProvider";
 import { getStoredRealResume, type RealParsedResume } from "@/lib/storage-sync";
+
+function getSkillName(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item === "object") {
+    if (typeof item.name === "string") return item.name;
+    if (typeof item.skill_name === "string") return item.skill_name;
+    if (typeof item.skill === "string") return item.skill;
+    return "";
+  }
+  return String(item);
+}
+
+function getSkillBadge(item: any): string {
+  if (!item || typeof item !== "object") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
+function toSkillLabel(item: any): string {
+  return getSkillName(item);
+}
+
+function toSkillLevel(item: any): string {
+  return getSkillBadge(item);
+}
 import {
   Upload,
   FileText,
@@ -170,8 +195,8 @@ export default function ResumePage() {
 
   const handleAddGapsToReadiness = async () => {
     if (!analysis) return;
-    const missing = analysis.keywords.filter((k) => !k.present).map((k) => k.word);
-    const toAdd = missing.length > 0 ? missing.slice(0, 8) : analysis.gaps.slice(0, 5);
+    const missing = (analysis.keywords ?? []).filter((k) => !k.present).map((k) => k.word);
+    const toAdd = missing.length > 0 ? missing.slice(0, 8) : (analysis.gaps ?? []).slice(0, 5);
 
     if (toAdd.length === 0) return;
 
@@ -294,11 +319,49 @@ export default function ResumePage() {
       setEngineSource(result.source);
       setAppliedSuggestions(new Set());
 
-      if (result.analysis.suggestions.length > 0) {
+      if ((result.analysis.suggestions ?? []).length > 0) {
         setExpandedSuggestion(result.analysis.suggestions[0].id);
       }
 
       showToast(`Resume parsed successfully via ${result.source.toUpperCase()} engine!`);
+
+      // Bidirectional sync with dashboard and robot navigator
+      if (typeof window !== "undefined") {
+        try {
+          const skills = (result.analysis.extractedSkills || []).map((s: any) =>
+            typeof s === "string" ? s : s?.name || ""
+          );
+          const legacyFormat = {
+            fileName: file.name,
+            candidateName: result.analysis.parsedResume?.candidateName || file.name.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " "),
+            targetRole: targetRole || "Software Engineer",
+            atsScore: result.analysis.matchScore || result.analysis.atsScore || 75,
+            skills: skills.map((sk: string) => ({ name: sk, strength: "Verified Strong", reason: "Extracted from resume" })),
+            projects: (result.analysis.parsedResume?.projects || []).map((p: any) => ({
+              name: p.title || p.name || "Project",
+              techStack: p.techStack || [],
+              summary: Array.isArray(p.bullets) ? p.bullets.map((b: any) => b?.text || String(b)).join(" ") : "",
+            })),
+            missingRecommendedSkills: (result.analysis.gaps || []).map((g: string) => ({
+              skill: g.split(":")[0] || g,
+              whyNeeded: g,
+              targetRole: targetRole || "Software Engineer",
+            })),
+            bulletImprovements: (result.analysis.suggestions || []).map((s: any) => ({
+              originalBullet: s.original || "",
+              improvedBullet: s.suggested || s.improved || "",
+              projectName: s.reason || "Project",
+              atsBoost: 10,
+            })),
+            parsedAt: new Date().toISOString(),
+          };
+          window.localStorage.setItem("copilot_real_resume_v1", JSON.stringify(legacyFormat));
+          window.localStorage.setItem("copilot_uploaded_filename_v2", file.name);
+          window.dispatchEvent(new CustomEvent("copilot-data-updated"));
+        } catch {
+          // Ignore quota errors
+        }
+      }
 
       // ─── TASK 3: FULL-APP AUTONOMOUS CHAIN REACTION ───
       // Automatically triggers Steps 1->2->3->4 and slides open the Glass-Box Execution Drawer
@@ -398,7 +461,7 @@ export default function ResumePage() {
 
   const handleApplySuggestion = async (id: string) => {
     if (!analysis || !editableResume) return;
-    const suggestion = analysis.suggestions.find((item) => item.id === id);
+    const suggestion = (analysis.suggestions ?? []).find((item) => item.id === id);
     if (!suggestion) return;
     const nextApplied = new Set(appliedSuggestions);
     const undo = nextApplied.has(id);
@@ -430,7 +493,7 @@ export default function ResumePage() {
     }
 
     const currentSkills = getUserSkills();
-    const merged = Array.from(new Set([...analysis.extractedSkills, ...currentSkills]));
+    const merged = Array.from(new Set([...analysis.extractedSkills.map(toSkillLabel), ...currentSkills]));
     setUserSkills(merged);
     showToast(`Synced ${analysis.extractedSkills.length} skills to your profile & Job Matcher!`);
   };
@@ -471,14 +534,14 @@ export default function ResumePage() {
 
   const parsedResume = editableResume;
   const resumeBullets = parsedResume ? getResumeBulletTargets(parsedResume).map((target) => target.text) : [];
-  const matchedKeywordCount = analysis?.keywords.filter((keyword) => keyword.present).length ?? 0;
+  const matchedKeywordCount = (analysis?.keywords ?? []).filter((keyword) => keyword.present).length;
   const quantifiedBulletCount = resumeBullets.filter((bullet) => /\b\d+(?:\.\d+)?\s*(%|x|ms|s|seconds|minutes|hours|days|users|clients|requests|queries|k|m|₹|\$)\b/i.test(bullet)).length;
   const weakOpeners = resumeBullets.filter((bullet) => /^(worked on|responsible for|helped|assisted|participated in|involved in)\b/i.test(bullet));
   const atsChecks = parsedResume ? [
     [Boolean(parsedResume.email && parsedResume.phone), "Contact details"],
-    [Boolean(parsedResume.links.length), "Portfolio links"],
-    [Boolean(parsedResume.education.length), "Education section"],
-    [Boolean(parsedResume.experience.length || parsedResume.projects.length), "Experience or projects"],
+    [Boolean((parsedResume.links ?? []).length), "Portfolio links"],
+    [Boolean((parsedResume.education ?? []).length), "Education section"],
+    [Boolean((parsedResume.experience ?? []).length || (parsedResume.projects ?? []).length), "Experience or projects"],
   ] as const : [];
   const saveEditedResume = (nextResume: ParsedResumeDocument) => {
     setEditableResume(nextResume);
@@ -488,17 +551,20 @@ export default function ResumePage() {
   };
   const editBullet = (section: "experience" | "projects" | "education", entryId: string, bulletId: string, text: string) => {
     if (!parsedResume) return;
-    const next = { ...parsedResume, [section]: parsedResume[section].map((entry) => entry.id === entryId ? { ...entry, bullets: entry.bullets.map((bullet) => bullet.id === bulletId ? { ...bullet, text } : bullet) } : entry) };
+    const currentList = parsedResume[section] ?? [];
+    const next = { ...parsedResume, [section]: currentList.map((entry) => entry.id === entryId ? { ...entry, bullets: (entry.bullets ?? []).map((bullet) => bullet.id === bulletId ? { ...bullet, text } : bullet) } : entry) };
     saveEditedResume(next);
   };
   const editEntry = (section: "experience" | "projects" | "education", entryId: string, field: "title" | "subtitle" | "dateRange" | "scoreOrMeta", text: string) => {
     if (!parsedResume) return;
-    const next = { ...parsedResume, [section]: parsedResume[section].map((entry) => entry.id === entryId ? { ...entry, [field]: text } : entry) };
+    const currentList = parsedResume[section] ?? [];
+    const next = { ...parsedResume, [section]: currentList.map((entry) => entry.id === entryId ? { ...entry, [field]: text } : entry) };
     saveEditedResume(next);
   };
   const editCustomItem = (sectionId: string, itemId: string, text: string) => {
     if (!parsedResume) return;
-    const next = { ...parsedResume, customSections: parsedResume.customSections.map((section) => section.id === sectionId ? { ...section, items: section.items.map((item) => item.id === itemId ? { ...item, text } : item) } : section) };
+    const currentSections = parsedResume.customSections ?? [];
+    const next = { ...parsedResume, customSections: currentSections.map((section) => section.id === sectionId ? { ...section, items: (section.items ?? []).map((item) => item.id === itemId ? { ...item, text } : item) } : section) };
     saveEditedResume(next);
   };
 
@@ -716,8 +782,8 @@ export default function ResumePage() {
                   size="sm"
                   label="Job Match Score"
                 />
-                <p className="text-[10px] text-[#71717A] mt-2">{matchedKeywordCount} of {analysis.keywords.length} target skills matched for {targetRole || analysis.jobTitle}.</p>
-                <p className="text-[10px] text-[#52525B] mt-1">{analysis.keywords.length === 0 ? "Upload a resume to compare its skills with this role." : matchedKeywordCount === analysis.keywords.length ? "Your listed target skills are all present." : `Add ${analysis.keywords.length - matchedKeywordCount} missing target skill${analysis.keywords.length - matchedKeywordCount === 1 ? "" : "s"} where your experience supports them.`}</p>
+                <p className="text-[10px] text-[#71717A] mt-2">{matchedKeywordCount} of {(analysis.keywords ?? []).length} target skills matched for {targetRole || analysis.jobTitle}.</p>
+                <p className="text-[10px] text-[#52525B] mt-1">{(analysis.keywords ?? []).length === 0 ? "Upload a resume to compare its skills with this role." : matchedKeywordCount === (analysis.keywords ?? []).length ? "Your listed target skills are all present." : `Add ${(analysis.keywords ?? []).length - matchedKeywordCount} missing target skill${(analysis.keywords ?? []).length - matchedKeywordCount === 1 ? "" : "s"} where your experience supports them.`}</p>
               </div>
 
               {/* Formatting Score */}
@@ -887,7 +953,7 @@ export default function ResumePage() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {analysis.gaps.map((gap, i) => (
+                    {(analysis.gaps ?? []).map((gap, i) => (
                       <div
                         key={i}
                         className="p-3.5 rounded-xl bg-[#F43F5E]/5 border border-[#F43F5E]/20 flex items-start gap-2.5 text-xs text-[#A1A1AA] leading-relaxed"
@@ -909,7 +975,7 @@ export default function ResumePage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {analysis.strengths.map((str, i) => (
+                    {(analysis.strengths ?? []).map((str, i) => (
                       <div
                         key={i}
                         className="p-3 rounded-xl bg-[#10B981]/5 border border-[#10B981]/20 flex items-start gap-2.5 text-xs text-[#A1A1AA]"
@@ -928,12 +994,12 @@ export default function ResumePage() {
                       Keyword Match Grid ({targetRole})
                     </h3>
                     <span className="text-[10px] text-[#71717A] tabular-nums">
-                      {analysis.keywords.filter((k) => k.present).length} of {analysis.keywords.length} present
+                      {(analysis.keywords ?? []).filter((k) => k.present).length} of {(analysis.keywords ?? []).length} present
                     </span>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
-                    {analysis.keywords.map((kw) => (
+                    {(analysis.keywords ?? []).map((kw) => (
                       <span
                         key={kw.word}
                         className={clsx(
@@ -948,7 +1014,7 @@ export default function ResumePage() {
                         ) : (
                           <XCircle className="w-3 h-3 text-[#F43F5E]" />
                         )}
-                        {kw.word}
+                        {toSkillLabel(kw.word)}
                       </span>
                     ))}
                   </div>
@@ -972,11 +1038,11 @@ export default function ResumePage() {
                   </p>
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#121212] text-[#F5F5F5] border border-[#292929] tabular-nums">
-                  {appliedSuggestions.size} of {analysis.suggestions.length} applied
+                  {appliedSuggestions.size} of {(analysis.suggestions ?? []).length} applied
                 </span>
               </div>
 
-              {analysis.suggestions.map((suggestion) => {
+              {(analysis.suggestions ?? []).map((suggestion) => {
                 const isExpanded = expandedSuggestion === suggestion.id;
                 const isApplied = appliedSuggestions.has(suggestion.id);
 
@@ -1141,19 +1207,19 @@ export default function ResumePage() {
                       {parsedResume.email && <EditableText value={parsedResume.email} onSave={(text) => saveEditedResume({ ...parsedResume, email: text })} />}
                       {parsedResume.phone && <EditableText value={parsedResume.phone} onSave={(text) => saveEditedResume({ ...parsedResume, phone: text })} />}
                       {parsedResume.location && <EditableText value={parsedResume.location} onSave={(text) => saveEditedResume({ ...parsedResume, location: text })} />}
-                      {parsedResume.links.map((link, index) => <a key={`${link}-${index}`} href={link.startsWith("http") ? link : `https://${link}`} target="_blank" rel="noreferrer" className="underline">{link}</a>)}
+                      {(parsedResume.links ?? []).map((link, index) => <a key={`${link}-${index}`} href={link.startsWith("http") ? link : `https://${link}`} target="_blank" rel="noreferrer" className="underline">{link}</a>)}
                     </div>
                   </header>
 
                   {parsedResume.summary && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Professional Summary</h3><EditableText multiline value={parsedResume.summary} onSave={(text) => saveEditedResume({ ...parsedResume, summary: text })} className="block w-full text-[13px] leading-relaxed font-normal text-slate-800" /></section>}
 
-                  {parsedResume.education.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Education</h3><div className="space-y-2">{parsedResume.education.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="education" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
-                  {parsedResume.experience.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Work Experience</h3><div className="space-y-3">{parsedResume.experience.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="experience" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
-                  {parsedResume.projects.length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Projects</h3><div className="space-y-3">{parsedResume.projects.map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="projects" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
+                  {(parsedResume.education ?? []).length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Education</h3><div className="space-y-2">{(parsedResume.education ?? []).map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="education" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
+                  {(parsedResume.experience ?? []).length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Work Experience</h3><div className="space-y-3">{(parsedResume.experience ?? []).map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="experience" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
+                  {(parsedResume.projects ?? []).length > 0 && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Projects</h3><div className="space-y-3">{(parsedResume.projects ?? []).map((entry) => <ResumeEntryView key={entry.id} entry={entry} section="projects" onEditEntry={editEntry} onEditBullet={editBullet} />)}</div></section>}
 
-                  {(parsedResume.skillCategories.length > 0 || parsedResume.skills.length > 0) && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Technical Skills</h3><div className="space-y-1">{parsedResume.skillCategories.length > 0 ? parsedResume.skillCategories.map((group, index) => <p key={`${group.category}-${index}`}><strong className="text-slate-900">{group.category}: </strong><EditableText value={group.skills.join(", ")} onSave={(text) => { const skillCategories = parsedResume.skillCategories.map((item, itemIndex) => itemIndex === index ? { ...item, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) } : item); saveEditedResume({ ...parsedResume, skillCategories, skills: Array.from(new Set(skillCategories.flatMap((item) => item.skills))) }); }} /></p>) : <EditableText value={parsedResume.skills.join(", ")} onSave={(text) => saveEditedResume({ ...parsedResume, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) })} />}</div></section>}
+                  {((parsedResume.skillCategories ?? []).length > 0 || (parsedResume.skills ?? []).length > 0) && <section><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">Technical Skills</h3><div className="space-y-1">{(parsedResume.skillCategories ?? []).length > 0 ? (parsedResume.skillCategories ?? []).map((group, index) => <p key={`${group.category}-${index}`}><strong className="text-slate-900">{group.category}: </strong><EditableText value={(group.skills ?? []).map(toSkillLabel).join(", ")} onSave={(text) => { const skillCategories = (parsedResume.skillCategories ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) } : item); saveEditedResume({ ...parsedResume, skillCategories, skills: Array.from(new Set(skillCategories.flatMap((item) => item.skills))) }); }} /></p>) : <EditableText value={(parsedResume.skills ?? []).map(toSkillLabel).join(", ")} onSave={(text) => saveEditedResume({ ...parsedResume, skills: text.split(/[,;]+/).map((skill) => skill.trim()).filter(Boolean) })} />}</div></section>}
 
-                  {parsedResume.customSections.map((section) => <section key={section.id}><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">{section.heading}</h3><ul className="list-disc pl-5 space-y-1">{section.items.map((item) => <li key={item.id} className="text-[13px] leading-relaxed font-normal text-slate-800"><EditableText multiline value={item.text} onSave={(text) => editCustomItem(section.id, item.id, text)} className="w-full text-[13px] leading-relaxed font-normal text-slate-800" /></li>)}</ul></section>)}
+                  {(parsedResume.customSections ?? []).map((section) => <section key={section.id}><h3 className="text-xs font-bold font-sans uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-1.5">{section.heading}</h3><ul className="list-disc pl-5 space-y-1">{(section.items ?? []).map((item) => <li key={item.id} className="text-[13px] leading-relaxed font-normal text-slate-800"><EditableText multiline value={item.text} onSave={(text) => editCustomItem(section.id, item.id, text)} className="w-full text-[13px] leading-relaxed font-normal text-slate-800" /></li>)}</ul></section>)}
                 </> : <div className="min-h-64 flex flex-col items-center justify-center text-center text-slate-500"><FileText className="w-8 h-8 mb-2" /><p className="font-sans font-medium">Your resume preview will appear here</p><p className="text-xs">Upload a PDF, DOCX, or TXT resume to begin.</p></div>}
               </div>
             </div>

@@ -1,112 +1,103 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { createClient } from "@supabase/supabase-js";
 import {
+  resolveEffectiveUserId,
   runPlacementAgent,
-  getLatestAgentRuns,
-  getPendingAgentApprovals,
-  type AgentRunPayload,
+  getPersistentSupabaseClient,
 } from "@/lib/agent/orchestrator";
+import { get_student_twin_context } from "@/lib/agent/tools-read";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-/**
- * Resolves current user ID from Supabase session or defaults to Guest Demo ID.
- */
-async function resolveUser(): Promise<{ userId: string; supabase: any }> {
-  if (!isSupabaseConfigured()) {
-    return { userId: "guest-demo-user", supabase: null };
+function getSupabaseServerClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key || url.includes("your-project-id.supabase.co")) {
+    return getPersistentSupabaseClient();
   }
-
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      return { userId: "guest-demo-user", supabase };
-    }
-
-    return { userId: user.id, supabase };
+    return createClient(url, key, { auth: { persistSession: false } });
   } catch {
-    return { userId: "guest-demo-user", supabase: null };
+    return getPersistentSupabaseClient();
   }
 }
 
-/**
- * POST /api/agent/execute
- * Executes autonomous agent for a trigger event or returns deduplicated existing run.
- */
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { userId, supabase } = await resolveUser();
-
-    const triggerType = body.triggerType || "USER_GOAL_SUBMITTED";
-    const entityId = body.entityId;
-    const goalPrompt = body.goalPrompt;
-    const metadata = body.metadata || {};
-
-    const payload: AgentRunPayload = {
-      userId,
-      triggerType,
-      entityId,
-      goalPrompt,
-      metadata,
-    };
-
-    const result = await runPlacementAgent(payload, supabase);
-
-    return NextResponse.json({
-      success: true,
-      deduplicated: result.deduplicated,
-      run: result.run,
-    });
-  } catch (error: any) {
-    console.error("[Agent Execute Route Error]:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to execute agent loop",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/agent/execute
- * Returns the latest 10 agent runs and pending approvals for the current user.
- */
 export async function GET(req: NextRequest) {
   try {
-    const { userId, supabase } = await resolveUser();
-    const url = new URL(req.url);
-    const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10)));
+    const supabase = getSupabaseServerClient();
+    const queryUserId = req.nextUrl.searchParams.get("userId") || undefined;
+    const { effectiveUserId, isGuest } = resolveEffectiveUserId(queryUserId);
 
-    const [runs, pendingApprovals] = await Promise.all([
-      getLatestAgentRuns(userId, limit, supabase),
-      getPendingAgentApprovals(userId, supabase),
+    const [twinResult, { data: runs }, { data: approvals }] = await Promise.all([
+      get_student_twin_context(effectiveUserId, {}, supabase),
+      supabase
+        .from("agent_runs")
+        .select("*")
+        .eq("user_id", effectiveUserId)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("agent_approvals")
+        .select("*")
+        .eq("user_id", effectiveUserId)
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: false }),
     ]);
 
     return NextResponse.json({
       success: true,
-      userId,
-      runs,
-      pendingApprovals,
+      isGuest,
+      userId: effectiveUserId,
+      digitalTwin: twinResult.data,
+      runs: runs || [],
+      pendingApprovals: approvals || [],
     });
-  } catch (error: any) {
-    console.error("[Agent Execute GET Error]:", error);
+  } catch (err: any) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to fetch agent runs",
+        error: err?.message || "Failed to fetch agent state from Supabase.",
       },
       { status: 500 }
     );
   }
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const supabase = getSupabaseServerClient();
+    const { effectiveUserId } = resolveEffectiveUserId(body.userId);
+
+    const result = await runPlacementAgent(
+      {
+        userId: effectiveUserId,
+        triggerType: body.triggerType || "USER_GOAL_SUBMITTED",
+        entityId: body.entityId || "manual",
+        goalPrompt: body.goalPrompt || "",
+        metadata: body.metadata || {},
+        focusedAction: body.focusedAction,
+        userInstruction: body.userInstruction,
+        maxSteps: body.maxSteps,
+        parsedResume: body.parsedResume,
+        targetRole: body.targetRole,
+      } as any,
+      supabase
+    );
+
+    const twinResult = await get_student_twin_context(effectiveUserId, {}, supabase);
+
+    return NextResponse.json({
+      success: result.status !== "FAILED",
+      ...result,
+      digitalTwin: twinResult.data,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        status: "FAILED",
+        error: err?.message || "Failed to execute placement agent.",
+      },
+      { status: 500 }
+    );
+  }
+}

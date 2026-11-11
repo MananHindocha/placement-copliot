@@ -496,6 +496,8 @@ export async function GET(request: NextRequest) {
   const postedWithin = text(request.nextUrl.searchParams.get("postedWithin"));
   const experience = text(request.nextUrl.searchParams.get("experience"));
   const employment = text(request.nextUrl.searchParams.get("employment"));
+  const limitParam = Number(request.nextUrl.searchParams.get("limit") || "0");
+  const limit = limitParam > 0 ? Math.min(limitParam, 50) : 0;
   const openwebninjaCursor = text(
     request.nextUrl.searchParams.get("openwebninjaCursor") ||
       request.nextUrl.searchParams.get("jsearchCursor")
@@ -518,10 +520,14 @@ export async function GET(request: NextRequest) {
       });
       if (ninjaRes && ninjaRes.jobs && ninjaRes.jobs.length > 0) {
         console.log(`[Jobs] JWebNinja: ${ninjaRes.jobs.length} jobs`);
+        const jobList = limit > 0 ? ninjaRes.jobs.slice(0, limit) : ninjaRes.jobs;
         return NextResponse.json({
-          jobs: ninjaRes.jobs,
+          jobs: jobList,
+          results: jobList,
+          data: jobList,
+          total: jobList.length,
+          count: jobList.length,
           source: "openwebninja",
-          count: ninjaRes.jobs.length,
           pagination: {
             openwebninjaNextCursor: ninjaRes.nextCursor || null,
             jsearchNextCursor: ninjaRes.nextCursor || null,
@@ -547,10 +553,14 @@ export async function GET(request: NextRequest) {
       });
       if (himalayasRes && himalayasRes.jobs && himalayasRes.jobs.length > 0) {
         console.log(`[Jobs] Himalaya: ${himalayasRes.jobs.length} jobs`);
+        const jobList = limit > 0 ? himalayasRes.jobs.slice(0, limit) : himalayasRes.jobs;
         return NextResponse.json({
-          jobs: himalayasRes.jobs,
+          jobs: jobList,
+          results: jobList,
+          data: jobList,
+          total: jobList.length,
+          count: jobList.length,
           source: "himalayas",
-          count: himalayasRes.jobs.length,
           pagination: {
             openwebninjaNextCursor: null,
             jsearchNextCursor: null,
@@ -569,10 +579,14 @@ export async function GET(request: NextRequest) {
       const adzunaRes = await fetchAdzuna({ query, location });
       if (adzunaRes && adzunaRes.jobs && adzunaRes.jobs.length > 0) {
         console.log(`[Jobs] Adzuna: ${adzunaRes.jobs.length} jobs`);
+        const jobList = limit > 0 ? adzunaRes.jobs.slice(0, limit) : adzunaRes.jobs;
         return NextResponse.json({
-          jobs: adzunaRes.jobs,
+          jobs: jobList,
+          results: jobList,
+          data: jobList,
+          total: jobList.length,
+          count: jobList.length,
           source: "adzuna",
-          count: adzunaRes.jobs.length,
           pagination: {
             openwebninjaNextCursor: null,
             jsearchNextCursor: null,
@@ -590,10 +604,14 @@ export async function GET(request: NextRequest) {
     const remoteOkRes = await fetchRemoteOK({ query });
     if (remoteOkRes && remoteOkRes.jobs && remoteOkRes.jobs.length > 0) {
       console.log(`[Jobs] RemoteOK: ${remoteOkRes.jobs.length} jobs`);
+      const jobList = limit > 0 ? remoteOkRes.jobs.slice(0, limit) : remoteOkRes.jobs;
       return NextResponse.json({
-        jobs: remoteOkRes.jobs,
+        jobs: jobList,
+        results: jobList,
+        data: jobList,
+        total: jobList.length,
+        count: jobList.length,
         source: "remoteok",
-        count: remoteOkRes.jobs.length,
         pagination: {
           openwebninjaNextCursor: null,
           jsearchNextCursor: null,
@@ -609,9 +627,12 @@ export async function GET(request: NextRequest) {
   console.warn("[Jobs] All APIs failed or returned empty. Returning [].");
   return NextResponse.json({
     jobs: [],
+    results: [],
+    data: [],
+    total: 0,
+    count: 0,
     message: "No matching jobs found right now. Try adjusting your search query.",
     source: "none",
-    count: 0,
     pagination: {
       openwebninjaNextCursor: null,
       jsearchNextCursor: null,

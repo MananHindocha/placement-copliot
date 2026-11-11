@@ -6,7 +6,10 @@ import AppShell from "@/components/layout/AppShell";
 export const metadata: Metadata = {
   title: "Placement Co-pilot | Your AI-Powered Job Search Dashboard",
   description:
-    "Placement Co-pilot helps students land their dream jobs with AI-powered resume tailoring, job discovery, application tracking, and interview preparation.",
+    "Autonomous career co-pilot matching real student skills to verified roles with proactive Glass-Box agentic orchestration.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
