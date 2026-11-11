@@ -5,18 +5,25 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAgent } from "@/context/AgentProvider";
 import type { AgentTraceStep } from "@/lib/agent/types";
 
-function toSkillLabel(item: any): string {
+function getSkillName(item: any): string {
   if (!item) return "";
   if (typeof item === "string") return item;
-  if (typeof item.name === "string") return item.name;
-  if (typeof item.skill_name === "string") return item.skill_name;
-  if (typeof item.skill === "string") return item.skill;
-  return JSON.stringify(item);
+  if (typeof item === "object") {
+    if (typeof item.name === "string") return item.name;
+    if (typeof item.skill_name === "string") return item.skill_name;
+    if (typeof item.skill === "string") return item.skill;
+    return "";
+  }
+  return String(item);
 }
 
-function toSkillLevel(item: any): string {
-  if (!item || typeof item === "string") return "";
+function getSkillBadge(item: any): string {
+  if (!item || typeof item !== "object") return "";
   return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
+function toSkillLabel(item: any): string {
+  return getSkillName(item);
 }
 
 const ROLE_PRESETS = [
@@ -49,6 +56,7 @@ export function IntegratedRobotNavigator() {
     triggerAgent,
     resolveApproval,
     resetWorkspaceToZero,
+    openDrawer,
   } = useAgent();
 
   const [customRoleInput, setCustomRoleInput] = useState(targetRole || "");
@@ -88,7 +96,7 @@ export function IntegratedRobotNavigator() {
       entityId: "live-job-scout",
       goalPrompt: `Use auto_seed_kanban_pipeline to scout 4 real live job openings for "${role}" and save them to my Kanban applications tracker.`,
     });
-    router.push("/applications");
+    router.push("/tracker");
   };
 
   const handleBuildReadinessSprint = async () => {
@@ -125,7 +133,7 @@ export function IntegratedRobotNavigator() {
 
   return (
     <section className="w-full mb-6 rounded-2xl border border-cyan-500/30 bg-slate-950/90 backdrop-blur-xl p-5 shadow-2xl text-slate-100">
-      {/* Honest Error Alert Banner (Rule 6: Never hide errors behind fake fallbacks) */}
+      {/* Honest Error Alert Banner */}
       {agentError && (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/50 bg-red-950/60 px-4 py-3 text-sm text-red-200">
           <div>
@@ -201,15 +209,25 @@ export function IntegratedRobotNavigator() {
           </div>
         </div>
 
-        {/* Right Controls: Trace Toggle & Reset */}
-        <div className="flex items-center gap-2 self-end lg:self-center">
+        {/* Right Controls: Drawer & Trace Toggle & Reset */}
+        <div className="flex items-center gap-2 self-end lg:self-center flex-wrap">
+          {openDrawer && (
+            <button
+              type="button"
+              onClick={openDrawer}
+              className="rounded-xl border border-indigo-500/40 bg-indigo-950/60 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:border-indigo-400 hover:text-white transition"
+              title="Open glass-box autonomous agent execution drawer"
+            >
+              🧠 Agent Trace
+            </button>
+          )}
           {traceSteps.length > 0 && (
             <button
               type="button"
               onClick={() => setShowTraceLog((prev) => !prev)}
               className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300"
             >
-              {showTraceLog ? "Hide Agent Trace" : `View Agent Trace (${traceSteps.length} steps)`}
+              {showTraceLog ? "Hide Trace" : `View Trace (${traceSteps.length})`}
             </button>
           )}
           {(targetRole || hasExtractedResume) && (
@@ -302,7 +320,7 @@ export function IntegratedRobotNavigator() {
               disabled={isBusy}
               onClick={handleScoutLiveJobs}
               className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
-                pathname?.includes("/applications") || pathname?.includes("/jobs")
+                pathname?.includes("/tracker") || pathname?.includes("/jobs")
                   ? "border-cyan-400 bg-cyan-500/15"
                   : "border-slate-800 bg-slate-900/80 hover:border-cyan-500/50"
               }`}
@@ -351,8 +369,10 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               disabled={isBusy}
-              onClick={() => router.push("/applications")}
-              className="flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/80 p-3.5 text-left transition hover:border-cyan-500/50"
+              onClick={() => router.push("/tracker")}
+              className={`flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/80 p-3.5 text-left transition hover:border-cyan-500/50 ${
+                pathname?.includes("/tracker") ? "border-amber-400 bg-amber-500/10" : ""
+              }`}
             >
               <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Option 4 • Deadlines</span>
               <span className="mt-1 text-sm font-semibold text-slate-100">Open Kanban Pipeline</span>

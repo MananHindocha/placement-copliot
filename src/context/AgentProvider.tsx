@@ -1,11 +1,9 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type {
   AgentApprovalRecord,
   AgentRunRecord,
-  AgentTraceStep,
-  SkillEvidenceItem,
   StudentDigitalTwinSnapshot,
 } from "@/lib/agent/types";
 
@@ -47,7 +45,7 @@ export interface AgentContextValue {
   refreshAgentState: () => Promise<void>;
   uploadResumeForRole: (file: File, role: string) => Promise<boolean>;
   triggerAgent: (input: AgentTriggerInput) => Promise<any>;
-  resolveApproval: (approvalId: string, decision: "APPROVED" | "REJECTED") => Promise<any>;
+  resolveApproval: (approvalId: string, decision: "APPROVED" | "REJECTED") => Promise<boolean>;
   resetWorkspaceToZero: () => void;
 
   // Backwards-compatible methods & properties for existing views
@@ -111,11 +109,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [isExecutingAgent, setIsExecutingAgent] = useState<boolean>(false);
   const [agentError, setAgentError] = useState<string | null>(null);
 
-  // Backwards-compatible drawer & modal states
+  // Drawer & modal state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeToast, setActiveToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [isBluffAuditModalOpen, setIsBluffAuditModalOpen] = useState(false);
   const [probeSkill, setProbeSkill] = useState<string | null>(null);
+
+  const hasHydratedRef = useRef(false);
 
   const setTargetRole = useCallback((role: string) => {
     setTargetRoleState(role);
@@ -128,20 +128,26 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const clearAgentError = useCallback(() => setAgentError(null), []);
 
   const refreshAgentState = useCallback(async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       setIsLoading(true);
-      const res = await fetch("/api/agent/execute", { method: "GET", cache: "no-store" });
+      const res = await fetch("/api/agent/execute", {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
+      });
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        setAgentError(json.error || `Failed to load agent state (HTTP ${res.status})`);
         return;
       }
 
       if (json.digitalTwin) {
         setDigitalTwin(json.digitalTwin);
-        if (json.digitalTwin.targetRole && !targetRole) {
-          setTargetRoleState(json.digitalTwin.targetRole);
+        const serverRole = json.digitalTwin.profileSummary?.targetRole || (json.digitalTwin as any).targetRole;
+        if (serverRole) {
+          setTargetRoleState((prev) => prev || serverRole);
         }
       }
       setRuns(Array.isArray(json.runs) ? json.runs : []);
@@ -149,14 +155,18 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         setActiveRunState(json.runs[0]);
       }
       setPendingApprovals(Array.isArray(json.pendingApprovals) ? json.pendingApprovals : []);
-    } catch (err: any) {
-      setAgentError(err?.message || "Network error while syncing with Supabase agent backend.");
+    } catch {
+      // Do not block UI if initial background sync times out
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [targetRole]);
+  }, []);
 
   useEffect(() => {
+    if (hasHydratedRef.current) return;
+    hasHydratedRef.current = true;
+
     if (typeof window !== "undefined") {
       const savedRole = window.localStorage.getItem("copilot_selected_target_role");
       const savedParsed = window.localStorage.getItem("copilot_parsed_resume_v2");
@@ -167,7 +177,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         try {
           setParsedResume(JSON.parse(savedParsed));
         } catch {
-          // Ignore corrupt local cache
+          // Ignore invalid JSON
         }
       }
     }
@@ -201,44 +211,46 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
 
+        const parsed: ParsedResumeData = json.parsedResume;
         setTargetRole(cleanRole);
         setUploadedFileName(file.name);
-        setParsedResume(json.parsedResume);
+        setParsedResume(parsed);
 
         if (typeof window !== "undefined") {
-          window.localStorage.setItem("copilot_parsed_resume_v2", JSON.stringify(json.parsedResume));
+          window.localStorage.setItem("copilot_parsed_resume_v2", JSON.stringify(parsed));
           window.localStorage.setItem("copilot_uploaded_filename_v2", file.name);
 
           // Sync with older storage keys for existing components
           const legacyFormat = {
             fileName: file.name,
-            candidateName: json.parsedResume.candidateName || "Candidate",
+            candidateName: parsed.candidateName || "Candidate",
             targetRole: cleanRole,
-            atsScore: json.parsedResume.atsScore || 0,
-            skills: (json.parsedResume.extractedSkills || []).map((s: any) => s.name),
-            projects: json.parsedResume.projects || [],
-            missingRecommendedSkills: (json.parsedResume.missingSkillsForTargetRole || []).map((m: any) => m.skill),
-            bulletImprovements: json.parsedResume.bulletImprovements || [],
+            atsScore: parsed.atsScore || 0,
+            skills: (parsed.extractedSkills || []).map((s: any) => (typeof s === "string" ? s : s.name)),
+            projects: parsed.projects || [],
+            missingRecommendedSkills: (parsed.missingSkillsForTargetRole || []).map((m: any) =>
+              typeof m === "string" ? m : m.skill
+            ),
+            bulletImprovements: parsed.bulletImprovements || [],
           };
           window.localStorage.setItem("copilot_real_resume_v1", JSON.stringify(legacyFormat));
-          window.dispatchEvent(new CustomEvent("agent-state-mutated"));
           window.dispatchEvent(new CustomEvent("copilot-data-updated"));
+          window.dispatchEvent(new CustomEvent("agent-state-mutated"));
         }
 
         if (json.agentRun) {
           setActiveRunState(json.agentRun);
-          if (json.agentRun.status === "FAILED" && json.agentRun.error) {
-            setAgentError(json.agentRun.error);
-          }
         }
 
-        await refreshAgentState();
+        // Refresh state in background without blocking the user
+        refreshAgentState();
         return true;
       } catch (err: any) {
         setAgentError(err?.message || "Unexpected error while uploading PDF resume.");
         return false;
       } finally {
         setIsUploadingResume(false);
+        setIsExecutingAgent(false);
       }
     },
     [targetRole, setTargetRole, refreshAgentState]
@@ -246,11 +258,14 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   const triggerAgent = useCallback(
     async (input: AgentTriggerInput) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       setIsExecutingAgent(true);
       setAgentError(null);
       if (input.autoOpenDrawer) {
         setIsDrawerOpen(true);
       }
+
       try {
         const res = await fetch("/api/agent/execute", {
           method: "POST",
@@ -265,6 +280,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
               ...(input.metadata || {}),
             },
           }),
+          signal: controller.signal,
         });
 
         const json = await res.json();
@@ -279,20 +295,24 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         if (json.digitalTwin) {
           setDigitalTwin(json.digitalTwin);
         }
-        await refreshAgentState();
         if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("copilot-data-updated"));
           window.dispatchEvent(new CustomEvent("agent-state-mutated"));
         }
         return json;
       } catch (err: any) {
-        const msg = err?.message || "Network failure during agent execution.";
+        const msg =
+          err?.name === "AbortError"
+            ? "Agent request timed out after 15s."
+            : err?.message || "Network failure during agent execution.";
         setAgentError(msg);
         return { status: "FAILED", error: msg };
       } finally {
+        clearTimeout(timeoutId);
         setIsExecutingAgent(false);
       }
     },
-    [targetRole, parsedResume, refreshAgentState]
+    [targetRole, parsedResume]
   );
 
   const resolveApproval = useCallback(
@@ -326,6 +346,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     setDigitalTwin(EMPTY_TWIN);
     setActiveRunState(null);
     setAgentError(null);
+    setIsExecutingAgent(false);
+    setIsUploadingResume(false);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("copilot_parsed_resume_v2");
       window.localStorage.removeItem("copilot_uploaded_filename_v2");
@@ -335,8 +357,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.removeItem("copilot_applications_v1");
       window.localStorage.removeItem("copilot_readiness_tasks_v1");
       window.localStorage.removeItem("copilot_interview_sessions_v1");
-      window.dispatchEvent(new CustomEvent("agent-state-mutated"));
       window.dispatchEvent(new CustomEvent("copilot-data-updated"));
+      window.dispatchEvent(new CustomEvent("agent-state-mutated"));
     }
   }, []);
 
