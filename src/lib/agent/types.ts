@@ -102,6 +102,11 @@ export interface AgentRunPayload {
   entityId?: string;
   goalPrompt?: string;
   metadata?: Record<string, any>;
+  focusedAction?: "jobs" | "readiness" | "kanban" | string;
+  userInstruction?: string;
+  maxSteps?: number;
+  parsedResume?: any;
+  targetRole?: string;
 }
 
 export interface ToolExecutionResult<T = any> {

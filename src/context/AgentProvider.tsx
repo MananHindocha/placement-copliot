@@ -45,6 +45,7 @@ export interface AgentContextValue {
   refreshAgentState: () => Promise<void>;
   uploadResumeForRole: (file: File, role: string) => Promise<boolean>;
   triggerAgent: (input: AgentTriggerInput) => Promise<any>;
+  runFocusedAction: (action: "jobs" | "readiness" | "kanban") => Promise<void>;
   resolveApproval: (approvalId: string, decision: "APPROVED" | "REJECTED") => Promise<boolean>;
   resetWorkspaceToZero: () => void;
 
@@ -433,7 +434,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const triggerAgent = useCallback(
     async (input: AgentTriggerInput) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
       setIsExecutingAgent(true);
       setAgentError(null);
       if (input.autoOpenDrawer) {
@@ -481,7 +482,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       } catch (err: any) {
         const msg =
           err?.name === "AbortError"
-            ? "Agent request timed out after 45s."
+            ? "Agent request timed out after 90s."
             : err?.message || "Network failure during agent execution.";
         setAgentError(msg);
         return { status: "FAILED", error: msg };
@@ -491,6 +492,146 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [targetRole, parsedResume]
+  );
+
+  const runFocusedAction = useCallback(
+    async (action: "jobs" | "readiness" | "kanban") => {
+      const parsedResume = (() => {
+        try {
+          return JSON.parse(localStorage.getItem("copilot_parsed_resume_v2") || "null");
+        } catch {
+          return null;
+        }
+      })();
+      const targetRole =
+        (typeof window !== "undefined" ? localStorage.getItem("copilot_selected_target_role") : null) ||
+        "Software Engineer";
+      const rawSkills: any[] = parsedResume?.skills || parsedResume?.extractedSkills || [];
+      const skills: string[] = rawSkills
+        .map((s: any) =>
+          typeof s === "string" ? s : typeof s?.name === "string" ? s.name : String(s || "")
+        )
+        .filter(Boolean);
+
+      const instructions: Record<string, string> = {
+        jobs: `You have ONE task: call auto_seed_kanban_pipeline with targetRole="${targetRole}" and skills=${JSON.stringify(
+          skills.slice(0, 5)
+        )} and limit=6. Do not call any other tool. Return immediately after.`,
+        readiness: `You have ONE task: call inject_readiness_sprint with targetRole="${targetRole}" and skillGaps based on the student's missing skills for this role. Do not call any other tool. Return immediately after.`,
+        kanban: `You have ONE task: call auto_seed_kanban_pipeline with targetRole="${targetRole}" and skills=${JSON.stringify(
+          skills.slice(0, 5)
+        )} and limit=10. Do not call any other tool. Return immediately after.`,
+      };
+
+      setIsExecutingAgent(true);
+      setAgentError(null);
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90000);
+
+        const response = await fetch("/api/agent/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            triggerType: "MANUAL_RUN",
+            entityId: `focused-${action}`,
+            goalPrompt: instructions[action],
+            parsedResume,
+            targetRole,
+            userInstruction: instructions[action],
+            focusedAction: action,
+            maxSteps: 2,
+            metadata: {
+              targetRole,
+              resumeContext: parsedResume,
+              action,
+            },
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) throw new Error(`Agent error: ${response.status}`);
+        const result = await response.json();
+        if (result.run) setActiveRunState(result.run);
+        if (result.digitalTwin) setDigitalTwin(result.digitalTwin);
+
+        // Sync to localStorage
+        syncAgentToolResultsToLocalStorage(result);
+
+        const traceSteps =
+          result.run?.traceSteps ||
+          result.run?.reasoning_trace ||
+          result.run?.trace ||
+          result.traceSteps ||
+          result.trace ||
+          [];
+
+        // Sync jobs to localStorage
+        const seededApps = traceSteps
+          .filter(
+            (s: any) =>
+              s &&
+              (s.toolName === "auto_seed_kanban_pipeline" ||
+                s.tool_name === "auto_seed_kanban_pipeline")
+          )
+          .flatMap((s: any) => s.output?.data?.applications || s.data?.applications || s.applications || []);
+
+        if (seededApps.length > 0) {
+          try {
+            const existing = JSON.parse(localStorage.getItem("copilot_applications_v1") || "[]");
+            const existingIds = new Set(existing.map((a: any) => a.id));
+            const newApps = seededApps.filter((a: any) => !existingIds.has(a.id));
+            localStorage.setItem(
+              "copilot_applications_v1",
+              JSON.stringify([...existing, ...newApps])
+            );
+          } catch (e) {
+            console.error("[sync jobs]", e);
+          }
+        }
+
+        // Sync readiness tasks to localStorage
+        const tasks = traceSteps
+          .filter(
+            (s: any) =>
+              s &&
+              (s.toolName === "inject_readiness_sprint" ||
+                s.tool_name === "inject_readiness_sprint")
+          )
+          .flatMap((s: any) => s.output?.data?.tasks || s.data?.tasks || s.tasks || []);
+
+        if (tasks.length > 0) {
+          try {
+            const existing = JSON.parse(localStorage.getItem("copilot_readiness_tasks_v1") || "[]");
+            const existingIds = new Set(existing.map((t: any) => t.id));
+            const newTasks = tasks.filter((t: any) => !existingIds.has(t.id));
+            localStorage.setItem(
+              "copilot_readiness_tasks_v1",
+              JSON.stringify([...existing, ...newTasks])
+            );
+          } catch (e) {
+            console.error("[sync tasks]", e);
+          }
+        }
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("copilot-data-updated"));
+          window.dispatchEvent(new CustomEvent("agent-state-mutated"));
+        }
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          setAgentError("Action timed out after 90s. Try again.");
+        } else {
+          setAgentError(err.message || "Action failed.");
+        }
+      } finally {
+        setIsExecutingAgent(false);
+      }
+    },
+    []
   );
 
   const resolveApproval = useCallback(
@@ -559,6 +700,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         refreshAgentState,
         uploadResumeForRole,
         triggerAgent,
+        runFocusedAction,
         resolveApproval,
         resetWorkspaceToZero,
         // Drawer & Modal helpers for existing layout components

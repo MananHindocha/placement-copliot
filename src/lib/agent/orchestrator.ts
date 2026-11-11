@@ -537,7 +537,7 @@ export async function runPlacementAgent(payload: AgentRunPayload, passedSupabase
   const bucket = Math.floor(Date.now() / (1000 * 60 * 2));
   const idempotencyKey = crypto
     .createHash("sha256")
-    .update(`${effectiveUserId}:${payload.triggerType}:${payload.entityId || "none"}:${payload.goalPrompt || ""}:${bucket}`)
+    .update(`${effectiveUserId}:${payload.triggerType}:${payload.entityId || "none"}:${payload.goalPrompt || ""}:${payload.focusedAction || ""}:${bucket}`)
     .digest("hex");
 
   const { data: existingRun } = await supabase
@@ -662,6 +662,7 @@ export async function runPlacementAgent(payload: AgentRunPayload, passedSupabase
       .maybeSingle();
 
     const resumeContext =
+      payload.parsedResume ||
       (payload as any).metadata?.resumeContext ||
       latestResumeRow?.parsed_data ||
       latestResumeRow ||
@@ -682,7 +683,13 @@ export async function runPlacementAgent(payload: AgentRunPayload, passedSupabase
       .update({ reasoning_trace: traceSteps, updated_at: new Date().toISOString() })
       .eq("id", createdRun.id);
 
-    const systemPrompt = buildAutonomousSystemPrompt(digitalTwin, resumeContext);
+    const baseSystemPrompt = buildAutonomousSystemPrompt(digitalTwin, resumeContext);
+    const systemPrompt = payload.focusedAction
+      ? `FOCUSED TASK ONLY: ${payload.userInstruction || payload.goalPrompt}\n\nStudent context:\n${baseSystemPrompt}`
+      : baseSystemPrompt;
+
+    const maxSteps = payload.focusedAction ? 2 : (payload.maxSteps || MAX_STEPS);
+
     const contents: any[] = [
       {
         role: "user",
@@ -701,7 +708,7 @@ Additional Metadata: ${JSON.stringify((payload as any).metadata || {})}`,
     let awaitingApproval = false;
     let finalSummaryText = "";
 
-    while (stepCount <= MAX_STEPS) {
+    while (stepCount <= maxSteps) {
       const llmStart = Date.now();
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,

@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
         entityId: body.entityId || "manual",
         goalPrompt: body.goalPrompt || "",
         metadata: body.metadata || {},
+        focusedAction: body.focusedAction,
+        userInstruction: body.userInstruction,
+        maxSteps: body.maxSteps,
+        parsedResume: body.parsedResume,
+        targetRole: body.targetRole,
       } as any,
       supabase
     );

@@ -54,6 +54,7 @@ export function IntegratedRobotNavigator() {
     clearAgentError,
     uploadResumeForRole,
     triggerAgent,
+    runFocusedAction,
     resolveApproval,
     resetWorkspaceToZero,
     openDrawer,
@@ -199,7 +200,7 @@ export function IntegratedRobotNavigator() {
               {isUploadingResume
                 ? `Scanning your PDF resume with Gemini for "${targetRole || customRoleInput}"...`
                 : isExecutingAgent
-                ? "Executing autonomous agent tools on your Supabase workspace..."
+                ? "Executing autonomous agent tools on your workspace..."
                 : !targetRole
                 ? "Step 1: Which role are you aspiring for? Pick or type your target role below so I know how to evaluate your resume."
                 : !hasExtractedResume
@@ -318,7 +319,7 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               disabled={isBusy}
-              onClick={handleScoutLiveJobs}
+              onClick={() => runFocusedAction("jobs")}
               className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
                 pathname?.includes("/tracker") || pathname?.includes("/jobs")
                   ? "border-cyan-400 bg-cyan-500/15"
@@ -335,7 +336,7 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               disabled={isBusy}
-              onClick={handleBuildReadinessSprint}
+              onClick={() => runFocusedAction("readiness")}
               className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition ${
                 pathname?.includes("/readiness")
                   ? "border-cyan-400 bg-cyan-500/15"
@@ -369,7 +370,10 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               disabled={isBusy}
-              onClick={() => router.push("/tracker")}
+              onClick={async () => {
+                await runFocusedAction("kanban");
+                router.push("/tracker");
+              }}
               className={`flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/80 p-3.5 text-left transition hover:border-cyan-500/50 ${
                 pathname?.includes("/tracker") ? "border-amber-400 bg-amber-500/10" : ""
               }`}

@@ -245,8 +245,10 @@ export default function DashboardPage() {
   })).filter((s) => s.label.length > 0);
 
   const projectsList =
-    parsedResume?.projects ||
+    (parsedResume?.projects && parsedResume.projects.length > 0 ? parsedResume.projects : null) ||
+    (parsedResume?.experience && parsedResume.experience.length > 0 ? parsedResume.experience : null) ||
     realResume?.projects ||
+    (realResume as any)?.experience ||
     [];
 
   const missingSkillsList = (
@@ -432,7 +434,13 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => router.push("/jobs")}
+                  onClick={() => {
+                    const targetRole =
+                      (typeof window !== "undefined"
+                        ? localStorage.getItem("copilot_selected_target_role")
+                        : null) || "Software Engineer";
+                    router.push(`/jobs?q=${encodeURIComponent(targetRole)}`);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-xs font-bold text-black shadow-lg hover:from-amber-400 hover:to-orange-400 transition-all cursor-pointer"
                 >
                   <Briefcase className="h-3.5 w-3.5" />
@@ -466,7 +474,9 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-indigo-500/20 bg-black/40 p-4">
                 <span className="text-xs text-slate-400 font-medium">Real Projects</span>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-cyan-300">{projectsList.length}</span>
+                  <span className="text-2xl font-bold text-cyan-300">
+                    {parsedResume?.projects?.length || parsedResume?.experience?.length || projectsList.length || 0}
+                  </span>
                 </div>
                 <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "2px" }}>
                   Extracted from experience

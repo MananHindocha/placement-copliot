@@ -565,11 +565,11 @@ export async function auto_seed_kanban_pipeline(
     success: true,
     summary:
       applications.length > 0
-        ? `Found ${applications.length} real ${targetRole} jobs matching your skills.`
-        : `Job search ran but returned no results for "${query}". Try broadening your target role.`,
+        ? `Seeded ${applications.length} real ${targetRole} jobs into your pipeline.`
+        : `No jobs found for "${query}". Check your job API keys in .env.local.`,
     data: {
       seededCount: applications.length,
-      roles: applications.map((a: any) => a.role),
+      roles: applications.map((a: any) => a.role || a.title),
       applications: applications, // ← full objects for AgentProvider to sync
     },
   };
