@@ -171,13 +171,15 @@ export default function Topbar() {
   const loadSearchAndAlertData = () => {
     try {
       const storedApps = getStoredApplications();
-      setApps(storedApps);
+      setApps(Array.isArray(storedApps) ? storedApps : []);
       const storedMilestones = getStoredReadinessMilestones();
-      setMilestones(storedMilestones);
+      setMilestones(Array.isArray(storedMilestones) ? storedMilestones : []);
       const resumeAnalysis = getStoredResumeWorkspace()?.analysis;
       setLatestResume(resumeAnalysis || null);
     } catch {
       // safe fallback
+      setApps([]);
+      setMilestones([]);
     }
   };
 
@@ -269,11 +271,11 @@ export default function Topbar() {
 
   const initials = profile?.fullName
     ? profile.fullName
-        .split(" ")
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase()
     : "AK";
 
   return (
@@ -365,7 +367,7 @@ export default function Topbar() {
                 <div className="space-y-2 max-h-72 overflow-y-auto">
                   {/* Real Scheduled Interview notification */}
                   {apps
-                    .filter((a) => a.status === "Interview" || a.status === "Phone Screen" || a.nextStepDate)
+                    .filter((a) => a && (a.status === "Interview" || a.status === "Phone Screen" || a.nextStepDate))
                     .slice(0, 2)
                     .map((app) => (
                       <div
@@ -377,20 +379,20 @@ export default function Topbar() {
                         className="p-2.5 rounded-xl bg-[#080A14] border border-[rgba(100,110,255,0.18)] hover:bg-[#151A35] cursor-pointer transition-all space-y-1"
                       >
                         <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-300">
-                          <span>{app.company}</span>
+                          <span>{String(app.company ?? "")}</span>
                           <span className="text-[10px] text-amber-300 font-normal">
-                            {app.nextStepDate || "Interview"}
+                            {String(app.nextStepDate || "Interview")}
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-300">
-                          {app.nextStep || `${app.title} - Round scheduled.`}
+                          {String(app.nextStep || `${app.title || "Role"} - Round scheduled.`)}
                         </p>
                       </div>
                     ))}
 
                   {/* High priority task reminder */}
                   {milestones
-                    .filter((m) => !m.completed && m.priority === "high")
+                    .filter((m) => m && !m.completed && m.priority === "high")
                     .slice(0, 2)
                     .map((m) => (
                       <div
@@ -405,7 +407,7 @@ export default function Topbar() {
                           <span>Goal Reminder</span>
                           <span className="text-[10px] text-rose-400">High Priority</span>
                         </div>
-                        <p className="text-[10px] text-slate-300 leading-snug">{m.title}</p>
+                        <p className="text-[10px] text-slate-300 leading-snug">{String(m.title ?? "")}</p>
                       </div>
                     ))}
 
@@ -420,10 +422,10 @@ export default function Topbar() {
                     >
                       <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
                         <span>Resume Diagnostic</span>
-                        <span className="text-[10px] text-emerald-400">{latestResume.matchScore}% Match</span>
+                        <span className="text-[10px] text-emerald-400">{String(latestResume.matchScore ?? 0)}% Match</span>
                       </div>
                       <p className="text-[10px] text-slate-300">
-                        ATS Score: {latestResume.atsScore}%. Ready for application tailoring.
+                        ATS Score: {String(latestResume.atsScore ?? 0)}%. Ready for application tailoring.
                       </p>
                     </div>
                   )}
@@ -742,82 +744,82 @@ export default function Topbar() {
               {apps.filter(
                 (a) =>
                   searchQuery.trim() &&
-                  ((a.company && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                    (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
+                  ((typeof a.company === "string" && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (typeof a.title === "string" && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
               ).length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
-                    Tracked Applications
-                  </p>
-                  <div className="space-y-1">
-                    {apps
-                      .filter(
-                        (a) =>
-                          searchQuery.trim() &&
-                          ((a.company && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                            (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
-                      )
-                      .slice(0, 4)
-                      .map((app) => (
-                        <button
-                          key={app.id}
-                          type="button"
-                          onClick={() => {
-                            setShowSearchModal(false);
-                            router.push("/tracker");
-                          }}
-                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-indigo-500/10 text-left transition-all"
-                        >
-                          <div>
-                            <p className="text-white font-medium">{app.company}</p>
-                            <p className="text-[10px] text-slate-400">{app.title}</p>
-                          </div>
-                          <span className="text-[10px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full">
-                            {app.status}
-                          </span>
-                        </button>
-                      ))}
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                      Tracked Applications
+                    </p>
+                    <div className="space-y-1">
+                      {apps
+                        .filter(
+                          (a) =>
+                            searchQuery.trim() &&
+                            ((typeof a.company === "string" && a.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                              (typeof a.title === "string" && a.title.toLowerCase().includes(searchQuery.toLowerCase())))
+                        )
+                        .slice(0, 4)
+                        .map((app) => (
+                          <button
+                            key={app.id}
+                            type="button"
+                            onClick={() => {
+                              setShowSearchModal(false);
+                              router.push("/tracker");
+                            }}
+                            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-indigo-500/10 text-left transition-all"
+                          >
+                            <div>
+                              <p className="text-white font-medium">{String(app.company ?? "")}</p>
+                              <p className="text-[10px] text-slate-400">{String(app.title ?? "")}</p>
+                            </div>
+                            <span className="text-[10px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full">
+                              {String(app.status ?? "")}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Readiness Milestones matching query */}
               {milestones.filter(
                 (m) =>
                   searchQuery.trim() &&
-                  m.title &&
+                  typeof m.title === "string" &&
                   m.title.toLowerCase().includes(searchQuery.toLowerCase())
               ).length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
-                    Readiness Goals
-                  </p>
-                  <div className="space-y-1">
-                    {milestones
-                      .filter(
-                        (m) =>
-                          searchQuery.trim() &&
-                          m.title &&
-                          m.title.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .slice(0, 3)
-                      .map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => {
-                            setShowSearchModal(false);
-                            router.push("/readiness");
-                          }}
-                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/10 text-left transition-all"
-                        >
-                          <span className="text-slate-300 truncate max-w-xs">{m.title}</span>
-                          <span className="text-[10px] text-slate-400">{m.completed ? "✓ Done" : "Pending"}</span>
-                        </button>
-                      ))}
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-1">
+                      Readiness Goals
+                    </p>
+                    <div className="space-y-1">
+                      {milestones
+                        .filter(
+                          (m) =>
+                            searchQuery.trim() &&
+                            typeof m.title === "string" &&
+                            m.title.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .slice(0, 3)
+                        .map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setShowSearchModal(false);
+                              router.push("/readiness");
+                            }}
+                            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/10 text-left transition-all"
+                          >
+                            <span className="text-slate-300 truncate max-w-xs">{String(m.title ?? "")}</span>
+                            <span className="text-[10px] text-slate-400">{m.completed ? "✓ Done" : "Pending"}</span>
+                          </button>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         </div>

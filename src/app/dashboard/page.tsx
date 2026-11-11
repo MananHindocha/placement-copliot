@@ -68,18 +68,29 @@ const ACTIVITY_COLORS: Record<string, string> = {
   readiness: "bg-sky-500/15 text-sky-400",
 };
 
-function toSkillLabel(item: any): string {
+function getSkillName(item: any): string {
   if (!item) return "";
   if (typeof item === "string") return item;
-  if (typeof item.name === "string") return item.name;
-  if (typeof item.skill_name === "string") return item.skill_name;
-  if (typeof item.skill === "string") return item.skill;
-  return JSON.stringify(item);
+  if (typeof item === "object") {
+    if (typeof item.name === "string") return item.name;
+    if (typeof item.skill_name === "string") return item.skill_name;
+    if (typeof item.skill === "string") return item.skill;
+    return "";
+  }
+  return String(item);
+}
+
+function getSkillBadge(item: any): string {
+  if (!item || typeof item !== "object") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
+function toSkillLabel(item: any): string {
+  return getSkillName(item);
 }
 
 function toSkillLevel(item: any): string {
-  if (!item || typeof item === "string") return "";
-  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+  return getSkillBadge(item);
 }
 
 export default function DashboardPage() {
@@ -229,8 +240,8 @@ export default function DashboardPage() {
     [];
 
   const skillsList = rawSkills.map((s) => ({
-    label: toSkillLabel(s),
-    level: toSkillLevel(s) || "UNVERIFIED",
+    label: getSkillName(s),
+    level: getSkillBadge(s) || "UNVERIFIED",
   })).filter((s) => s.label.length > 0);
 
   const projectsList =
@@ -238,10 +249,11 @@ export default function DashboardPage() {
     realResume?.projects ||
     [];
 
-  const missingSkillsList =
-    parsedResume?.missingSkillsForTargetRole?.map((m) => m.skill) ||
-    realResume?.missingRecommendedSkills ||
-    [];
+  const missingSkillsList = (
+    parsedResume?.missingSkillsForTargetRole?.map((m) => getSkillName(m.skill || m)) ||
+    realResume?.missingRecommendedSkills?.map((s) => getSkillName(s)) ||
+    []
+  ).filter(Boolean);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -572,7 +584,7 @@ export default function DashboardPage() {
                     key={idx}
                     className="rounded-xl bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-medium text-amber-300"
                   >
-                    + {typeof skill === "object" && skill !== null ? (skill as any).skill : String(skill)}
+                    + {getSkillName(skill)}
                   </span>
                 ))}
               </div>

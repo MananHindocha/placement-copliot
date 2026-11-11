@@ -20,18 +20,29 @@ import ResumeDiffApprovalCard from "@/components/agent/ResumeDiffApprovalCard";
 import { useAgent } from "@/context/AgentProvider";
 import { getStoredRealResume, type RealParsedResume } from "@/lib/storage-sync";
 
-function toSkillLabel(item: any): string {
+function getSkillName(item: any): string {
   if (!item) return "";
   if (typeof item === "string") return item;
-  if (typeof item.name === "string") return item.name;
-  if (typeof item.skill_name === "string") return item.skill_name;
-  if (typeof item.skill === "string") return item.skill;
-  return JSON.stringify(item);
+  if (typeof item === "object") {
+    if (typeof item.name === "string") return item.name;
+    if (typeof item.skill_name === "string") return item.skill_name;
+    if (typeof item.skill === "string") return item.skill;
+    return "";
+  }
+  return String(item);
+}
+
+function getSkillBadge(item: any): string {
+  if (!item || typeof item !== "object") return "";
+  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+}
+
+function toSkillLabel(item: any): string {
+  return getSkillName(item);
 }
 
 function toSkillLevel(item: any): string {
-  if (!item || typeof item === "string") return "";
-  return item.claimedLevel || item.verified_confidence || item.strength || item.level || "";
+  return getSkillBadge(item);
 }
 import {
   Upload,
