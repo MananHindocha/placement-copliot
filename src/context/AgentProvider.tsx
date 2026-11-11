@@ -94,6 +94,158 @@ const EMPTY_TWIN: StudentDigitalTwinSnapshot = {
   currentResumeSummary: { fileName: "No resume uploaded yet" },
 };
 
+function syncAgentToolResultsToLocalStorage(result: any) {
+  if (!result || typeof window === "undefined") return;
+
+  const run = result.run || result.agentRun || result;
+  const traceSteps: any[] =
+    run?.traceSteps ||
+    run?.reasoning_trace ||
+    run?.trace ||
+    result?.traceSteps ||
+    result?.trace ||
+    result?.reasoning_trace ||
+    [];
+
+  // Sync readiness tasks from agent to localStorage
+  const readinessTasks = traceSteps
+    .filter(
+      (step: any) =>
+        step &&
+        (step.toolName === "inject_readiness_sprint" || step.tool_name === "inject_readiness_sprint")
+    )
+    .flatMap(
+      (step: any) =>
+        step.output?.data?.tasks ||
+        step.data?.tasks ||
+        step.data?.sprintTasks ||
+        step.output?.tasks ||
+        step.tasks ||
+        []
+    );
+
+  if (Array.isArray(readinessTasks) && readinessTasks.length > 0) {
+    try {
+      const existing = JSON.parse(localStorage.getItem("copilot_readiness_tasks_v1") || "[]");
+      const existingIds = new Set(existing.map((t: any) => t.id));
+      const existingTitles = new Set(
+        existing.map((t: any) => String(t.title || "").trim().toLowerCase())
+      );
+
+      const formattedNewTasks = readinessTasks
+        .filter(
+          (t: any) =>
+            t &&
+            !existingIds.has(t.id) &&
+            !existingTitles.has(String(t.title || "").trim().toLowerCase())
+        )
+        .map((t: any, idx: number) => ({
+          id: t.id || `task-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          title: t.title || "Readiness Sprint Task",
+          description: t.description || t.reason || "Actionable milestone injected by agent.",
+          completed: false,
+          priority: ((t.priority || "high").toLowerCase() === "low"
+            ? "low"
+            : (t.priority || "high").toLowerCase() === "medium"
+            ? "medium"
+            : "high") as "high" | "medium" | "low",
+          category: (t.category || "skills").toLowerCase(),
+          dueDate: t.dueDate || "In 7 days",
+          createdAt: t.createdAt || new Date().toISOString(),
+        }));
+
+      if (formattedNewTasks.length > 0) {
+        localStorage.setItem(
+          "copilot_readiness_tasks_v1",
+          JSON.stringify([...existing, ...formattedNewTasks])
+        );
+      }
+    } catch (e) {
+      console.error("[AgentProvider] Failed to sync readiness tasks:", e);
+    }
+  }
+
+  // Sync seeded jobs from agent to localStorage
+  const seededApps = traceSteps
+    .filter(
+      (step: any) =>
+        step &&
+        (step.toolName === "auto_seed_kanban_pipeline" || step.tool_name === "auto_seed_kanban_pipeline")
+    )
+    .flatMap(
+      (step: any) =>
+        step.output?.data?.applications ||
+        step.data?.applications ||
+        step.output?.applications ||
+        step.applications ||
+        []
+    );
+
+  const appsToProcess =
+    Array.isArray(seededApps) && seededApps.length > 0
+      ? seededApps
+      : Array.isArray(result.digitalTwin?.activeApplications)
+      ? result.digitalTwin.activeApplications
+      : [];
+
+  if (Array.isArray(appsToProcess) && appsToProcess.length > 0) {
+    try {
+      const existing = JSON.parse(localStorage.getItem("copilot_applications_v1") || "[]");
+      const existingIds = new Set(existing.map((a: any) => a.id));
+      const existingKeys = new Set(
+        existing.map(
+          (a: any) =>
+            `${String(a.company || "").trim().toLowerCase()}::${String(a.title || "").trim().toLowerCase()}`
+        )
+      );
+
+      const formattedNewApps = appsToProcess
+        .filter((a: any) => {
+          if (!a) return false;
+          const key = `${String(a.company || a.company_name || "").trim().toLowerCase()}::${String(
+            a.title || ""
+          )
+            .trim()
+            .toLowerCase()}`;
+          return !existingIds.has(a.id) && !existingKeys.has(key);
+        })
+        .map((a: any, idx: number) => ({
+          id: a.id || `app-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          company: a.company || a.company_name || "Target Employer",
+          title: a.title || "Software Engineer",
+          logo:
+            a.logo ||
+            `https://logo.clearbit.com/${encodeURIComponent(
+              String(a.company || a.company_name || "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, "")
+            )}.com`,
+          status: a.status === "Saved" ? "Wishlist" : a.status || "Wishlist",
+          matchScore: typeof a.matchScore === "number" ? a.matchScore : 88,
+          priority: ((a.priority || "high").toLowerCase() === "low"
+            ? "low"
+            : (a.priority || "high").toLowerCase() === "medium"
+            ? "medium"
+            : "high") as "high" | "medium" | "low",
+          url: a.url || "https://remotive.com",
+          location: a.location || "Remote",
+          salary: a.salary || "Competitive",
+          notes: a.notes || "Live scouted by Placement Agent.",
+          createdAt: a.createdAt || a.created_at || new Date().toISOString(),
+        }));
+
+      if (formattedNewApps.length > 0) {
+        localStorage.setItem(
+          "copilot_applications_v1",
+          JSON.stringify([...existing, ...formattedNewApps])
+        );
+      }
+    } catch (e) {
+      console.error("[AgentProvider] Failed to sync applications:", e);
+    }
+  }
+}
+
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
 
 export function AgentProvider({ children }: { children: React.ReactNode }) {
@@ -240,6 +392,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
         if (json.agentRun) {
           setActiveRunState(json.agentRun);
+          syncAgentToolResultsToLocalStorage(json.agentRun);
         }
 
         // Refresh state in background without blocking the user
@@ -295,6 +448,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         if (json.digitalTwin) {
           setDigitalTwin(json.digitalTwin);
         }
+
+        // Sync readiness sprint tasks and seeded jobs from agent to localStorage
+        syncAgentToolResultsToLocalStorage(json);
+
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("copilot-data-updated"));
           window.dispatchEvent(new CustomEvent("agent-state-mutated"));
