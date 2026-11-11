@@ -435,7 +435,14 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   "unknownRequirements": [<requirements that can't be verified from profile>]
 }`;
 
-    const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash-001", "gemini-1.5-flash"];
+    const candidateModels = [
+      "gemini-3.5-flash",
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
+      "gemini-2.5-flash",
+    ];
     let res: Response | null = null;
     let lastErr = "";
 
@@ -519,8 +526,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     console.log("[Jobs Match] Gemini called successfully");
     return result;
   } catch (e) {
-    console.error("[Jobs Match] Gemini failed:", e);
-    throw e;
+    console.warn("[Jobs Match] Gemini scoring failed, falling back to heuristic:", e);
+    return null;
   }
 }
 
@@ -571,17 +578,20 @@ export async function POST(request: NextRequest) {
 
     const scoringPromises = uncachedJobs.map(async (job) => {
       if (hasApiKey) {
-        // Try Gemini; do NOT fall back to heuristic if apiKey is present
-        const geminiResult = await scoreWithGemini(
-          job, userSkills, userTargetRole, preferredLocation, preferredTypes
-        );
-        if (geminiResult) {
-          matchCache.set(getCacheKey(job.jobId), geminiResult);
-          return geminiResult;
+        try {
+          const geminiResult = await scoreWithGemini(
+            job, userSkills, userTargetRole, preferredLocation, preferredTypes
+          );
+          if (geminiResult) {
+            matchCache.set(getCacheKey(job.jobId), geminiResult);
+            return geminiResult;
+          }
+        } catch (err) {
+          console.warn("[Jobs Match] Unexpected error during Gemini scoring attempt:", err);
         }
       }
 
-      // Only fall back to heuristic if no API key is configured
+      // Gracefully fall back to deterministic heuristic scoring if Gemini fails, times out, or no API key
       const result = scoreHeuristic(
         job, userSkills, userTargetRole, preferredLocation, preferredTypes
       );
