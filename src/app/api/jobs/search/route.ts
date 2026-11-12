@@ -470,6 +470,147 @@ async function fetchRemoteOK(input: {
   }
 }
 
+// ─── Query Sanitization & Expansion ───────────────────────────────────────────
+
+interface ExpandedQueryInfo {
+  rawQuery: string;
+  cleanQuery: string;
+  isAiMlRole: boolean;
+  isDataRole: boolean;
+  isDevOpsRole: boolean;
+  isFrontendRole: boolean;
+  isBackendRole: boolean;
+  userSkills: string[];
+}
+
+function sanitizeAndExpandRoleQuery(rawQuery: string, rawSkills: string): ExpandedQueryInfo {
+  const trimmed = rawQuery.trim();
+  const isAiMlRole = /ai|ml|machine\s*learning|deep\s*learning|artificial\s*intelligence/i.test(trimmed);
+  const isDataRole = !isAiMlRole && /data|analytics|business\s*intelligence/i.test(trimmed);
+  const isDevOpsRole = /devops|cloud|sre|platform|infrastructure/i.test(trimmed);
+  const isFrontendRole = /frontend|front-end|react|web\s*developer/i.test(trimmed);
+  const isBackendRole = /backend|back-end/i.test(trimmed);
+
+  let cleanQuery = trimmed;
+  if (isAiMlRole) {
+    cleanQuery = "Machine Learning Engineer AI Engineer";
+  } else if (isDataRole) {
+    cleanQuery = "Data Engineer Data Analyst";
+  } else if (isDevOpsRole) {
+    cleanQuery = "DevOps Cloud Engineer";
+  } else if (isFrontendRole) {
+    cleanQuery = "Frontend React Developer";
+  } else if (isBackendRole) {
+    cleanQuery = "Backend Software Engineer";
+  } else if (trimmed) {
+    cleanQuery = trimmed.replace(/[\/&]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  let userSkills: string[] = [];
+  if (rawSkills) {
+    try {
+      if (rawSkills.startsWith("[")) {
+        userSkills = JSON.parse(rawSkills);
+      } else {
+        userSkills = rawSkills.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+    } catch {
+      userSkills = rawSkills.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  return {
+    rawQuery: trimmed,
+    cleanQuery: cleanQuery || "Software Engineer",
+    isAiMlRole,
+    isDataRole,
+    isDevOpsRole,
+    isFrontendRole,
+    isBackendRole,
+    userSkills,
+  };
+}
+
+// ─── Role-Based Post-Filter & Match Scoring ───────────────────────────────────
+
+const AI_REJECT_REGEX = /\b(\.net|c#|csharp|angular|php|wordpress|salesforce|sap|sharepoint|cobol)\b/i;
+const AI_BOOST_REGEX = /\b(ai|ml|machine\s*learning|deep\s*learning|data|nlp|llm|computer\s*vision|vision|python|pytorch|tensorflow|scikit|pandas|numpy|neural|generative\s*ai|rag|langchain)\b/i;
+
+function computeNonZeroMatchScore(job: NormalizedJobListing, info: ExpandedQueryInfo): number {
+  const title = job.title.toLowerCase();
+  const desc = (job.description || "").toLowerCase();
+  const jobSkills = (job.skills || []).map((s) => s.toLowerCase());
+
+  let skillScore = 0;
+  if (info.userSkills.length > 0) {
+    const matchedCount = info.userSkills.filter((sk) => {
+      const sLower = sk.toLowerCase();
+      return (
+        jobSkills.some((js) => js.includes(sLower) || sLower.includes(js)) ||
+        title.includes(sLower) ||
+        desc.includes(sLower)
+      );
+    }).length;
+    skillScore = (matchedCount / Math.max(1, Math.min(info.userSkills.length, 6))) * 50;
+  } else {
+    skillScore = 32;
+  }
+
+  let roleScore = 35;
+  if (info.isAiMlRole) {
+    if (/\b(machine\s*learning|ml|ai|deep\s*learning|nlp|llm|vision|data\s*scientist)\b/i.test(title)) {
+      roleScore += 30;
+    } else if (AI_BOOST_REGEX.test(title) || AI_BOOST_REGEX.test(desc)) {
+      roleScore += 18;
+    }
+  } else if (info.rawQuery) {
+    const terms = info.rawQuery.toLowerCase().split(/[\s/&-]+/).filter((t) => t.length > 2);
+    const matched = terms.filter((t) => title.includes(t) || desc.includes(t));
+    if (matched.length > 0) {
+      roleScore += (matched.length / terms.length) * 25;
+    }
+  }
+
+  let arrangementBonus = 5;
+  if (job.workArrangement === "remote" || job.workArrangement === "hybrid") {
+    arrangementBonus += 5;
+  }
+
+  return Math.min(96, Math.max(52, Math.round(skillScore + roleScore + arrangementBonus)));
+}
+
+function processAndFilterJobs(rawJobs: NormalizedJobListing[], info: ExpandedQueryInfo): NormalizedJobListing[] {
+  let filtered = rawJobs;
+
+  if (info.isAiMlRole) {
+    filtered = rawJobs.filter((job) => {
+      // Exclude titles with .net, c#, angular, php, etc.
+      if (AI_REJECT_REGEX.test(job.title)) return false;
+      // Prioritize / require some relevance if description or title has ai/ml/data/python
+      const combined = `${job.title} ${job.skills.join(" ")} ${(job.description || "").slice(0, 500)}`;
+      return AI_BOOST_REGEX.test(combined);
+    });
+
+    // If strict filter removed everything, keep jobs that don't have hard rejected keywords
+    if (filtered.length === 0) {
+      filtered = rawJobs.filter((job) => !AI_REJECT_REGEX.test(job.title));
+    }
+  }
+
+  // Ensure every job computes a non-zero matchScore (1-100)
+  const scored = filtered.map((job) => {
+    const score = computeNonZeroMatchScore(job, info);
+    return {
+      ...job,
+      matchScore: score,
+    };
+  });
+
+  // Sort highest matchScore first
+  scored.sort((a, b) => b.matchScore - a.matchScore);
+  return scored;
+}
+
 export async function GET(request: NextRequest) {
   const jwebninjaKey = sanitizeKey(
     process.env.OPENWEBNINJA_API_KEY ||
@@ -490,7 +631,21 @@ export async function GET(request: NextRequest) {
     remoteok: true, // no key needed
   });
 
-  const query = text(request.nextUrl.searchParams.get("q")).slice(0, 120);
+  const rawQuery = text(
+    request.nextUrl.searchParams.get("q") ||
+    request.nextUrl.searchParams.get("query") ||
+    request.nextUrl.searchParams.get("role") ||
+    request.nextUrl.searchParams.get("search") ||
+    ""
+  ).slice(0, 120);
+  const rawSkills = text(
+    request.nextUrl.searchParams.get("skills") ||
+    request.nextUrl.searchParams.get("userSkills") ||
+    ""
+  );
+
+  const queryInfo = sanitizeAndExpandRoleQuery(rawQuery, rawSkills);
+  const query = queryInfo.cleanQuery;
   const location = text(request.nextUrl.searchParams.get("location")).slice(0, 120);
   const arrangement = text(request.nextUrl.searchParams.get("arrangement")).toLowerCase();
   const postedWithin = text(request.nextUrl.searchParams.get("postedWithin"));
@@ -520,7 +675,8 @@ export async function GET(request: NextRequest) {
       });
       if (ninjaRes && ninjaRes.jobs && ninjaRes.jobs.length > 0) {
         console.log(`[Jobs] JWebNinja: ${ninjaRes.jobs.length} jobs`);
-        const jobList = limit > 0 ? ninjaRes.jobs.slice(0, limit) : ninjaRes.jobs;
+        const processed = processAndFilterJobs(ninjaRes.jobs, queryInfo);
+        const jobList = limit > 0 ? processed.slice(0, limit) : processed;
         return NextResponse.json({
           jobs: jobList,
           results: jobList,
@@ -553,7 +709,8 @@ export async function GET(request: NextRequest) {
       });
       if (himalayasRes && himalayasRes.jobs && himalayasRes.jobs.length > 0) {
         console.log(`[Jobs] Himalaya: ${himalayasRes.jobs.length} jobs`);
-        const jobList = limit > 0 ? himalayasRes.jobs.slice(0, limit) : himalayasRes.jobs;
+        const processed = processAndFilterJobs(himalayasRes.jobs, queryInfo);
+        const jobList = limit > 0 ? processed.slice(0, limit) : processed;
         return NextResponse.json({
           jobs: jobList,
           results: jobList,
@@ -579,7 +736,8 @@ export async function GET(request: NextRequest) {
       const adzunaRes = await fetchAdzuna({ query, location });
       if (adzunaRes && adzunaRes.jobs && adzunaRes.jobs.length > 0) {
         console.log(`[Jobs] Adzuna: ${adzunaRes.jobs.length} jobs`);
-        const jobList = limit > 0 ? adzunaRes.jobs.slice(0, limit) : adzunaRes.jobs;
+        const processed = processAndFilterJobs(adzunaRes.jobs, queryInfo);
+        const jobList = limit > 0 ? processed.slice(0, limit) : processed;
         return NextResponse.json({
           jobs: jobList,
           results: jobList,
@@ -604,7 +762,8 @@ export async function GET(request: NextRequest) {
     const remoteOkRes = await fetchRemoteOK({ query });
     if (remoteOkRes && remoteOkRes.jobs && remoteOkRes.jobs.length > 0) {
       console.log(`[Jobs] RemoteOK: ${remoteOkRes.jobs.length} jobs`);
-      const jobList = limit > 0 ? remoteOkRes.jobs.slice(0, limit) : remoteOkRes.jobs;
+      const processed = processAndFilterJobs(remoteOkRes.jobs, queryInfo);
+      const jobList = limit > 0 ? processed.slice(0, limit) : processed;
       return NextResponse.json({
         jobs: jobList,
         results: jobList,

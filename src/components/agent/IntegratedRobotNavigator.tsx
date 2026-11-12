@@ -33,6 +33,75 @@ interface LiveScoutedJob {
   deadlineDate: string;
 }
 
+interface RoleSearchConfig {
+  searchQueries: string[];
+  requiredKeywords: string[];
+  rejectedKeywords: string[];
+}
+
+function buildRoleSearchConfig(role: string): RoleSearchConfig {
+  const r = (role || "").toLowerCase();
+  if (/ai|ml|machine\s*learning|deep\s*learning|artificial\s*intelligence/i.test(r)) {
+    return {
+      searchQueries: [
+        "machine learning engineer",
+        "ai engineer",
+        "data scientist",
+        "deep learning engineer",
+      ],
+      requiredKeywords: [
+        "ai",
+        "ml",
+        "machine learning",
+        "deep learning",
+        "nlp",
+        "llm",
+        "vision",
+        "data",
+        "python",
+        "pytorch",
+        "tensorflow",
+        "neural",
+        "rag",
+      ],
+      rejectedKeywords: [".net", "c#", "csharp", "angular", "php", "wordpress", "salesforce", "sap", "sharepoint"],
+    };
+  }
+  if (/data|analytics/i.test(r)) {
+    return {
+      searchQueries: ["data engineer", "analytics engineer", "data analyst"],
+      requiredKeywords: ["data", "sql", "etl", "python", "analytics", "pipeline", "warehouse", "spark", "bi"],
+      rejectedKeywords: [".net", "c#", "angular", "php", "wordpress"],
+    };
+  }
+  if (/devops|cloud|sre/i.test(r)) {
+    return {
+      searchQueries: ["devops engineer", "cloud engineer", "site reliability engineer", "platform engineer"],
+      requiredKeywords: ["devops", "cloud", "aws", "kubernetes", "docker", "terraform", "ci/cd", "linux"],
+      rejectedKeywords: ["wordpress", "php"],
+    };
+  }
+  if (/frontend|front-end/i.test(r)) {
+    return {
+      searchQueries: ["frontend engineer", "react developer", "frontend developer"],
+      requiredKeywords: ["frontend", "front-end", "react", "typescript", "javascript", "next.js", "css", "html", "web"],
+      rejectedKeywords: ["c#", ".net", "embedded", "firmware"],
+    };
+  }
+  if (/backend|back-end/i.test(r)) {
+    return {
+      searchQueries: ["backend software engineer", "backend developer", "software engineer"],
+      requiredKeywords: ["backend", "back-end", "api", "node", "python", "go", "java", "sql", "database"],
+      rejectedKeywords: ["wordpress", "drupal"],
+    };
+  }
+  return {
+    searchQueries: [role.replace(/[\/&]+/g, " ").replace(/\s+/g, " ").trim() || "software engineer"],
+    requiredKeywords: [],
+    rejectedKeywords: [".net", "c#"],
+  };
+}
+
 export function IntegratedRobotNavigator() {
   const router = useRouter();
   const pathname = usePathname();
@@ -40,6 +109,7 @@ export function IntegratedRobotNavigator() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastSyncRef = useRef<string>("");
   const [isDuplicateInstance, setIsDuplicateInstance] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const {
     digitalTwin,
@@ -59,6 +129,8 @@ export function IntegratedRobotNavigator() {
   const [scoutedJobs, setScoutedJobs] = useState<LiveScoutedJob[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  const isDashboard = pathname === "/dashboard";
+
   useEffect(() => {
     if (typeof document === "undefined" || !containerRef.current) return;
     const allNavigators = document.querySelectorAll('[data-robot-navigator="singleton"]');
@@ -67,7 +139,7 @@ export function IntegratedRobotNavigator() {
     }
   }, [pathname]);
 
-  // Keep legacy storage-sync.ts unified whenever parsedResume updates so /resume never crashes on undefined[0]
+  // Keep storage-sync.ts unified whenever parsedResume updates so /resume never crashes
   useEffect(() => {
     if (!parsedResume) return;
     const syncKey = `${uploadedFileName}::${targetRole}::${parsedResume.candidateName}::${parsedResume.atsScore}::${(parsedResume.extractedSkills || []).length}`;
@@ -76,15 +148,28 @@ export function IntegratedRobotNavigator() {
 
     try {
       const skillNames = (parsedResume.extractedSkills || []).map((s: any) =>
-        typeof s === "string" ? s : String(s?.name || "")
-      );
+        typeof s === "string" ? s : String(s?.name || s?.skill_name || s?.skill || "")
+      ).filter(Boolean);
+
       const missingNames = (parsedResume.missingSkillsForTargetRole || []).map((m: any) =>
         typeof m === "string" ? m : String(m?.skill || "")
-      );
+      ).filter(Boolean);
 
       const fullKeywords = [
-        ...skillNames.map((w: string) => ({ word: w, present: true, importance: "high" as const })),
-        ...missingNames.map((w: string) => ({ word: w, present: false, importance: "high" as const })),
+        ...skillNames.map((w: string) => ({
+          word: w,
+          keyword: w,
+          present: true,
+          found: true,
+          importance: "high" as const,
+        })),
+        ...missingNames.map((w: string) => ({
+          word: w,
+          keyword: w,
+          present: false,
+          found: false,
+          importance: "high" as const,
+        })),
       ];
 
       const fullAnalysis = {
@@ -94,8 +179,13 @@ export function IntegratedRobotNavigator() {
         company: "Target Roles",
         candidateName: parsedResume.candidateName || "Candidate",
         strengths: skillNames.slice(0, 5).map((name: string) => `${name}: Verified in resume`),
+        weaknesses: missingNames.map((m: string) => `${m}: Skill gap for ${targetRole || "target role"}`),
+        missingKeywords: missingNames,
         gaps: (parsedResume.missingSkillsForTargetRole || []).map(
-          (m: any) => `${m.skill || m}: ${m.reason || "Recommended for " + (targetRole || "role")}`
+          (m: any) =>
+            typeof m === "string"
+              ? m
+              : `${m?.skill || m}: ${m?.reason || "Recommended for " + (targetRole || "role")}`
         ),
         suggestions: (parsedResume.bulletImprovements || []).map((b: any, idx: number) => ({
           id: `sug-${idx + 1}`,
@@ -112,7 +202,11 @@ export function IntegratedRobotNavigator() {
           format: parsedResume.atsScore || 80,
           impact: 75,
           style: 80,
+          skills: Math.min(100, Math.max(50, skillNames.length * 10)),
+          experience: 75,
+          education: 85,
         },
+        improvements: (parsedResume.bulletImprovements || []).map((b: any) => String(b?.proposedBullet || "")),
         skills: skillNames,
         extractedSkills: skillNames,
         projects: parsedResume.projects || [],
@@ -125,10 +219,13 @@ export function IntegratedRobotNavigator() {
       };
 
       const fullEditableResume = {
-        fileName: uploadedFileName || "Uploaded_Resume.pdf",
+        name:
+          parsedResume.candidateName ||
+          (uploadedFileName || "Candidate").replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " "),
         candidateName:
           parsedResume.candidateName ||
           (uploadedFileName || "Candidate").replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " "),
+        fileName: uploadedFileName || "Uploaded_Resume.pdf",
         email: "",
         phone: "",
         location: "Remote / Hybrid",
@@ -151,6 +248,7 @@ export function IntegratedRobotNavigator() {
         projects: (parsedResume.projects || []).map((p: any, i: number) => ({
           id: `proj-${i + 1}`,
           title: String(p?.name || "Technical Project"),
+          name: String(p?.name || "Technical Project"),
           subtitle: Array.isArray(p?.techStack) ? p.techStack.join(", ") : "Technologies Used",
           dateRange: "Recent",
           bullets: (Array.isArray(p?.bullets) ? p.bullets : []).map((text: any, bIdx: number) => ({
@@ -220,70 +318,103 @@ export function IntegratedRobotNavigator() {
     await uploadResumeForRole(file, roleToUse);
   };
 
-  // OPTION 1: Directly fetch live jobs similar to Target Role + Resume Skills & sync to Kanban
+  // OPTION 1: Smart Role Expansion & Strict Filtering in handleScoutSimilarJobsNow
   const handleScoutSimilarJobsNow = async () => {
-    const roleQuery = (targetRole || customRoleInput || "Software Engineer").trim();
+    const roleToScout = (targetRole || customRoleInput || "Software Engineer").trim();
+    const config = buildRoleSearchConfig(roleToScout);
     setIsScoutingJobs(true);
-    setStatusMessage(`Scouting live jobs matching "${roleQuery}" and your extracted resume skills...`);
+    setStatusMessage(`Scouting verified live openings for "${roleToScout}" matching your skills...`);
 
     try {
-      const userSkillNames = extractedSkillsList.map((s: any) =>
-        typeof s === "string" ? s : String(s?.name || s?.skill_name || "")
-      );
+      const userSkillNames = extractedSkillsList
+        .map((s: any) => (typeof s === "string" ? s : String(s?.name || s?.skill_name || s?.skill || "")))
+        .filter(Boolean);
 
       let rawJobs: any[] = [];
 
-      // 1. Try internal /api/jobs/search first if available
-      try {
-        const internalRes = await fetch(
-          `/api/jobs/search?query=${encodeURIComponent(roleQuery)}&role=${encodeURIComponent(roleQuery)}`
-        );
-        if (internalRes.ok) {
-          const internalJson = await internalRes.json();
-          if (Array.isArray(internalJson?.jobs) && internalJson.jobs.length > 0) {
-            rawJobs = internalJson.jobs;
-          } else if (Array.isArray(internalJson) && internalJson.length > 0) {
-            rawJobs = internalJson;
+      // 1. Query internal /api/jobs/search with all search queries from config
+      for (const q of config.searchQueries) {
+        if (rawJobs.length >= 10) break;
+        try {
+          const internalRes = await fetch(
+            `/api/jobs/search?q=${encodeURIComponent(q)}&query=${encodeURIComponent(
+              q
+            )}&role=${encodeURIComponent(roleToScout)}&skills=${encodeURIComponent(userSkillNames.join(","))}`
+          );
+          if (internalRes.ok) {
+            const internalJson = await internalRes.json();
+            const jobsArr = Array.isArray(internalJson?.jobs)
+              ? internalJson.jobs
+              : Array.isArray(internalJson?.results)
+              ? internalJson.results
+              : Array.isArray(internalJson)
+              ? internalJson
+              : [];
+            if (jobsArr.length > 0) {
+              rawJobs.push(...jobsArr);
+            }
           }
-        }
-      } catch {
-        // Fallback to Remotive public API below
-      }
-
-      // 2. If internal route returned 0 jobs, query Remotive Live API directly
-      if (rawJobs.length === 0) {
-        const remotiveRes = await fetch(
-          `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(roleQuery)}&limit=10`
-        );
-        if (remotiveRes.ok) {
-          const remotiveJson = await remotiveRes.json();
-          if (Array.isArray(remotiveJson?.jobs)) {
-            rawJobs = remotiveJson.jobs;
-          }
+        } catch {
+          // Continue to next query / Remotive
         }
       }
 
-      // 3. Broaden search keyword if role string was too specific (e.g. "Full-Stack Engineer" -> "developer")
-      if (rawJobs.length === 0) {
-        const broadKeyword = roleQuery.split(/[\s/-]+/)[0] || "software";
-        const broadRes = await fetch(
-          `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(broadKeyword)}&limit=8`
-        );
-        if (broadRes.ok) {
-          const broadJson = await broadRes.json();
-          if (Array.isArray(broadJson?.jobs)) {
-            rawJobs = broadJson.jobs;
+      // 2. Query Remotive API with clean queries
+      if (rawJobs.length < 5) {
+        for (const q of config.searchQueries.slice(0, 2)) {
+          try {
+            const remotiveRes = await fetch(
+              `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(q)}&limit=10`
+            );
+            if (remotiveRes.ok) {
+              const remotiveJson = await remotiveRes.json();
+              if (Array.isArray(remotiveJson?.jobs)) {
+                rawJobs.push(...remotiveJson.jobs);
+              }
+            }
+          } catch {
+            // Remotive error
           }
         }
       }
 
+      // 3. Strict filtering against rejected and required keywords
+      const dedupeMap = new Map<string, any>();
+      for (const j of rawJobs) {
+        const title = String(j.title || "").toLowerCase();
+        const desc = String(j.description || "").toLowerCase();
+        const company = String(j.company_name || j.company || "").toLowerCase();
+        const key = `${company}::${title}`;
+        if (dedupeMap.has(key)) continue;
+
+        // Reject forbidden keywords (e.g. .net, c#, angular, php for AI/ML)
+        const isRejected = config.rejectedKeywords.some((rej) => {
+          const regex = new RegExp(`\\b${rej.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+          return regex.test(title);
+        });
+        if (isRejected) continue;
+
+        // If required keywords exist, title or desc or tags must match at least one
+        if (config.requiredKeywords.length > 0) {
+          const jobTags = Array.isArray(j.tags) ? j.tags.join(" ").toLowerCase() : "";
+          const jobSkills = Array.isArray(j.skills) ? j.skills.join(" ").toLowerCase() : "";
+          const fullText = `${title} ${jobTags} ${jobSkills} ${desc.slice(0, 400)}`;
+          const hasRequired = config.requiredKeywords.some((req) => fullText.includes(req.toLowerCase()));
+          if (!hasRequired) continue;
+        }
+
+        dedupeMap.set(key, j);
+      }
+
+      const filteredRawJobs = Array.from(dedupeMap.values());
       const now = Date.now();
-      const mappedJobs: LiveScoutedJob[] = rawJobs.slice(0, 6).map((j: any, index: number) => {
+
+      const mappedJobs: LiveScoutedJob[] = filteredRawJobs.slice(0, 6).map((j: any, index: number) => {
         const jobTags: string[] = Array.isArray(j.tags)
           ? j.tags.map(String)
           : Array.isArray(j.skills)
           ? j.skills.map(String)
-          : ["TypeScript", "React", "Node.js", "SQL"];
+          : ["Python", "Machine Learning", "Git", "SQL"];
 
         const matched = jobTags.filter((tag) =>
           userSkillNames.some(
@@ -291,21 +422,27 @@ export function IntegratedRobotNavigator() {
           )
         );
         const missing = jobTags.filter((tag) => !matched.includes(tag)).slice(0, 3);
-        const score =
-          jobTags.length > 0
-            ? Math.min(96, Math.max(68, Math.round((matched.length / jobTags.length) * 100) + 55))
-            : 82;
+
+        // Honest matchScore calculation:
+        const titleLower = String(j.title || "").toLowerCase();
+        let titleBonus = 0;
+        if (config.requiredKeywords.some((k) => titleLower.includes(k))) {
+          titleBonus = 25;
+        }
+        const skillRatio = (matched.length / Math.max(1, Math.min(jobTags.length, 5))) * 50;
+        const baseScore = 20;
+        const honestScore = Math.min(95, Math.max(55, Math.round(baseScore + skillRatio + titleBonus)));
 
         const deadline = new Date(now + (index + 2) * 86400000).toISOString().split("T")[0];
 
         return {
           id: String(j.id || `live-job-${index}-${Date.now()}`),
           company: String(j.company_name || j.company || "Tech Company"),
-          title: String(j.title || roleQuery),
+          title: String(j.title || roleToScout),
           location: String(j.candidate_required_location || j.location || "Remote / Hybrid"),
           salary: String(j.salary || "Competitive CTC"),
-          url: String(j.url || j.applyUrl || "https://remotive.com"),
-          matchScore: score,
+          url: String(j.url || j.applyUrl || j.link || "https://remotive.com"),
+          matchScore: honestScore,
           matchedSkills: matched.length > 0 ? matched.slice(0, 4) : userSkillNames.slice(0, 3),
           missingSkills: missing,
           deadlineDate: deadline,
@@ -328,14 +465,14 @@ export function IntegratedRobotNavigator() {
             company: job.company,
             title: job.title,
             status: "Saved",
-            priority: job.matchScore >= 85 ? "high" : "medium",
+            priority: job.matchScore >= 80 ? "high" : "medium",
             location: job.location,
             salary: job.salary,
             url: job.url,
             matchScore: job.matchScore,
             nextStep: `Apply before ${job.deadlineDate}`,
             nextStepDate: job.deadlineDate,
-            notes: `Auto-scouted by Robot Agent for ${roleQuery} (${job.matchScore}% match).`,
+            notes: `Auto-scouted for ${roleToScout} (${job.matchScore}% Match).`,
             updatedAt: new Date().toISOString(),
           }));
 
@@ -345,14 +482,14 @@ export function IntegratedRobotNavigator() {
         }
 
         setStatusMessage(
-          `Scouted ${mappedJobs.length} live "${roleQuery}" jobs and added them to your Kanban pipeline with deadlines!`
+          `Scouted ${mappedJobs.length} role-relevant "${roleToScout}" jobs and synced to your Kanban tracker!`
         );
       } else {
-        setStatusMessage(`No live remote jobs returned for "${roleQuery}". Opening Job Discovery page...`);
-        router.push(`/jobs?role=${encodeURIComponent(roleQuery)}`);
+        setStatusMessage(`No remote "${roleToScout}" jobs found right now. Opening Job Discovery page...`);
+        router.push(`/jobs?role=${encodeURIComponent(roleToScout)}`);
       }
     } catch (err: any) {
-      setStatusMessage(`Could not reach live job feed (${err?.message || "network error"}). Opening Job Discovery...`);
+      setStatusMessage(`Job feed error (${err?.message || "network error"}). Opening Job Discovery...`);
       router.push("/jobs");
     } finally {
       setIsScoutingJobs(false);
@@ -388,22 +525,95 @@ export function IntegratedRobotNavigator() {
     router.push("/readiness");
   };
 
+  // ── SUB-PAGE COMPACT 1-LINE CONTEXT BAR ──────────────────────────────────────
+  if (!isDashboard && !isExpanded) {
+    return (
+      <section
+        ref={containerRef}
+        data-robot-navigator="singleton"
+        className="w-full bg-[#0B0C12] border border-white/[0.07] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-[#F5F6FF]"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-[#11131C]">
+            <span className="text-sm">🤖</span>
+          </div>
+          <div className="flex items-center gap-2 truncate text-xs">
+            <span className="font-semibold text-white truncate">Agent Context:</span>
+            {targetRole ? (
+              <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 font-medium text-indigo-300">
+                {targetRole}
+              </span>
+            ) : (
+              <span className="text-[#8E93A6]">No role selected</span>
+            )}
+            {uploadedFileName && (
+              <span className="hidden sm:inline-flex rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-300 truncate max-w-[150px]">
+                📄 {uploadedFileName}
+              </span>
+            )}
+            {hasExtractedResume && (
+              <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-400">
+                {atsScore}% Fit
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleScoutSimilarJobsNow}
+            disabled={isScoutingJobs}
+            className="rounded-lg border border-white/[0.08] bg-[#11131C] px-2.5 py-1 text-xs font-medium text-[#F5F6FF] hover:border-white/[0.16] hover:bg-[#181B26] transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {isScoutingJobs ? "Scouting..." : "Scout Jobs"}
+          </button>
+          <button
+            type="button"
+            onClick={handleBuildStudyPlanNow}
+            className="rounded-lg border border-white/[0.08] bg-[#11131C] px-2.5 py-1 text-xs font-medium text-[#F5F6FF] hover:border-white/[0.16] hover:bg-[#181B26] transition-colors cursor-pointer"
+          >
+            Study Plan
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              resetWorkspaceToZero();
+              router.push("/dashboard");
+            }}
+            className="text-xs text-[#8E93A6] hover:text-white transition-colors cursor-pointer px-1.5 py-1"
+          >
+            Change Role
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-xs font-medium text-[#8E93A6] hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+          >
+            Expand ▾
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  // ── FULL AGENT CARD (Dashboard or Expanded Sub-Page) ─────────────────────────
   return (
     <section
       ref={containerRef}
       data-robot-navigator="singleton"
-      className="w-full rounded-xl border border-[#1D1D1D] bg-[#080808] p-5 sm:p-6 text-[#F5F5F5]"
+      className="w-full rounded-2xl border border-white/[0.07] bg-[#0B0C12] p-5 sm:p-6 text-[#F5F6FF]"
     >
       {agentError && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[#F43F5E]/30 bg-[#F43F5E]/10 px-4 py-3 text-xs sm:text-sm text-[#F5F5F5]">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs sm:text-sm text-[#F5F6FF]">
           <div>
-            <span className="font-semibold text-[#F43F5E]">Agent Alert: </span>
+            <span className="font-semibold text-rose-400">Agent Alert: </span>
             <span>{agentError}</span>
           </div>
           <button
             type="button"
             onClick={clearAgentError}
-            className="ml-4 shrink-0 rounded-lg border border-[#F43F5E]/30 bg-[#121212] px-3 py-1 text-xs font-medium text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+            className="ml-4 shrink-0 rounded-lg border border-rose-500/30 bg-[#11131C] px-3 py-1 text-xs font-medium text-[#F5F6FF] hover:bg-[#181B26] transition-colors cursor-pointer"
           >
             Dismiss
           </button>
@@ -411,12 +621,12 @@ export function IntegratedRobotNavigator() {
       )}
 
       {statusMessage && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[#1D1D1D] bg-[#0D0D0D] px-4 py-2.5 text-xs text-[#A1A1AA]">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#11131C] px-4 py-2.5 text-xs text-[#8E93A6]">
           <span>🤖 {statusMessage}</span>
           <button
             type="button"
             onClick={() => setStatusMessage(null)}
-            className="ml-3 text-[#71717A] hover:text-[#F5F5F5] transition-colors cursor-pointer"
+            className="ml-3 text-[#636779] hover:text-[#F5F6FF] transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -427,21 +637,21 @@ export function IntegratedRobotNavigator() {
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">
           <div
-            className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border bg-[#121212] transition-colors ${
+            className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border bg-[#11131C] transition-colors ${
               isUploadingResume || isScoutingJobs
-                ? "border-[#F59E0B]/40 animate-pulse"
+                ? "border-amber-500/40 animate-pulse"
                 : hasExtractedResume
-                ? "border-[#292929]"
-                : "border-[#292929]"
+                ? "border-emerald-500/30"
+                : "border-white/[0.08]"
             }`}
           >
             <svg
               className={`h-6 w-6 ${
                 isUploadingResume || isScoutingJobs
-                  ? "text-[#F59E0B]"
+                  ? "text-amber-400"
                   : hasExtractedResume
-                  ? "text-[#10B981]"
-                  : "text-[#A78BFA]"
+                  ? "text-emerald-400"
+                  : "text-indigo-400"
               }`}
               viewBox="0 0 24 24"
               fill="none"
@@ -459,22 +669,22 @@ export function IntegratedRobotNavigator() {
 
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white">
                 Autonomous Placement Agent
               </span>
               {targetRole && (
-                <span className="rounded-md border border-[#292929] bg-[#121212] px-2.5 py-0.5 text-xs font-medium text-[#F5F5F5]">
+                <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-0.5 text-xs font-medium text-indigo-300">
                   Target Role: {targetRole}
                 </span>
               )}
               {uploadedFileName && (
-                <span className="rounded-md border border-[#10B981]/25 bg-[#10B981]/10 px-2.5 py-0.5 text-xs font-medium text-[#10B981]">
+                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
                   Resume: {uploadedFileName}
                 </span>
               )}
             </div>
 
-            <p className="text-sm font-medium text-[#A1A1AA] leading-relaxed">
+            <p className="text-sm font-medium text-[#8E93A6] leading-relaxed">
               {isUploadingResume
                 ? `Extracting skills & projects from your PDF for "${targetRole || customRoleInput}"...`
                 : isScoutingJobs
@@ -488,31 +698,42 @@ export function IntegratedRobotNavigator() {
           </div>
         </div>
 
-        {(targetRole || hasExtractedResume) && (
-          <button
-            type="button"
-            onClick={() => {
-              setScoutedJobs([]);
-              setStatusMessage(null);
-              resetWorkspaceToZero();
-            }}
-            className="rounded-lg border border-[#292929] bg-[#121212] px-3.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:border-[#3A3A3A] hover:bg-[#1A1A1A] hover:text-[#F5F5F5] transition-colors duration-150 cursor-pointer self-end lg:self-center shrink-0 focus:outline-none focus:ring-1 focus:ring-[#292929]"
-          >
-            Change Role / Upload New Resume
-          </button>
-        )}
+        <div className="flex items-center gap-2 self-end lg:self-center shrink-0">
+          {(targetRole || hasExtractedResume) && (
+            <button
+              type="button"
+              onClick={() => {
+                setScoutedJobs([]);
+                setStatusMessage(null);
+                resetWorkspaceToZero();
+              }}
+              className="rounded-lg border border-white/[0.08] bg-[#11131C] px-3.5 py-1.5 text-xs font-medium text-[#8E93A6] hover:border-white/[0.16] hover:bg-[#181B26] hover:text-[#F5F6FF] transition-colors cursor-pointer"
+            >
+              Change Role / Upload New Resume
+            </button>
+          )}
+          {!isDashboard && isExpanded && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#8E93A6] hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+            >
+              Collapse ▴
+            </button>
+          )}
+        </div>
       </div>
 
       {/* STEP 1: TARGET ROLE PICKER */}
       {!targetRole && (
-        <div className="mt-5 space-y-3 border-t border-[#171717] pt-4">
+        <div className="mt-5 space-y-3 border-t border-white/[0.06] pt-4">
           <div className="flex flex-wrap gap-2">
             {ROLE_PRESETS.map((role) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => handleSelectRole(role)}
-                className="cursor-pointer rounded-lg border border-[#1D1D1D] bg-[#0D0D0D] px-3.5 py-2 text-xs font-medium text-[#A1A1AA] transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] hover:text-[#F5F5F5] focus:outline-none focus:ring-1 focus:ring-[#292929]"
+                className="cursor-pointer rounded-lg border border-white/[0.07] bg-[#11131C] px-3.5 py-2 text-xs font-medium text-[#8E93A6] transition-colors hover:border-white/[0.15] hover:bg-[#181B26] hover:text-[#F5F6FF]"
               >
                 {role}
               </button>
@@ -524,14 +745,14 @@ export function IntegratedRobotNavigator() {
               type="text"
               value={customRoleInput}
               onChange={(e) => setCustomRoleInput(e.target.value)}
-              placeholder="Or type any custom role (e.g. Backend SDE, Data Analyst)..."
-              className="flex-1 rounded-lg border border-[#1D1D1D] bg-[#0D0D0D] px-3.5 py-2 text-sm text-[#F5F5F5] placeholder-[#71717A] transition-colors focus:border-[#292929] focus:bg-[#121212] focus:outline-none"
+              placeholder="Or type any custom role (e.g. Backend SDE, AI Engineer)..."
+              className="flex-1 rounded-lg border border-white/[0.08] bg-[#11131C] px-3.5 py-2 text-sm text-[#F5F6FF] placeholder-[#636779] transition-colors focus:border-indigo-500/50 focus:bg-[#151824] focus:outline-none"
             />
             <button
               type="button"
               disabled={!customRoleInput.trim()}
               onClick={() => handleSelectRole(customRoleInput.trim())}
-              className="cursor-pointer rounded-lg border border-[#F5F5F5] bg-[#F5F5F5] px-4 py-2 text-sm font-semibold text-[#000000] transition-colors duration-150 hover:bg-[#E4E4E7] active:bg-[#D4D4D8] disabled:opacity-40 disabled:pointer-events-none shrink-0"
+              className="cursor-pointer rounded-lg border border-indigo-500/40 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:pointer-events-none shrink-0"
             >
               Set Target Role →
             </button>
@@ -541,7 +762,7 @@ export function IntegratedRobotNavigator() {
 
       {/* STEP 2: PDF RESUME UPLOAD */}
       {targetRole && !hasExtractedResume && (
-        <div className="mt-5 border-t border-[#171717] pt-4">
+        <div className="mt-5 border-t border-white/[0.06] pt-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -553,20 +774,20 @@ export function IntegratedRobotNavigator() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDropFile}
             onClick={() => !isUploadingResume && fileInputRef.current?.click()}
-            className={`cursor-pointer rounded-xl border border-dashed p-6 text-center transition-colors duration-150 ${
+            className={`cursor-pointer rounded-xl border border-dashed p-6 text-center transition-colors ${
               isUploadingResume
-                ? "border-[#F59E0B]/50 bg-[#0D0D0D]"
-                : "border-[#292929] bg-[#0D0D0D] hover:border-[#3A3A3A] hover:bg-[#121212]"
+                ? "border-amber-500/50 bg-[#11131C]"
+                : "border-white/[0.10] bg-[#11131C]/60 hover:border-white/[0.20] hover:bg-[#11131C]"
             }`}
           >
-            <p className="text-sm font-semibold text-[#F5F5F5]">
+            <p className="text-sm font-semibold text-[#F5F6FF]">
               {isUploadingResume
                 ? "Uploading & Extracting Your PDF Resume..."
                 : "Click to Upload Your Real PDF Resume (or Drag & Drop Here)"}
             </p>
-            <p className="mt-1 text-xs text-[#A1A1AA]">
+            <p className="mt-1 text-xs text-[#8E93A6]">
               Automatically syncs across Home, My Resume, Readiness Plan, and Job Discovery for{" "}
-              <span className="text-[#F5F5F5] font-medium">{targetRole}</span>.
+              <span className="text-[#F5F6FF] font-medium">{targetRole}</span>.
             </p>
           </div>
         </div>
@@ -574,21 +795,21 @@ export function IntegratedRobotNavigator() {
 
       {/* STEP 3: 4 WORKING ACTION OPTIONS + INLINE SCOUTED JOBS */}
       {hasExtractedResume && (
-        <div className="mt-5 space-y-4 border-t border-[#171717] pt-4">
+        <div className="mt-5 space-y-4 border-t border-white/[0.06] pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button
               type="button"
               onClick={handleScoutSimilarJobsNow}
-              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-white/[0.06] bg-[#11131C]/80 hover:border-white/[0.14] hover:bg-[#181B26] p-4 text-left transition-all duration-150"
             >
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#38BDF8]" />
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8E93A6] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
                 Option 1 • Live Jobs
               </span>
-              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F6FF]">
                 {isScoutingJobs ? "Scouting Similar Jobs..." : "Scout & Fetch Similar Jobs →"}
               </span>
-              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
+              <span className="mt-1 text-xs text-[#8E93A6] leading-relaxed">
                 Directly fetches live {targetRole} openings matched to your {extractedSkillsList.length} skills.
               </span>
             </button>
@@ -596,16 +817,16 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               onClick={handleBuildStudyPlanNow}
-              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-white/[0.06] bg-[#11131C]/80 hover:border-white/[0.14] hover:bg-[#181B26] p-4 text-left transition-all duration-150"
             >
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]" />
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8E93A6] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
                 Option 2 • Study Plan
               </span>
-              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F6FF]">
                 Cover {parsedResume?.missingSkillsForTargetRole?.length ?? 0} Missing Skills →
               </span>
-              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
+              <span className="mt-1 text-xs text-[#8E93A6] leading-relaxed">
                 Adds your skill gaps to Study Plan & tracks your Readiness %.
               </span>
             </button>
@@ -613,16 +834,16 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               onClick={() => router.push("/interview")}
-              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-white/[0.06] bg-[#11131C]/80 hover:border-white/[0.14] hover:bg-[#181B26] p-4 text-left transition-all duration-150"
             >
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#A78BFA]" />
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8E93A6] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
                 Option 3 • Mock Interview
               </span>
-              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F6FF]">
                 Practice with AI Interviewer →
               </span>
-              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
+              <span className="mt-1 text-xs text-[#8E93A6] leading-relaxed">
                 Live technical interview grilling your resume projects & weak spots.
               </span>
             </button>
@@ -630,16 +851,16 @@ export function IntegratedRobotNavigator() {
             <button
               type="button"
               onClick={() => router.push("/tracker")}
-              className="group cursor-pointer flex flex-col items-start rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 text-left transition-colors duration-150 hover:border-[#292929] hover:bg-[#121212] focus:outline-none focus:ring-1 focus:ring-[#292929]"
+              className="group cursor-pointer flex flex-col items-start rounded-xl border border-white/[0.06] bg-[#11131C]/80 hover:border-white/[0.14] hover:bg-[#181B26] p-4 text-left transition-all duration-150"
             >
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] whitespace-nowrap">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]" />
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8E93A6] whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
                 Option 4 • Deadlines
               </span>
-              <span className="mt-1.5 text-sm font-semibold text-[#F5F5F5]">
+              <span className="mt-1.5 text-sm font-semibold text-[#F5F6FF]">
                 Open Kanban Pipeline →
               </span>
-              <span className="mt-1 text-xs text-[#71717A] leading-relaxed">
+              <span className="mt-1 text-xs text-[#8E93A6] leading-relaxed">
                 Track saved jobs, OA dates, and upcoming interview deadlines.
               </span>
             </button>
@@ -647,54 +868,54 @@ export function IntegratedRobotNavigator() {
 
           {/* Direct Inline Display of Fetched Similar Jobs when Option 1 is Clicked */}
           {scoutedJobs.length > 0 && (
-            <div className="rounded-xl border border-[#1D1D1D] bg-[#0A0A0A] p-4 space-y-3">
+            <div className="rounded-2xl border border-white/[0.07] bg-[#0E1017] p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-[#F5F5F5]">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-white">
                   Live Similar Jobs Matched to Your Resume ({scoutedJobs.length} Found & Added to Kanban)
                 </h4>
                 <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={() => router.push("/jobs")}
-                    className="cursor-pointer text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
+                    className="cursor-pointer text-xs font-medium text-[#8E93A6] hover:text-white transition-colors"
                   >
                     Open Full Job Discovery →
                   </button>
                   <button
                     type="button"
                     onClick={() => router.push("/tracker")}
-                    className="cursor-pointer text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
+                    className="cursor-pointer text-xs font-medium text-[#8E93A6] hover:text-white transition-colors"
                   >
                     View in Kanban Tracker →
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {scoutedJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="rounded-xl border border-[#1D1D1D] bg-[#0D0D0D] p-3.5 flex flex-col justify-between space-y-2.5 transition-colors hover:border-[#292929]"
+                    className="rounded-xl border border-white/[0.06] bg-[#11131C]/90 hover:border-white/[0.12] p-4 flex flex-col justify-between space-y-3 transition-colors"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-xs font-medium text-[#A1A1AA]">{job.company}</p>
-                          <p className="text-sm font-semibold text-[#F5F5F5] leading-snug">{job.title}</p>
+                          <p className="text-xs font-medium text-[#8E93A6]">{job.company}</p>
+                          <p className="text-sm font-semibold text-[#F5F6FF] leading-snug">{job.title}</p>
                         </div>
-                        <span className="shrink-0 rounded-md border border-[#10B981]/25 bg-[#10B981]/10 px-2 py-0.5 text-[11px] font-semibold text-[#10B981]">
+                        <span className="shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
                           {job.matchScore}% Match
                         </span>
                       </div>
-                      <p className="mt-1 text-[11px] text-[#71717A]">
-                        {job.location} • Deadline: <span className="text-[#F59E0B]">{job.deadlineDate}</span>
+                      <p className="mt-1.5 text-[11px] text-[#8E93A6]">
+                        {job.location} • Deadline: <span className="text-amber-400">{job.deadlineDate}</span>
                       </p>
                       {job.matchedSkills.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="mt-2.5 flex flex-wrap gap-1">
                           {job.matchedSkills.map((sk, i) => (
                             <span
                               key={i}
-                              className="rounded-md bg-[#121212] border border-[#1D1D1D] px-1.5 py-0.5 text-[10px] text-[#A1A1AA]"
+                              className="rounded-md bg-white/[0.03] border border-white/[0.06] px-1.5 py-0.5 text-[10px] text-[#8E93A6]"
                             >
                               ✓ {sk}
                             </span>
@@ -703,19 +924,19 @@ export function IntegratedRobotNavigator() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2.5 border-t border-[#171717]">
+                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
                       <a
                         href={job.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs font-medium text-[#F5F5F5] hover:text-[#A78BFA] transition-colors"
+                        className="text-xs font-medium text-white hover:text-indigo-300 transition-colors"
                       >
                         Apply Directly ↗
                       </a>
                       <button
                         type="button"
                         onClick={() => router.push("/tracker")}
-                        className="cursor-pointer rounded-lg border border-[#292929] bg-[#121212] hover:bg-[#1A1A1A] px-2.5 py-1 text-[11px] font-medium text-[#A1A1AA] hover:text-[#F5F5F5] transition-colors"
+                        className="cursor-pointer rounded-lg border border-white/[0.08] bg-[#151824] hover:bg-[#1C2030] px-2.5 py-1 text-[11px] font-medium text-[#8E93A6] hover:text-[#F5F6FF] transition-colors"
                       >
                         Tracked in Kanban ✓
                       </button>
@@ -732,4 +953,3 @@ export function IntegratedRobotNavigator() {
 }
 
 export default IntegratedRobotNavigator;
-
